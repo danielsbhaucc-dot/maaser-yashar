@@ -673,19 +673,24 @@ function ChatPane({
           </Text>
         </View>
 
-        {messages.map((m) => (
-          <View
-            key={m.id}
-            style={[styles.bubbleRow, m.role === 'user' ? styles.bubbleRowMe : styles.bubbleRowBot]}
-          >
-            {m.role === 'assistant' ? <NoamAvatar size={26} /> : null}
-            <View style={[styles.bubble, m.role === 'user' ? styles.bubbleMe : styles.bubbleBot]}>
-              <Text style={[styles.bubbleTxt, m.role === 'user' && styles.bubbleTxtMe]}>
-                {m.content}
-              </Text>
+        {messages.map((m) => {
+          const isMe = m.role === 'user';
+          return (
+            <View
+              key={m.id}
+              style={[styles.bubbleRow, isMe ? styles.bubbleRowMe : styles.bubbleRowBot]}
+            >
+              {!isMe ? (
+                <View style={styles.bubbleAvatar}>
+                  <NoamAvatar size={28} />
+                </View>
+              ) : null}
+              <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleBot]}>
+                <Text style={[styles.bubbleTxt, isMe && styles.bubbleTxtMe]}>{m.content}</Text>
+              </View>
             </View>
-          </View>
-        ))}
+          );
+        })}
 
         {typing ? <TypingDots /> : null}
 
@@ -1068,7 +1073,7 @@ const styles = StyleSheet.create({
   msgList: {
     padding: spacing.md,
     paddingBottom: spacing.lg,
-    gap: 10,
+    gap: 12,
   },
   chatIntro: {
     alignItems: 'center',
@@ -1093,12 +1098,25 @@ const styles = StyleSheet.create({
     gap: 8,
     maxWidth: '100%',
   },
-  bubbleRowBot: { alignSelf: 'flex-start', paddingEnd: 40 },
-  bubbleRowMe: { alignSelf: 'flex-end', paddingStart: 40, justifyContent: 'flex-end' },
+  bubbleRowBot: {
+    alignSelf: 'flex-start',
+    maxWidth: '92%',
+  },
+  bubbleRowMe: {
+    alignSelf: 'flex-end',
+    maxWidth: '92%',
+    flexDirection: 'row-reverse',
+  },
+  bubbleAvatar: {
+    marginBottom: 2,
+    flexShrink: 0,
+  },
   bubble: {
     borderRadius: 18,
     paddingHorizontal: 14,
     paddingVertical: 10,
+    flexShrink: 1,
+    flexGrow: 0,
     maxWidth: '100%',
   },
   bubbleBot: {
@@ -1114,10 +1132,14 @@ const styles = StyleSheet.create({
   bubbleTxt: {
     ...type.chat,
     color: colors.ink,
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
   bubbleTxtMe: {
     ...type.chatMe,
     color: colors.chatMeText,
+    textAlign: 'right',
+    writingDirection: 'rtl',
   },
 
   typingRow: {

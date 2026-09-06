@@ -1,9 +1,8 @@
 /**
- * Netlify Function — אונבורדינג זול (Llama 3.1 8B / Groq).
- * מחזיר JSON מובנה: שם תקין, דילוג, שאלה, או חרטוט.
+ * Netlify Function — אונבורדינג זול (Llama 3.1 8B).
  */
 
-const MODEL = 'meta-llama/llama-3.1-8b-instruct:floor';
+const MODEL = 'meta-llama/llama-3.1-8b-instruct';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 const cors = {
@@ -15,31 +14,25 @@ const cors = {
 function json(statusCode, body) {
   return {
     statusCode,
-    headers: { 'Content-Type': 'application/json', ...cors },
+    headers: { 'Content-Type': 'application/json; charset=utf-8', ...cors },
     body: JSON.stringify(body),
   };
 }
 
 const SYSTEM = `אתה נועם — חבר חם ומקצועי באפליקציית «מעשר ישר». עברית בלבד. קצר (1–3 משפטים). חוש הומור קל, ישר, לא מלחך־פנכה.
 
-המשתמש נמצא בהיכרות (אונבורדינג). המשימה שלך: לסווג את ההודעה ולהשיב.
+המשתמש נמצא בהיכרות (אונבורדינג). סווג את ההודעה והשב.
 
-סוגים (intent):
-- "name" — מסר שם פרטי אמיתי סביר (עברית/אנגלית, 2–20 תווים, לא קללה, לא משפט).
-- "skip_name" — מבקש במפורש לא למסור שם («בלי שם», «לא רוצה», «אנונימי», «תדלג»). רק אם מפורש.
-- "gibberish" — חרטוט / ספאם / מקלדת אקראית / אימוג'ים בלבד / «asdf» / «xxx» / מספרים בלבד.
-- "question" — שואל שאלה בסיסית על מעשר / חומש / האפליקציה / מי אתה.
-- "other" — משהו אחר (ברכה, בדיחה…) — ענה בעדינות והחזר לנקודה (שם).
+intent:
+- "name" — שם פרטי אמיתי סביר (2–20 תווים).
+- "skip_name" — מבקש במפורש לא למסור שם.
+- "gibberish" — חרטוט / ספאם / מקלדת אקראית.
+- "question" — שאלה בסיסית על מעשר / האפליקציה.
+- "other" — אחר.
 
-כללים לשם:
-- אל תקבל חרטוט כשם. אל «תתקן» חרטוט לשם יפה.
-- אם שם סביר — נרמל לכתיב נקי (בלי סימנים מיותרים), שמור על הצורה שהמשתמש התכוון.
-- בדילוג על שם: ציין שזה לגמרי מקובל, אבל בלי שם החוויה פחות אישית — ואז המשך בלחיבה.
-
-לשאלות: ענה בקצרה על מעשר 10% / חומש 20% / חישוב מהנטו / שאתה נועם. לא פסק הלכה.
-
-החזר JSON בלבד, בלי markdown:
-{"intent":"name|skip_name|gibberish|question|other","name":null או "שם","reply":"תשובה בעברית"}`;
+כללים: אל תקבל חרטוט כשם. בדילוג — ציין שזה מקובל אבל פחות אישי.
+החזר JSON בלבד:
+{"intent":"name|skip_name|gibberish|question|other","name":null או "שם","reply":"תשובה"}`;
 
 function extractJson(text) {
   const raw = String(text || '').trim();
@@ -58,7 +51,7 @@ function normalizeResult(parsed, fallbackReply) {
     : 'other';
   let name = typeof parsed?.name === 'string' ? parsed.name.trim() : null;
   if (name && (name.length < 2 || name.length > 24)) name = null;
-  if (intent !== 'name') name = intent === 'name' ? name : null;
+  if (intent !== 'name') name = null;
   const reply =
     typeof parsed?.reply === 'string' && parsed.reply.trim()
       ? parsed.reply.trim().slice(0, 500)
@@ -74,9 +67,12 @@ export async function handler(event) {
     return json(405, { error: 'Method Not Allowed' });
   }
 
-  const apiKey = process.env.OPENROUTER_API_KEY;
+  const apiKey = (process.env.OPENROUTER_API_KEY || '').trim();
   if (!apiKey) {
-    return json(500, { error: 'חסר OPENROUTER_API_KEY בהגדרות Netlify' });
+    return json(500, {
+      error:
+        'חסר OPENROUTER_API_KEY ב־Netlify (Production). Site settings → Environment variables.',
+    });
   }
 
   let payload;
@@ -92,9 +88,7 @@ export async function handler(event) {
   const step = typeof payload.step === 'number' ? payload.step : 0;
   const knownName = typeof payload.knownName === 'string' ? payload.knownName.slice(0, 40) : '';
 
-  const userPrompt = `שלב אונבורדינג: ${step} (0=שואלים שם).
-שם שכבר ידוע (אם יש): ${knownName || '—'}
-הודעת המשתמש: """${text}"""`;
+  const userPrompt = `שלב: ${step} (0=שם). שם ידוע: ${knownName || '—'}\nהודעה: """${text}"""`;
 
   try {
     const res = await fetch(OPENROUTER_URL, {
@@ -102,7 +96,10 @@ export async function handler(event) {
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.URL || process.env.DEPLOY_PRIME_URL || 'https://maaser-yashar.netlify.app',
+        'HTTP-Referer':
+          process.env.URL ||
+          process.env.DEPLOY_PRIME_URL ||
+          'https://maaser-yashar.netlify.app',
         'X-Title': 'Maaser Yashar — Onboard',
       },
       body: JSON.stringify({
@@ -111,10 +108,8 @@ export async function handler(event) {
           { role: 'system', content: SYSTEM },
           { role: 'user', content: userPrompt },
         ],
-        temperature: 0.35,
+        temperature: 0.3,
         max_tokens: 280,
-        provider: { order: ['Groq'], allow_fallbacks: true },
-        response_format: { type: 'json_object' },
       }),
     });
 
@@ -122,7 +117,7 @@ export async function handler(event) {
     if (!res.ok) {
       const detail = data?.error?.message || data?.error || res.statusText;
       return json(res.status >= 400 && res.status < 600 ? res.status : 502, {
-        error: typeof detail === 'string' ? detail : 'שגיאה מ־OpenRouter',
+        error: typeof detail === 'string' ? detail.slice(0, 300) : 'שגיאה מ־OpenRouter',
       });
     }
 
@@ -133,7 +128,6 @@ export async function handler(event) {
       'רגע, לא תפסתי. אפשר שם פרטי קצר — או שאלה על מעשר?'
     );
 
-    // אם המודל אמר name בלי שם תקין — הפוך ל־gibberish
     if (result.intent === 'name' && !result.name) {
       result.intent = 'gibberish';
       result.reply =
@@ -144,6 +138,9 @@ export async function handler(event) {
     return json(200, { ...result, model: data?.model || MODEL });
   } catch (err) {
     console.error('onboard function error', err);
-    return json(502, { error: 'השרת לא הצליח לדבר עם המודל' });
+    const hint = err && err.message ? String(err.message).slice(0, 180) : '';
+    return json(502, {
+      error: hint ? `תקלה בחיבור למודל: ${hint}` : 'השרת לא הצליח לדבר עם המודל',
+    });
   }
 }

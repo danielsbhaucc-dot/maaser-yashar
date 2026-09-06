@@ -45,8 +45,7 @@ export function chatEndpoint(): string {
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
     return `${window.location.origin}/.netlify/functions/chat`;
   }
-  // מובייל / Expo Go — צריך את כתובת האתר שפורסם ב־Netlify
-  return 'https://YOUR-SITE.netlify.app/.netlify/functions/chat';
+  return 'https://maaser-yashar.netlify.app/.netlify/functions/chat';
 }
 
 export function buildNoamSystem(opts: {
