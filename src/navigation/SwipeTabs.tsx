@@ -27,8 +27,8 @@ const TABS = [
 ] as const;
 
 /**
- * Native: PagerView ב־LTR (setPage יציב) + תוכן/טאבים RTL.
- * החלקה ימינה/שמאלה מחליפה מסכים; לחיצה על טאב קוראת setPage.
+ * Native: PagerView ב־RTL — מסך 0 (בית) מימין, כמו הטאב־בר.
+ * כך החלקה ימינה/שמאלה תואמת את מיקום הטאבים (לא הפוך כמו ב־LTR).
  */
 export function SwipeTabs() {
   const pagerRef = useRef<PagerView>(null);
@@ -43,7 +43,6 @@ export function SwipeTabs() {
   const goTo = useCallback((i: number) => {
     if (i < 0 || i >= TABS.length) return;
     setIndex(i);
-    // setPage אחרי frame — לפעמים ה־ref עדיין לא מוכן אחרי לחיצה מהירה
     requestAnimationFrame(() => {
       pagerRef.current?.setPage(i);
     });
@@ -56,7 +55,7 @@ export function SwipeTabs() {
         style={styles.pager}
         initialPage={0}
         onPageSelected={onPageSelected}
-        layoutDirection="ltr"
+        layoutDirection="rtl"
         overdrag
         offscreenPageLimit={1}
       >

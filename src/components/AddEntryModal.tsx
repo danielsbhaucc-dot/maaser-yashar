@@ -17,16 +17,19 @@ import { colors, fonts, radii, spacing, type } from '../theme';
 import { parseMoney, PrimaryButton, Chip } from './ui';
 import { BottomSheet } from './BottomSheet';
 
+type SaveData = {
+  kind: LedgerKind;
+  category: string;
+  amount: number;
+  note: string;
+  recurring?: { dayOfMonth: number };
+};
+
 type Props = {
   visible: boolean;
   period: string;
   onClose: () => void;
-  onSave: (data: {
-    kind: LedgerKind;
-    category: string;
-    amount: number;
-    note: string;
-  }) => void;
+  onSave: (data: SaveData) => void;
   onInvalid?: () => void;
   initialKind?: LedgerKind;
 };
@@ -55,6 +58,8 @@ const KIND_META: Record<
   },
 };
 
+const DAY_PRESETS = [1, 2, 5, 10, 15, 20, 25, 28];
+
 export default function AddEntryModal({
   visible,
   onClose,
@@ -66,12 +71,16 @@ export default function AddEntryModal({
   const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
   const [amount, setAmount] = useState('');
   const [note, setNote] = useState('');
+  const [recurringOn, setRecurringOn] = useState(false);
+  const [dayOfMonth, setDayOfMonth] = useState(10);
 
   useEffect(() => {
     if (visible) {
       setKind(initialKind);
       setAmount('');
       setNote('');
+      setRecurringOn(false);
+      setDayOfMonth(10);
       const cats =
         initialKind === 'income'
           ? INCOME_CATEGORIES
@@ -107,7 +116,13 @@ export default function AddEntryModal({
       onInvalid?.();
       return;
     }
-    onSave({ kind, category, amount: n, note: note.trim() });
+    onSave({
+      kind,
+      category,
+      amount: n,
+      note: note.trim(),
+      recurring: recurringOn ? { dayOfMonth } : undefined,
+    });
     onClose();
   };
 
@@ -154,7 +169,7 @@ export default function AddEntryModal({
           onChangeText={setAmount}
           placeholder="0"
           placeholderTextColor={colors.inkSoft}
-          textAlign="right"
+          textAlign="left"
           autoFocus
           accessibilityLabel="סכום התנועה"
         />
@@ -173,17 +188,60 @@ export default function AddEntryModal({
           onChangeText={setNote}
           placeholder="אופציונלי"
           placeholderTextColor={colors.inkSoft}
-          textAlign="right"
+          textAlign="left"
           accessibilityLabel="הערה לתנועה"
         />
 
+        <Pressable
+          onPress={() => setRecurringOn((v) => !v)}
+          style={[styles.recurToggle, recurringOn && styles.recurToggleOn]}
+          accessibilityRole="switch"
+          accessibilityState={{ checked: recurringOn }}
+          accessibilityLabel="הוראת קבע חודשית"
+        >
+          <View style={styles.recurToggleText}>
+            <Text style={styles.recurTitle}>הוראת קבע חודשית</Text>
+            <Text style={styles.recurHint}>
+              הפקדה / תרומה אוטומטית ביום קבוע בכל חודש
+            </Text>
+          </View>
+          <View style={[styles.switchTrack, recurringOn && styles.switchTrackOn]}>
+            <View style={[styles.switchThumb, recurringOn && styles.switchThumbOn]} />
+          </View>
+        </Pressable>
+
+        {recurringOn ? (
+          <View style={styles.dayBlock}>
+            <Text style={styles.label}>יום בחודש</Text>
+            <View style={styles.days}>
+              {DAY_PRESETS.map((d) => (
+                <Chip
+                  key={d}
+                  label={String(d)}
+                  selected={dayOfMonth === d}
+                  onPress={() => setDayOfMonth(d)}
+                />
+              ))}
+            </View>
+            <Text style={styles.dayCaption}>
+              כל {dayOfMonth} בחודש · עד ה־28 כדי שיעבוד גם בפברואר
+            </Text>
+          </View>
+        ) : null}
+
         <PrimaryButton
           label={
-            kind === 'income'
-              ? 'הוסף הכנסה'
-              : kind === 'expense'
-                ? 'הוסף הוצאה'
-                : 'רשום צדקה'
+            recurringOn
+              ? kind === 'income'
+                ? 'שמור הוראת קבע · הכנסה'
+                : kind === 'expense'
+                  ? 'שמור הוראת קבע · הוצאה'
+                  : 'שמור הוראת קבע · צדקה'
+              : kind === 'income'
+                ? 'הוסף הכנסה'
+                : kind === 'expense'
+                  ? 'הוסף הוצאה'
+                  : 'רשום צדקה'
           }
           onPress={submit}
         />
@@ -230,7 +288,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     marginBottom: spacing.lg,
     borderWidth: 1.5,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   cats: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.md },
@@ -246,6 +304,62 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     marginBottom: spacing.md,
     writingDirection: 'rtl',
-    textAlign: 'right',
+    textAlign: 'left',
+  },
+  recurToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    marginBottom: spacing.md,
+  },
+  recurToggleOn: {
+    borderColor: colors.gold,
+    backgroundColor: colors.goldSoft,
+  },
+  recurToggleText: { flex: 1 },
+  recurTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: '#fff',
+    writingDirection: 'rtl',
+    textAlign: 'left',
+  },
+  recurHint: {
+    ...type.caption,
+    color: colors.inkSoft,
+    marginTop: 4,
+    writingDirection: 'rtl',
+    textAlign: 'left',
+  },
+  switchTrack: {
+    width: 44,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  switchTrackOn: { backgroundColor: colors.gold },
+  switchThumb: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    alignSelf: 'flex-start',
+  },
+  switchThumbOn: { alignSelf: 'flex-end' },
+  dayBlock: { marginBottom: spacing.md },
+  days: { flexDirection: 'row', flexWrap: 'wrap' },
+  dayCaption: {
+    ...type.caption,
+    color: colors.inkSoft,
+    marginTop: 4,
+    writingDirection: 'rtl',
+    textAlign: 'left',
   },
 });

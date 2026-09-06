@@ -645,14 +645,14 @@ const styles = StyleSheet.create({
     ...type.emphasis,
     fontSize: 14,
     color: colors.sheetInk,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   rowNote: {
     ...type.caption,
     color: colors.sheetMuted,
     marginTop: 2,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   rowDate: {
@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
     color: colors.sheetMuted,
     marginTop: 2,
     fontFamily: fonts.regular,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   rowAmountCol: {

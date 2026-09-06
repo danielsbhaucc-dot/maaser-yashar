@@ -79,8 +79,9 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
 }
 try {
   I18nManager.allowRTL(true);
-  if (!I18nManager.isRTL) {
-    I18nManager.forceRTL(true);
+  I18nManager.forceRTL(true);
+  if (typeof I18nManager.swapLeftAndRightInRTL === 'function') {
+    I18nManager.swapLeftAndRightInRTL(true);
   }
 } catch {
   // web / Expo Go
@@ -123,7 +124,7 @@ function FloatingFab() {
 }
 
 function GlobalAddModal() {
-  const { addOpen, addKind, closeAdd, addEntry } = useApp();
+  const { addOpen, addKind, closeAdd, addEntry, addRecurring } = useApp();
   const toast = useToast();
   return (
     <AddEntryModal
@@ -131,16 +132,30 @@ function GlobalAddModal() {
       period={currentPeriod()}
       initialKind={addKind}
       onClose={closeAdd}
-      onSave={(data) => {
-        addEntry({
+      onSave={async (data) => {
+        const kindLabel =
+          data.kind === 'income' ? 'הכנסה' : data.kind === 'expense' ? 'הוצאה' : 'צדקה';
+        if (data.recurring) {
+          await addRecurring({
+            kind: data.kind,
+            category: data.category,
+            amount: data.amount,
+            note: data.note,
+            dayOfMonth: data.recurring.dayOfMonth,
+          });
+          toast.success(
+            'הוראת קבע נשמרה ✦',
+            `${kindLabel} · כל ${data.recurring.dayOfMonth} בחודש`
+          );
+          return;
+        }
+        await addEntry({
           period: currentPeriod(),
           kind: data.kind,
           category: data.category,
           amount: data.amount,
           note: data.note,
         });
-        const kindLabel =
-          data.kind === 'income' ? 'הכנסה' : data.kind === 'expense' ? 'הוצאה' : 'צדקה';
         toast.success('נשמרה תנועה ✦', `${kindLabel} · ${data.category}`);
       }}
       onInvalid={() => toast.warn('רגע', 'צריך סכום גדול מאפס')}

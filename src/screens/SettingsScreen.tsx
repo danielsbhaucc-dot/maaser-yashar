@@ -12,6 +12,7 @@ import {
   Chip,
   PrimaryButton,
   SegmentedRow,
+  formatMoney,
 } from '../components/ui';
 import { Glass, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
@@ -24,6 +25,7 @@ import { noamSettingsHero } from '../utils/noamCompanion';
 import { NoamNudge } from '../components/NoamNudge';
 import { SmartInsights } from '../components/SmartInsights';
 import { settingsSmartInsights } from '../utils/smartInsights';
+import { kindLabel } from '../utils/recurring';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import type { MaaserRate } from '../types';
 
@@ -37,7 +39,14 @@ function FieldLabel({ children }: { children: string }) {
 }
 
 export default function SettingsScreen() {
-  const { profile, patchProfile } = useApp();
+  const {
+    profile,
+    patchProfile,
+    recurring,
+    toggleRecurring,
+    removeRecurring,
+    openAdd,
+  } = useApp();
   const toast = useToast();
   const { openPanel, showWidget } = useA11y();
   const [saved, setSaved] = React.useState(false);
@@ -182,6 +191,59 @@ export default function SettingsScreen() {
       </Glass>
 
       <Banner light text={`${BOT_NAME} תמיד מחשב מהנטו — פחות כאב ראש`} tone="ok" />
+
+      <Glass light strong style={styles.panel}>
+        <FieldLabel>הוראות קבע</FieldLabel>
+        <Text style={styles.recurIntro}>
+          הפקדה או תרומה אוטומטית לפי יום בחודש — למשל כל עשירי.
+        </Text>
+        {recurring.length === 0 ? (
+          <Text style={styles.recurEmpty}>עדיין אין הוראות קבע</Text>
+        ) : (
+          recurring.map((rule) => (
+            <View key={rule.id} style={styles.recurRow}>
+              <View style={styles.recurMain}>
+                <Text style={styles.recurTitle}>
+                  {kindLabel(rule.kind)} · {formatMoney(rule.amount)}
+                </Text>
+                <Text style={styles.recurMeta}>
+                  {rule.category} · כל {rule.dayOfMonth} בחודש
+                  {rule.enabled ? '' : ' · מושהה'}
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => toggleRecurring(rule.id, !rule.enabled)}
+                style={[styles.recurBtn, rule.enabled && styles.recurBtnOn]}
+                accessibilityRole="button"
+                accessibilityLabel={rule.enabled ? 'השהה הוראת קבע' : 'הפעל הוראת קבע'}
+              >
+                <Text style={styles.recurBtnText}>{rule.enabled ? 'פעיל' : 'כבוי'}</Text>
+              </Pressable>
+              <Pressable
+                onPress={() =>
+                  toast.confirm({
+                    title: 'למחוק הוראת קבע?',
+                    message: 'תנועות שכבר נוצרו יישארו בפנקס',
+                    destructive: true,
+                    confirmLabel: 'מחק',
+                    cancelLabel: 'ביטול',
+                    onConfirm: () => {
+                      void removeRecurring(rule.id);
+                      toast.info('הוראת הקבע נמחקה');
+                    },
+                  })
+                }
+                style={styles.recurDelete}
+                accessibilityRole="button"
+                accessibilityLabel="מחק הוראת קבע"
+              >
+                <Text style={styles.recurDeleteText}>×</Text>
+              </Pressable>
+            </View>
+          ))
+        )}
+        <PrimaryButton label="הוסף הוראת קבע ✦" onPress={() => openAdd('income')} />
+      </Glass>
 
       <View style={styles.actions}>
         <PrimaryButton
@@ -363,5 +425,72 @@ const styles = StyleSheet.create({
     color: colors.primary,
     textAlign: 'center',
     writingDirection: 'rtl',
+  },
+  recurIntro: {
+    ...type.bodySm,
+    color: colors.sheetMuted,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+    writingDirection: 'rtl',
+  },
+  recurEmpty: {
+    ...type.caption,
+    color: colors.sheetMuted,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+  },
+  recurRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.08)',
+    marginBottom: 4,
+  },
+  recurMain: { flex: 1, minWidth: 0 },
+  recurTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.sheetInk,
+    writingDirection: 'rtl',
+    textAlign: 'left',
+  },
+  recurMeta: {
+    ...type.caption,
+    color: colors.sheetMuted,
+    marginTop: 2,
+    writingDirection: 'rtl',
+    textAlign: 'left',
+  },
+  recurBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.sheetBorder,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  recurBtnOn: {
+    borderColor: colors.gold,
+    backgroundColor: colors.goldSoft,
+  },
+  recurBtnText: {
+    fontFamily: fonts.semi,
+    fontSize: 11,
+    color: colors.gold,
+  },
+  recurDelete: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,80,100,0.12)',
+  },
+  recurDeleteText: {
+    fontSize: 20,
+    color: colors.danger,
+    lineHeight: 22,
   },
 });

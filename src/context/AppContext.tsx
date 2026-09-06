@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { LedgerEntry, LedgerKind } from '../types/ledger';
+import type { RecurringRule } from '../types/recurring';
 import {
   defaultProfile,
   loadProfile,
@@ -11,17 +12,31 @@ import {
   loadLedger,
   saveLedger,
 } from '../utils/ledger';
+import {
+  applyRecurringRules,
+  createRecurringRule,
+  loadRecurring,
+  saveRecurring,
+} from '../utils/recurring';
 
 type AppCtx = {
   ready: boolean;
   profile: UserProfile;
   ledger: LedgerEntry[];
+  recurring: RecurringRule[];
   setProfile: (p: UserProfile) => Promise<void>;
   patchProfile: (partial: Partial<UserProfile>) => Promise<void>;
   addEntry: (data: Omit<LedgerEntry, 'id' | 'createdAt'>) => Promise<void>;
   addEntries: (data: Omit<LedgerEntry, 'id' | 'createdAt'>[]) => Promise<void>;
   removeEntry: (id: string) => Promise<void>;
   updateEntry: (id: string, patch: Partial<LedgerEntry>) => Promise<void>;
+  addRecurring: (
+    data: Omit<RecurringRule, 'id' | 'createdAt' | 'enabled' | 'lastAppliedPeriod'> & {
+      enabled?: boolean;
+    }
+  ) => Promise<RecurringRule>;
+  removeRecurring: (id: string) => Promise<void>;
+  toggleRecurring: (id: string, enabled: boolean) => Promise<void>;
   addOpen: boolean;
   addKind: LedgerKind;
   openAdd: (kind?: LedgerKind) => void;
@@ -34,14 +49,30 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [profile, setProfileState] = useState<UserProfile>(defaultProfile());
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const [recurring, setRecurring] = useState<RecurringRule[]>([]);
   const [addOpen, setAddOpen] = useState(false);
   const [addKind, setAddKind] = useState<LedgerKind>('tzedaka');
 
   useEffect(() => {
     (async () => {
-      const [p, entries] = await Promise.all([loadProfile(), loadLedger()]);
+      const [p, entries, rules] = await Promise.all([
+        loadProfile(),
+        loadLedger(),
+        loadRecurring(),
+      ]);
+      const applied = applyRecurringRules(rules, entries);
       setProfileState(p);
-      setLedger(entries);
+      setLedger(applied.ledger);
+      setRecurring(applied.rules);
+      if (
+        applied.added > 0 ||
+        applied.rules.some((r, i) => r.lastAppliedPeriod !== rules[i]?.lastAppliedPeriod)
+      ) {
+        await Promise.all([
+          saveLedger(applied.ledger),
+          saveRecurring(applied.rules),
+        ]);
+      }
       setReady(true);
     })();
   }, []);
@@ -60,40 +91,90 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [profile]
   );
 
-  const persist = useCallback(async (next: LedgerEntry[]) => {
+  const persistLedger = useCallback(async (next: LedgerEntry[]) => {
     setLedger(next);
     await saveLedger(next);
+  }, []);
+
+  const persistRecurring = useCallback(async (next: RecurringRule[]) => {
+    setRecurring(next);
+    await saveRecurring(next);
   }, []);
 
   const addEntry = useCallback(
     async (data: Omit<LedgerEntry, 'id' | 'createdAt'>) => {
       const entry = createEntry(data);
-      await persist([entry, ...ledger]);
+      await persistLedger([entry, ...ledger]);
     },
-    [ledger, persist]
+    [ledger, persistLedger]
   );
 
   const addEntries = useCallback(
     async (data: Omit<LedgerEntry, 'id' | 'createdAt'>[]) => {
       if (!data.length) return;
       const created = data.map((d) => createEntry(d));
-      await persist([...created, ...ledger]);
+      await persistLedger([...created, ...ledger]);
     },
-    [ledger, persist]
+    [ledger, persistLedger]
   );
 
   const removeEntry = useCallback(
     async (id: string) => {
-      await persist(ledger.filter((e) => e.id !== id));
+      await persistLedger(ledger.filter((e) => e.id !== id));
     },
-    [ledger, persist]
+    [ledger, persistLedger]
   );
 
   const updateEntry = useCallback(
     async (id: string, patch: Partial<LedgerEntry>) => {
-      await persist(ledger.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+      await persistLedger(ledger.map((e) => (e.id === id ? { ...e, ...patch } : e)));
     },
-    [ledger, persist]
+    [ledger, persistLedger]
+  );
+
+  const addRecurring = useCallback(
+    async (
+      data: Omit<RecurringRule, 'id' | 'createdAt' | 'enabled' | 'lastAppliedPeriod'> & {
+        enabled?: boolean;
+      }
+    ) => {
+      const rule = createRecurringRule(data);
+      const withRule = [rule, ...recurring];
+      const applied = applyRecurringRules(withRule, ledger);
+      setRecurring(applied.rules);
+      setLedger(applied.ledger);
+      await Promise.all([
+        saveRecurring(applied.rules),
+        saveLedger(applied.ledger),
+      ]);
+      return rule;
+    },
+    [recurring, ledger]
+  );
+
+  const removeRecurring = useCallback(
+    async (id: string) => {
+      await persistRecurring(recurring.filter((r) => r.id !== id));
+    },
+    [recurring, persistRecurring]
+  );
+
+  const toggleRecurring = useCallback(
+    async (id: string, enabled: boolean) => {
+      const next = recurring.map((r) => (r.id === id ? { ...r, enabled } : r));
+      if (enabled) {
+        const applied = applyRecurringRules(next, ledger);
+        setRecurring(applied.rules);
+        setLedger(applied.ledger);
+        await Promise.all([
+          saveRecurring(applied.rules),
+          saveLedger(applied.ledger),
+        ]);
+      } else {
+        await persistRecurring(next);
+      }
+    },
+    [recurring, ledger, persistRecurring]
   );
 
   const openAdd = useCallback((kind: LedgerKind = 'tzedaka') => {
@@ -108,12 +189,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ready,
       profile,
       ledger,
+      recurring,
       setProfile,
       patchProfile,
       addEntry,
       addEntries,
       removeEntry,
       updateEntry,
+      addRecurring,
+      removeRecurring,
+      toggleRecurring,
       addOpen,
       addKind,
       openAdd,
@@ -123,12 +208,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       ready,
       profile,
       ledger,
+      recurring,
       setProfile,
       patchProfile,
       addEntry,
       addEntries,
       removeEntry,
       updateEntry,
+      addRecurring,
+      removeRecurring,
+      toggleRecurring,
       addOpen,
       addKind,
       openAdd,

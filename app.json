@@ -2,12 +2,16 @@
   "expo": {
     "name": "מעשר ישר",
     "slug": "maaser-yashar",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "infoPlist": {
+        "CFBundleAllowMixedLocalizations": true,
+        "CFBundleDevelopmentRegion": "he"
+      }
     },
     "android": {
       "package": "com.maaseryashar.app",
@@ -25,9 +29,22 @@
       "output": "single"
     },
     "plugins": [
-      "expo-font"
+      "expo-font",
+      [
+        "expo-localization",
+        {
+          "supportsRTL": true,
+          "forcesRTL": true,
+          "supportedLocales": {
+            "ios": ["he"],
+            "android": ["he"]
+          }
+        }
+      ]
     ],
     "extra": {
+      "supportsRTL": true,
+      "forcesRTL": true,
       "eas": {
         "projectId": "ba76af0a-a1ab-45cc-857c-8d81dcedcbf0"
       }
