@@ -1,8 +1,10 @@
 /**
- * Netlify Function — אונבורדינג זול (Llama 3.1 8B).
+ * Netlify Function — אונבורדינג עם Llama 4 Scout (כמו הצ'אט).
+ * Fallback: Llama 3.1 8B אם Scout נכשל.
  */
 
-const MODEL = 'meta-llama/llama-3.1-8b-instruct';
+const PRIMARY_MODEL = 'meta-llama/llama-4-scout';
+const FALLBACK_MODEL = 'meta-llama/llama-3.1-8b-instruct';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 const cors = {
@@ -19,24 +21,26 @@ function json(statusCode, body) {
   };
 }
 
-const SYSTEM = `אתה נועם — גבר. בן. חבר חם באפליקציית «מעשר ישר».
-עברית בלבד. קצר (1–3 משפטים). על עצמך בלשון זכר.
+const SYSTEM = `אתה נועם — גבר. בן. חבר חכם באפליקציית «מעשר ישר».
+עברית בלבד. קצר (1–3 משפטים). על עצמך בלשון זכר. אישיות חדה, לא רובוטית.
 
-המשתמש בהיכרות. סווג intent והשב JSON בלבד.
+תפקיד: להבין את כוונת המשתמש בהיכרות — במיוחד אם ההודעה היא שם אדם או לא.
+תחשוב כמו אדם חכם: הקשר, ניסוח, שפה. לא חוקים שטחיים.
 
-intent (עדיפות מלמעלה):
-1. "skip_name" — מבקש במפורש בלי שם.
-2. "name" — כל שם פרטי סביר, גם אם כתוב «שמי X» / «קוראים לי X» / «אני X» / «X Y». שים ב-name רק את השם הפרטי (מילה ראשונה), 2–20 תווים.
-   דוגמאות name: מיכאל, דני, נועה, יוסי, Michal, «שמי אלכס», «קוראים לי תמר», «מיכאל כהן» → name="מיכאל".
-   חשוב: שמות שמתחילים ב־«מי» (מיכאל, מיכל, מיטל) הם שמות — לא שאלות.
-3. "question" — שאלה אמיתית על מעשר/חומש/חובה/מי אתה/מין. לא שם.
-4. "gibberish" — חרטוט/ספאם בלבד.
-5. "other" — אחר.
+intent:
+- "name" — המשתמש מוסר שם פרטי (או שם+משפחה). גם ניסוחים כמו «שמי X», «קוראים לי X», «אני X», «X בבקשה».
+  שים ב-name רק את השם הפרטי המנורמל (מילה אחת, 2–20 תווים). «מיכאל כהן» → "מיכאל".
+  שמות שמתחילים ב־«מי» (מיכאל, מיכל, מיטל, Michelle) הם שמות, לא שאלות.
+- "skip_name" — מבקש במפורש לא למסור שם.
+- "question" — שאלה אמיתית (מעשר/חומש/חובה/מי אתה/מין שלך/איך האפליקציה). ענה ואז החזר לשם.
+- "gibberish" — חרטוט/ספאם/מקלדת אקראית בלבד. אל תסווג שם מוזר-אבל-אפשרי כחרטוט.
+- "other" — אחר; בקש שם בעדינות.
 
-ידע: מעשר≈10%; חומש≈20%; חובה=כמה לתת לפי השיעור.
-שואלים על המין שלך → reply: «בן. גבר.» + חזרה לשם.
-בדילוג שם — מקובל אבל פחות אישי.
-החזר JSON בלבד:
+ידע: מעשר≈10% מהנטו; חומש≈20%; «חובה»=כמה לתת לפי השיעור.
+על המין שלך: «בן. גבר.» ואז חזרה לשם.
+בדילוג שם: מקובל אבל פחות אישי.
+
+החזר JSON בלבד, בלי טקסט מסביב:
 {"intent":"name|skip_name|gibberish|question|other","name":null או "שם","reply":"תשובה"}`;
 
 function extractJson(text) {
@@ -55,13 +59,42 @@ function normalizeResult(parsed, fallbackReply) {
     ? parsed.intent
     : 'other';
   let name = typeof parsed?.name === 'string' ? parsed.name.trim() : null;
-  if (name && (name.length < 2 || name.length > 24)) name = null;
+  if (name) {
+    name = name.replace(/[^\u0590-\u05FFa-zA-Z\-']/g, '').slice(0, 24);
+    if (name.length < 2) name = null;
+  }
   if (intent !== 'name') name = null;
   const reply =
     typeof parsed?.reply === 'string' && parsed.reply.trim()
       ? parsed.reply.trim().slice(0, 500)
       : fallbackReply;
   return { intent, name: intent === 'name' ? name : null, reply };
+}
+
+async function callOpenRouter({ apiKey, model, messages, preferGroq }) {
+  const res = await fetch(OPENROUTER_URL, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+      'HTTP-Referer':
+        process.env.URL ||
+        process.env.DEPLOY_PRIME_URL ||
+        'https://maaser-yashar.netlify.app',
+      'X-Title': 'Maaser Yashar - Onboard',
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: 0.2,
+      max_tokens: 320,
+      provider: preferGroq
+        ? { order: ['Groq'], allow_fallbacks: true }
+        : { allow_fallbacks: true },
+    }),
+  });
+  const data = await res.json().catch(() => ({}));
+  return { res, data };
 }
 
 export async function handler(event) {
@@ -93,32 +126,34 @@ export async function handler(event) {
   const step = typeof payload.step === 'number' ? payload.step : 0;
   const knownName = typeof payload.knownName === 'string' ? payload.knownName.slice(0, 40) : '';
 
-  const userPrompt = `שלב: ${step} (0=שם). שם ידוע: ${knownName || '—'}\nהודעה: """${text}"""`;
+  const userPrompt =
+    step === 0
+      ? `שלב השם. הבן אם זו מסירת שם, דילוג, שאלה, או חרטוט.\nהודעה: """${text}"""`
+      : `שלב: ${step}. שם ידוע: ${knownName || '—'}\nהודעה: """${text}"""`;
+
+  const messages = [
+    { role: 'system', content: SYSTEM },
+    { role: 'user', content: userPrompt },
+  ];
 
   try {
-    const res = await fetch(OPENROUTER_URL, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer':
-          process.env.URL ||
-          process.env.DEPLOY_PRIME_URL ||
-          'https://maaser-yashar.netlify.app',
-        'X-Title': 'Maaser Yashar - Onboard',
-      },
-      body: JSON.stringify({
-        model: MODEL,
-        messages: [
-          { role: 'system', content: SYSTEM },
-          { role: 'user', content: userPrompt },
-        ],
-        temperature: 0.3,
-        max_tokens: 280,
-      }),
+    let { res, data } = await callOpenRouter({
+      apiKey,
+      model: PRIMARY_MODEL,
+      messages,
+      preferGroq: true,
     });
 
-    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      console.error('onboard scout fail', res.status, data?.error?.message || data?.error);
+      ({ res, data } = await callOpenRouter({
+        apiKey,
+        model: FALLBACK_MODEL,
+        messages,
+        preferGroq: true,
+      }));
+    }
+
     if (!res.ok) {
       const detail = data?.error?.message || data?.error || res.statusText;
       return json(res.status >= 400 && res.status < 600 ? res.status : 502, {
@@ -140,7 +175,10 @@ export async function handler(event) {
         'זה לא נשמע לי כמו שם 😅 זרוק שם פרטי אמיתי, או תגיד במפורש שאתה מעדיף בלי שם.';
     }
 
-    return json(200, { ...result, model: data?.model || MODEL });
+    return json(200, {
+      ...result,
+      model: data?.model || PRIMARY_MODEL,
+    });
   } catch (err) {
     console.error('onboard function error', err);
     const hint = err && err.message ? String(err.message).slice(0, 180) : '';

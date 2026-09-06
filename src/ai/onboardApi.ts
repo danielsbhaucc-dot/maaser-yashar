@@ -202,22 +202,12 @@ export function localOnboardParse(text: string): OnboardResult {
   };
 }
 
-function localIsConfidentName(result: OnboardResult): boolean {
-  return result.intent === 'name' && !!result.name && result.name.length >= 2;
-}
-
 export async function askOnboardAi(opts: {
   text: string;
   step: number;
   knownName?: string;
 }): Promise<OnboardResult> {
-  const local = localOnboardParse(opts.text);
-
-  // בשלב השם: אם מקומית זה שם ברור — לא מחכים למודל שיפספס
-  if (opts.step === 0 && (localIsConfidentName(local) || local.intent === 'skip_name')) {
-    return local;
-  }
-
+  // המודל מחליט. מקומי = גיבוי רק אם ה־API נפל.
   try {
     const res = await fetch(onboardEndpoint(), {
       method: 'POST',
@@ -237,42 +227,19 @@ export async function askOnboardAi(opts: {
     }
 
     let name = typeof data.name === 'string' ? cleanToken(data.name) : null;
-    if (name && !looksLikeNameToken(name)) name = null;
+    if (name && (name.length < 2 || name.length > 20)) name = null;
 
-    const aiResult: OnboardResult = {
+    if (intent === 'name' && !name) {
+      throw new Error('name without value');
+    }
+
+    return {
       intent,
       name: intent === 'name' ? name : null,
       reply: String(data.reply || '').trim(),
     };
-
-    // המודל החזיר name בלי מחרוזת / דחה — נציל עם מקומי
-    if (opts.step === 0) {
-      if (aiResult.intent === 'name' && !aiResult.name && localIsConfidentName(local)) {
-        return local;
-      }
-      if (
-        (aiResult.intent === 'gibberish' || aiResult.intent === 'other' || aiResult.intent === 'question') &&
-        localIsConfidentName(local)
-      ) {
-        return local;
-      }
-    }
-
-    if (aiResult.intent === 'name' && !aiResult.name) {
-      return local.intent === 'gibberish'
-        ? local
-        : {
-            intent: 'gibberish',
-            name: null,
-            reply:
-              aiResult.reply ||
-              'זה לא נשמע לי כמו שם 😅 זרוק שם פרטי אמיתי, או תגיד במפורש שאתה מעדיף בלי שם.',
-          };
-    }
-
-    return aiResult;
   } catch {
-    return local;
+    return localOnboardParse(opts.text);
   }
 }
 
