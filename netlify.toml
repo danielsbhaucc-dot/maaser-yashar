@@ -2,6 +2,18 @@
   command = "npx expo export -p web"
   publish = "dist"
 
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+# מפתח: הגדר ב־Netlify UI → Site settings → Environment variables
+# OPENROUTER_API_KEY = sk-or-...
+
+[[redirects]]
+  from = "/api/chat"
+  to = "/.netlify/functions/chat"
+  status = 200
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

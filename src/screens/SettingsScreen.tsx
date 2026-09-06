@@ -20,6 +20,8 @@ import { useToast } from '../context/ToastContext';
 import { useA11y } from '../accessibility';
 import { BOT_NAME, type Gender, t } from '../utils/copy';
 import { EXPLAIN } from '../utils/chatScript';
+import { noamSettingsHero } from '../utils/noamCompanion';
+import { NoamNudge } from '../components/NoamNudge';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import type { MaaserRate } from '../types';
 
@@ -39,11 +41,12 @@ export default function SettingsScreen() {
   const [saved, setSaved] = React.useState(false);
   const initial = (profile.displayName?.trim()?.[0] || 'מ').toUpperCase();
   const ratePct = Math.round(profile.rate * 100);
+  const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
 
   const hero = (
     <>
       <GlassPill gold>
-        <Text style={styles.badgeText}>✦ הפרופיל שלך</Text>
+        <Text style={styles.badgeText}>✦ הפרופיל שלך עם {BOT_NAME}</Text>
       </GlassPill>
       <View style={styles.avatarWrap}>
         <Glass dark gold style={styles.avatar}>
@@ -53,18 +56,19 @@ export default function SettingsScreen() {
         </Glass>
       </View>
       <Text style={styles.heroTitle}>הגדרות</Text>
-      <Text style={styles.heroSub}>
-        {t(
-          profile.gender,
-          'כאן משנים שם, מגדר, ואת האחוז שאתה נותן',
-          'כאן משנים שם, מגדר, ואת האחוז שאת נותנת'
-        )}
-      </Text>
+      <Text style={styles.heroSub}>{noamSettingsHero(name, profile.gender)}</Text>
     </>
   );
 
   return (
     <Screen sheet hero={hero} scroll contentStyle={{ paddingTop: spacing.lg }}>
+      <NoamNudge
+        text={t(
+          profile.gender,
+          `שלום ${name}. כל שינוי כאן משפיע על איך אני מדבר איתך ועל חישוב המעשר.`,
+          `שלום ${name}. כל שינוי כאן משפיע על איך אני מדבר איתך ועל חישוב המעשר.`
+        )}
+      />
       <Glass light strong style={styles.panel}>
         <FieldLabel>שם</FieldLabel>
         <TextInput

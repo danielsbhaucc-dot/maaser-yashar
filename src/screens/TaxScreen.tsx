@@ -12,8 +12,12 @@ import {
 } from '../components/ui';
 import { Glass, GlassNumber, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
+import { NoamNudge } from '../components/NoamNudge';
 import { colors, fonts, spacing, type } from '../theme';
 import { calculateSection46, SECTION_46 } from '../utils/taxCalc';
+import { useApp } from '../context/AppContext';
+import { BOT_NAME, t } from '../utils/copy';
+import { noamTaxHero } from '../utils/noamCompanion';
 
 const YEARS = [2026, 2025, 2024, 2023, 2022];
 const TIP_COLORS = [colors.primary, colors.gold, colors.accent, colors.success];
@@ -23,6 +27,8 @@ const TAX_EXPLAIN = `יחיד זכאי לזיכוי של 35% מסכום התרו
 שמרו קבלות תקינות. מ־2026 חשוב דיווח דיגיטלי של העמותה.`;
 
 export default function TaxScreen() {
+  const { profile } = useApp();
+  const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
   const [donationsTotal, setDonations] = useState(0);
   const [taxableIncome, setTaxable] = useState(0);
   const [taxPaid, setTaxPaid] = useState(0);
@@ -48,15 +54,22 @@ export default function TaxScreen() {
   const hero = (
     <>
       <GlassPill gold>
-        <Text style={styles.badgeText}>✦ זיכוי מס על צדקה</Text>
+        <Text style={styles.badgeText}>✦ {BOT_NAME} על סעיף 46</Text>
       </GlassPill>
       <Text style={styles.heroTitle}>החזר מס</Text>
-      <Text style={styles.heroSub}>סעיף 46 — כמה המדינה מחזירה על התרומות</Text>
+      <Text style={styles.heroSub}>{noamTaxHero(name, profile.gender)}</Text>
     </>
   );
 
   return (
     <Screen sheet hero={hero} scroll contentStyle={{ paddingTop: spacing.lg }}>
+      <NoamNudge
+        text={t(
+          profile.gender,
+          'תזין תרומות והכנסה חייבת — ואני אעזור לך להבין את האומדן. זה לא ייעוץ מס, רק חישוב ברור.',
+          'תזיני תרומות והכנסה חייבת — ואני אעזור לך להבין את האומדן. זה לא ייעוץ מס, רק חישוב ברור.'
+        )}
+      />
       <Accordion
         items={[
           {
@@ -152,7 +165,11 @@ export default function TaxScreen() {
         </Text>
       </Glass>
 
-      <Banner light text="אומדן בלבד — אינו ייעוץ מס." tone="warn" />
+      <Banner
+        light
+        text={`${BOT_NAME}: אומדן בלבד — אינו ייעוץ מס. לשאלות מורכבות פנו לרו״ח.`}
+        tone="warn"
+      />
     </Screen>
   );
 }

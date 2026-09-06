@@ -19,6 +19,7 @@ type AppCtx = {
   setProfile: (p: UserProfile) => Promise<void>;
   patchProfile: (partial: Partial<UserProfile>) => Promise<void>;
   addEntry: (data: Omit<LedgerEntry, 'id' | 'createdAt'>) => Promise<void>;
+  addEntries: (data: Omit<LedgerEntry, 'id' | 'createdAt'>[]) => Promise<void>;
   removeEntry: (id: string) => Promise<void>;
   updateEntry: (id: string, patch: Partial<LedgerEntry>) => Promise<void>;
   addOpen: boolean;
@@ -72,6 +73,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [ledger, persist]
   );
 
+  const addEntries = useCallback(
+    async (data: Omit<LedgerEntry, 'id' | 'createdAt'>[]) => {
+      if (!data.length) return;
+      const created = data.map((d) => createEntry(d));
+      await persist([...created, ...ledger]);
+    },
+    [ledger, persist]
+  );
+
   const removeEntry = useCallback(
     async (id: string) => {
       await persist(ledger.filter((e) => e.id !== id));
@@ -101,6 +111,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setProfile,
       patchProfile,
       addEntry,
+      addEntries,
       removeEntry,
       updateEntry,
       addOpen,
@@ -115,6 +126,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       setProfile,
       patchProfile,
       addEntry,
+      addEntries,
       removeEntry,
       updateEntry,
       addOpen,

@@ -6,6 +6,10 @@ import { Glass, GlassNumber, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
 import { HALACHA_GUIDE, TAX_GUIDE_STEPS } from '../constants/guides';
 import { colors, fonts, spacing, type } from '../theme';
+import { useApp } from '../context/AppContext';
+import { BOT_NAME, t } from '../utils/copy';
+import { noamGuideHero } from '../utils/noamCompanion';
+import { NoamNudge } from '../components/NoamNudge';
 
 const STEP_COLORS = [
   colors.primary,
@@ -17,18 +21,28 @@ const STEP_COLORS = [
 ];
 
 export default function GuideScreen() {
+  const { profile } = useApp();
+  const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
+
   const hero = (
     <View style={styles.hero}>
       <GlassPill gold>
-        <Text style={styles.heroPillText}>✦ סעיף 46 · צעד אחר צעד</Text>
+        <Text style={styles.heroPillText}>✦ {BOT_NAME} · מפת דרכים</Text>
       </GlassPill>
       <Text style={styles.heroTitle}>הנחיות</Text>
-      <Text style={styles.heroSub}>מפת דרכים קצרה — החזר מס ומעשר</Text>
+      <Text style={styles.heroSub}>{noamGuideHero(name, profile.gender)}</Text>
     </View>
   );
 
   return (
     <Screen sheet hero={hero} scroll>
+      <NoamNudge
+        text={t(
+          profile.gender,
+          `${name}, תעבור צעד־צעד. אם משהו לא ברור — תפתח אותי בצ'אט ונפרק את זה יחד.`,
+          `${name}, תעברי צעד־צעד. אם משהו לא ברור — תפתחי אותי בצ'אט ונפרק את זה יחד.`
+        )}
+      />
       <SectionHeader title="מפת החזר מס" />
       <View style={styles.map}>
         {TAX_GUIDE_STEPS.map((step, i) => {
@@ -85,7 +99,10 @@ export default function GuideScreen() {
         style={{ marginBottom: spacing.lg }}
       />
 
-      <Banner text="לעזרה כללית בלבד — לא פסק הלכה ולא ייעוץ מס." tone="info" />
+      <Banner
+        text={`${BOT_NAME}: לעזרה כללית בלבד — לא פסק הלכה ולא ייעוץ מס.`}
+        tone="info"
+      />
     </Screen>
   );
 }

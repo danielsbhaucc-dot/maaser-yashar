@@ -14,7 +14,7 @@ import { Screen } from '../components/Screen';
 import { Banner, formatMoney, PrimaryButton } from '../components/ui';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
-import { t } from '../utils/copy';
+import { BOT_NAME, t } from '../utils/copy';
 import {
   currentPeriod,
   formatPeriod,
@@ -22,6 +22,14 @@ import {
 } from '../utils/history';
 import { computeTotals, entriesForPeriod } from '../utils/ledger';
 import { getSmartGreeting } from '../utils/greeting';
+import {
+  noamBannerTip,
+  noamEmptyLedger,
+  noamHomeHeroLine,
+  noamLedgerNudge,
+  noamSaveMonthToast,
+} from '../utils/noamCompanion';
+import { NoamNudge } from '../components/NoamNudge';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import type { LedgerEntry } from '../types/ledger';
 import { defaultMaaserInputs } from '../utils/maaserCalc';
@@ -103,7 +111,7 @@ export default function HomeScreen() {
           ratePercent: profile.rate * 100,
         },
       });
-      toast.success('נשמר בהיסטוריה ✦', formatPeriod(period));
+      toast.success('נשמר בהיסטוריה ✦', noamSaveMonthToast(name, profile.gender, formatPeriod(period)));
     } catch {
       toast.error('השמירה נכשלה', 'נסה שוב בעוד רגע');
     } finally {
@@ -111,15 +119,32 @@ export default function HomeScreen() {
     }
   };
 
+  const companionLine = useMemo(
+    () =>
+      noamLedgerNudge({
+        name,
+        gender: profile.gender,
+        totals,
+        entryCount: monthEntries.length,
+        rate: profile.rate,
+        journeyDays,
+      }),
+    [name, profile.gender, profile.rate, totals, monthEntries.length, journeyDays]
+  );
+  const emptyCopy = useMemo(
+    () => noamEmptyLedger(name, profile.gender),
+    [name, profile.gender]
+  );
+
   const hero = (
     <View style={styles.hero}>
       <View style={styles.brandPill}>
-        <Text style={styles.brandPillText}>מעשר ישר</Text>
+        <Text style={styles.brandPillText}>מעשר ישר · {BOT_NAME}</Text>
       </View>
       <Text style={styles.greet}>{greet.line}</Text>
       {greet.note ? <Text style={styles.greetNote}>{greet.note}</Text> : null}
       <Text style={styles.heroLine}>
-        {t(profile.gender, 'בוא נתחיל ביחד', 'בואי נתחיל ביחד')}
+        {noamHomeHeroLine(name, profile.gender)}
         <Text style={styles.heroEm}> · צדקה וחסד</Text>
       </Text>
       <Text style={styles.sub}>
@@ -128,7 +153,7 @@ export default function HomeScreen() {
       </Text>
       {journeyDays != null ? (
         <View style={styles.journeyPill}>
-          <Text style={styles.journeyText}>✦ {journeyDays} ימי מסע</Text>
+          <Text style={styles.journeyText}>✦ {journeyDays} ימי מסע עם {BOT_NAME}</Text>
         </View>
       ) : null}
     </View>
@@ -136,6 +161,8 @@ export default function HomeScreen() {
 
   return (
     <Screen sheet hero={hero} scroll>
+      <NoamNudge text={companionLine} />
+
       <View style={styles.periodWrap}>
         <ScrollView
           horizontal
@@ -209,14 +236,8 @@ export default function HomeScreen() {
 
       {monthEntries.length === 0 ? (
         <Glass dark style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>הפנקס ריק עדיין</Text>
-          <Text style={styles.emptySub}>
-            {t(
-              profile.gender,
-              'בוא נתחיל במסע — הוסף הכנסה, הוצאה או צדקה',
-              'בואי נתחיל במסע — הוסיפי הכנסה, הוצאה או צדקה'
-            )}
-          </Text>
+          <Text style={styles.emptyTitle}>{emptyCopy.title}</Text>
+          <Text style={styles.emptySub}>{emptyCopy.body}</Text>
           <View style={styles.emptyActions}>
             <PrimaryButton label="הוסף תנועה ✦" onPress={() => openAdd('income')} />
           </View>
@@ -256,7 +277,7 @@ export default function HomeScreen() {
         <Text style={styles.saveText}>{saving ? 'שומר…' : 'שמור סיכום חודש'}</Text>
       </Pressable>
 
-      <Banner text="הכנסה מוסיפה · הוצאה מורידה מהבסיס · צדקה על החובה" tone="info" />
+      <Banner text={noamBannerTip(profile.gender)} tone="info" />
     </Screen>
   );
 }

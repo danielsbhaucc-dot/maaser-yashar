@@ -40,6 +40,7 @@ import {
 } from './src/accessibility';
 import OnboardingScreen from './src/screens/OnboardingScreen';import ErrorBoundary from './src/components/ErrorBoundary';
 import AddEntryModal from './src/components/AddEntryModal';
+import NoamChat from './src/components/NoamChat';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
 import { colors, fonts, shadow } from './src/theme';
 import { DIR } from './src/rtl';
@@ -169,6 +170,7 @@ function Root() {
       <View style={styles.mainShell}>
         <SwipeTabs />
         <FloatingFab />
+        <NoamChat />
         <GlobalAddModal />
         <AccessibilityWidget />
       </View>

@@ -15,9 +15,12 @@ import {
 } from '../utils/history';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { BOT_NAME, t } from '../utils/copy';
+import { noamHistoryEmpty, noamHistoryHero } from '../utils/noamCompanion';
+import { NoamNudge } from '../components/NoamNudge';
 
 export default function HistoryScreen() {
-  const { openAdd } = useApp();
+  const { openAdd, profile } = useApp();
   const toast = useToast();
   const [entries, setEntries] = useState<HistoryEntry[]>([]);
 
@@ -28,31 +31,40 @@ export default function HistoryScreen() {
   );
 
   const totalRemaining = entries.reduce((s, e) => s + e.result.remaining, 0);
+  const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
+  const empty = noamHistoryEmpty(name, profile.gender);
 
   const hero = (
     <View style={styles.hero}>
       <GlassPill gold>
-        <Text style={styles.badgeText}>✦ ארכיון ברכה</Text>
+        <Text style={styles.badgeText}>✦ ארכיון עם {BOT_NAME}</Text>
       </GlassPill>
       <Text style={styles.heroTitle}>היסטוריה</Text>
-      <Text style={styles.heroSub}>החודשים ששמרת — סיכום קטן של נתינה</Text>
+      <Text style={styles.heroSub}>{noamHistoryHero(name, profile.gender, entries.length)}</Text>
     </View>
   );
 
   return (
     <Screen sheet hero={hero} scroll>
       {entries.length > 0 ? (
-        <StatHero
-          label="סה״כ יתרות לתת"
-          value={formatMoney(totalRemaining)}
-          hint={`${entries.length} חודשים`}
-        />
+        <>
+          <NoamNudge
+            text={t(
+              profile.gender,
+              `${name}, יש כאן ${entries.length} חודשים שסגרנו יחד. יתרות פתוחות: ${formatMoney(totalRemaining)}.`,
+              `${name}, יש כאן ${entries.length} חודשים שסגרנו יחד. יתרות פתוחות: ${formatMoney(totalRemaining)}.`
+            )}
+          />
+          <StatHero
+            label="סה״כ יתרות לתת"
+            value={formatMoney(totalRemaining)}
+            hint={`${entries.length} חודשים`}
+          />
+        </>
       ) : (
         <Glass dark style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>עדיין ריק פה</Text>
-          <Text style={styles.emptySub}>
-            במסך הבית שמרו סיכום חודש — ונראה אותו כאן כארכיון.
-          </Text>
+          <Text style={styles.emptyTitle}>{empty.title}</Text>
+          <Text style={styles.emptySub}>{empty.body}</Text>
           <PrimaryButton label="הוסף תנועה ✦" onPress={() => openAdd('tzedaka')} />
         </Glass>
       )}
