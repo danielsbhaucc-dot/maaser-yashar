@@ -173,7 +173,7 @@ export default function SettingsScreen() {
       <Banner light text={`${BOT_NAME} תמיד מחשב מהנטו — פחות כאב ראש`} tone="ok" />
 
       <PrimaryButton
-        label="♿ תפריט נגישות"
+        label="תפריט נגישות ✦"
         onPress={() => {
           showWidget();
           openPanel();

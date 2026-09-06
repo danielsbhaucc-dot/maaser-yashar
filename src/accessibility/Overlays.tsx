@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useA11y } from './AccessibilityContext';
-import { fonts } from '../theme';
+import { colors, fonts } from '../theme';
 import { DIR } from '../rtl';
 
 /** מדריך קריאה — קו אופקי שעוקב אחרי העכבר / אצבע */
@@ -166,17 +166,19 @@ const styles = StyleSheet.create({
   },
   structBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     padding: 20,
   },
   structCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.sheet,
     borderRadius: 20,
     padding: 16,
     maxWidth: 420,
     width: '100%',
     alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
   },
   structHead: {
     flexDirection: 'row',
@@ -187,31 +189,33 @@ const styles = StyleSheet.create({
   structTitle: {
     fontFamily: fonts.bold,
     fontSize: 18,
-    color: '#0F172A',
+    color: colors.ink,
     writingDirection: 'rtl',
   },
   structClose: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  structCloseTxt: { fontSize: 16, color: '#334155' },
+  structCloseTxt: { fontSize: 16, color: colors.inkMuted },
   structRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingVertical: 10,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: colors.separator,
   },
   structLevel: {
     fontFamily: fonts.bold,
     fontSize: 11,
-    color: '#2563EB',
-    backgroundColor: '#EFF6FF',
+    color: colors.primary,
+    backgroundColor: colors.primarySoft,
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 6,
@@ -221,7 +225,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: fonts.regular,
     fontSize: 15,
-    color: '#1E293B',
+    color: colors.inkMuted,
     textAlign: 'right',
     writingDirection: 'rtl',
   },

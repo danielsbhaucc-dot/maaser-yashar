@@ -5,6 +5,7 @@ export type ProfileMeta = {
   id: A11yProfileId;
   title: string;
   subtitle: string;
+  /** גליף גיאומטרי — בלי אימוג'י */
   icon: string;
   patch: Partial<A11ySettings>;
 };
@@ -13,8 +14,8 @@ export const A11Y_PROFILES: ProfileMeta[] = [
   {
     id: 'motor',
     title: 'לקות מוטורית',
-    subtitle: 'כפתורים גדולים, ניווט מקלדת, סמן מוגדל',
-    icon: '♿',
+    subtitle: 'כפתורים גדולים, מקלדת, סמן מוגדל',
+    icon: '⊕',
     patch: {
       largeButtons: true,
       keyboardNav: true,
@@ -43,7 +44,7 @@ export const A11Y_PROFILES: ProfileMeta[] = [
     id: 'cognitive',
     title: 'קוגניטיבי ולמידה',
     subtitle: 'מצב קריאה, הסתרת תמונות, ריווח נוח',
-    icon: '🧩',
+    icon: '◈',
     patch: {
       readingMode: true,
       hideImages: true,
@@ -64,7 +65,6 @@ export const A11Y_PROFILES: ProfileMeta[] = [
       readingGuide: true,
       stopAnimations: true,
       reduceMotion: true,
-      hideImages: false,
       highlightFocus: true,
     },
   },
@@ -72,7 +72,7 @@ export const A11Y_PROFILES: ProfileMeta[] = [
     id: 'vision',
     title: 'לקות ראייה',
     subtitle: 'ניגודיות גבוהה, טקסט גדול, סמן כהה',
-    icon: '👁',
+    icon: '◐',
     patch: {
       contrast: 'high',
       fontSize: 3,
@@ -88,7 +88,7 @@ export const A11Y_PROFILES: ProfileMeta[] = [
     id: 'seizure',
     title: 'התקפים ואפילפסיה',
     subtitle: 'ביטול הבהובים, הפחתת תנועה, רוויה נמוכה',
-    icon: '⚡',
+    icon: '⏸',
     patch: {
       stopAnimations: true,
       reduceMotion: true,
@@ -123,13 +123,14 @@ export function applyProfile(
 
 export const LEVEL_LABELS = ['רגיל', 'גדול', 'גדול מאוד', 'ענק', 'מקסימלי'] as const;
 
+/** בלי לבן טהור — גוונים מהפלטה */
 export const COLOR_SWATCHES = [
-  '#1D4ED8',
-  '#7C3AED',
-  '#DC2626',
-  '#EA580C',
-  '#0D9488',
-  '#16A34A',
-  '#FFFFFF',
-  '#0F172A',
+  '#8B9BFF',
+  '#A78BFA',
+  '#C4B5FD',
+  '#F0C674',
+  '#7EC8E3',
+  '#F0A8B8',
+  '#4F86D8',
+  '#0B1020',
 ] as const;
