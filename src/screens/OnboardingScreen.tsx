@@ -10,6 +10,7 @@ import {
   Platform,
   Animated,
   Easing,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -29,13 +30,14 @@ import {
   pick,
   welcomeDone,
 } from '../utils/chatScript';
+import { askOnboardAi, skipNameContinue } from '../ai/onboardApi';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR } from '../rtl';
 import type { MaaserRate } from '../types';
 
 type Msg = { id: string; from: 'bot' | 'me'; text: string };
 
-/** 0 שם · 1 מגדר · 2 משפחה · 3 שיעור · 4 סיום חגיגי */
+/** 0 שם · 1 מגדר · 2 משפחה · 3 שיעור · 4 סיום חגיגי (דורש לחיצה) */
 const STORY_COUNT = 5;
 
 function StoryBars({ step }: { step: number }) {
@@ -82,19 +84,145 @@ function StoryBars({ step }: { step: number }) {
   );
 }
 
+function TypingRow() {
+  const a = useRef(new Animated.Value(0)).current;
+  const b = useRef(new Animated.Value(0)).current;
+  const c = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const bounce = (v: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(v, {
+            toValue: 1,
+            duration: 260,
+            useNativeDriver: true,
+            easing: Easing.out(Easing.quad),
+          }),
+          Animated.timing(v, {
+            toValue: 0,
+            duration: 260,
+            useNativeDriver: true,
+            easing: Easing.in(Easing.quad),
+          }),
+          Animated.delay(180),
+        ])
+      );
+    const l1 = bounce(a, 0);
+    const l2 = bounce(b, 110);
+    const l3 = bounce(c, 220);
+    l1.start();
+    l2.start();
+    l3.start();
+    return () => {
+      l1.stop();
+      l2.stop();
+      l3.stop();
+    };
+  }, [a, b, c]);
+
+  const lift = (v: Animated.Value) => ({
+    opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }),
+    transform: [
+      { translateY: v.interpolate({ inputRange: [0, 1], outputRange: [0, -4] }) },
+    ],
+  });
+
+  return (
+    <View style={styles.typingRow} accessibilityLabel={`${BOT_NAME} מקליד`}>
+      <View style={styles.typingBubble}>
+        <Animated.View style={[styles.dot, lift(a)]} />
+        <Animated.View style={[styles.dot, lift(b)]} />
+        <Animated.View style={[styles.dot, lift(c)]} />
+      </View>
+    </View>
+  );
+}
+
+function ConfettiBurst() {
+  const bits = useRef(
+    Array.from({ length: 12 }, (_, i) => ({
+      x: (i % 6) * 16 - 40,
+      delay: i * 40,
+      color: [colors.gold, colors.primary, colors.accent, colors.success][i % 4]!,
+      anim: new Animated.Value(0),
+    }))
+  ).current;
+
+  useEffect(() => {
+    bits.forEach((bit) => {
+      bit.anim.setValue(0);
+      Animated.timing(bit.anim, {
+        toValue: 1,
+        duration: 1400,
+        delay: bit.delay,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.cubic),
+      }).start();
+    });
+  }, [bits]);
+
+  return (
+    <View style={styles.confetti} pointerEvents="none">
+      {bits.map((bit, i) => (
+        <Animated.View
+          key={i}
+          style={[
+            styles.confettiBit,
+            {
+              backgroundColor: bit.color,
+              transform: [
+                {
+                  translateX: bit.anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, bit.x],
+                  }),
+                },
+                {
+                  translateY: bit.anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0, 70 + (i % 3) * 18],
+                  }),
+                },
+                {
+                  rotate: bit.anim.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: ['0deg', `${120 + i * 20}deg`],
+                  }),
+                },
+              ],
+              opacity: bit.anim.interpolate({
+                inputRange: [0, 0.2, 1],
+                outputRange: [0, 1, 0],
+              }),
+            },
+          ]}
+        />
+      ))}
+    </View>
+  );
+}
+
 export default function OnboardingScreen() {
   const { profile, setProfile } = useApp();
   const intro = useMemo(() => pick(INTROS), []);
-  const askName = useMemo(() => pick(ASK_NAME), []);
+  const askName = useMemo(
+    () =>
+      `${pick(ASK_NAME)}\n\n(אפשר גם לשאול אותי משהו קטן על מעשר — ואם ממש מעדיפים בלי שם, תגידו במפורש.)`,
+    []
+  );
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
+  const [skippedName, setSkippedName] = useState(false);
   const [draft, setDraft] = useState('');
   const [gender, setGender] = useState<Gender>('male');
   const [marital, setMarital] = useState<'single' | 'married'>('single');
   const [includeSpouse, setIncludeSpouse] = useState(false);
   const [rate, setRate] = useState<MaaserRate>(0.1);
   const [finishing, setFinishing] = useState(false);
+  const [thinking, setThinking] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>(() => [
     { id: 'i1', from: 'bot', text: intro },
     { id: 'i2', from: 'bot', text: askName },
@@ -116,7 +244,7 @@ export default function OnboardingScreen() {
   useEffect(() => {
     const tmr = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
     return () => clearTimeout(tmr);
-  }, [msgs, step]);
+  }, [msgs, step, thinking]);
 
   useEffect(() => {
     if (step !== 4) return;
@@ -132,28 +260,88 @@ export default function OnboardingScreen() {
     setMsgs((m) => [...m, { id: `${Date.now()}-${Math.random()}`, from, text }]);
   };
 
-  const sendName = () => {
-    const n = draft.trim();
-    if (!n) return;
-    setName(n);
+  const handleFreeText = async () => {
+    const text = draft.trim();
+    if (!text || thinking) return;
     setDraft('');
-    push('me', n);
-    setTimeout(() => {
-      push('bot', `${afterName(n)}\n\n${pick(GENDER_JOKES)}`);
-      setStep(1);
-    }, 280);
+    push('me', text);
+    setThinking(true);
+
+    try {
+      const result = await askOnboardAi({
+        text,
+        step,
+        knownName: name,
+      });
+
+      if (step === 0) {
+        if (result.intent === 'name' && result.name) {
+          const reply =
+            result.reply ||
+            afterName(result.name);
+          push('bot', `${reply}\n\n${pick(GENDER_JOKES)}`);
+          setName(result.name);
+          setSkippedName(false);
+          setStep(1);
+          return;
+        }
+        if (result.intent === 'skip_name') {
+          push(
+            'bot',
+            `${result.reply}\n\n${skipNameContinue('male')}\n\n${pick(GENDER_JOKES)}`
+          );
+          setName('');
+          setSkippedName(true);
+          setStep(1);
+          return;
+        }
+        if (result.intent === 'gibberish') {
+          push(
+            'bot',
+            result.reply ||
+              'זה לא נשמע כמו שם 😅 שם פרטי אמיתי — או במפורש «בלי שם».'
+          );
+          return;
+        }
+        // question / other — עונים ונשארים על שלב השם
+        push(
+          'bot',
+          result.reply ||
+            `שאלה טובה. ואחרי זה — איך קוראים לך? (או תגיד במפורש «בלי שם».)`
+        );
+        return;
+      }
+
+      // בשלבים מתקדמים — רק שאלות/שיחה קלה, בלי לדרוס בחירות
+      push(
+        'bot',
+        result.reply ||
+          t(
+            gender,
+            'קיבלתי. אפשר גם לבחור מהכפתורים למטה — זה הכי מדויק.',
+            'קיבלתי. אפשר גם לבחור מהכפתורים למטה — זה הכי מדויק.'
+          )
+      );
+    } catch {
+      push('bot', 'רגע של גליץ׳ קטן. נסה שוב — או בחר מהכפתורים.');
+    } finally {
+      setThinking(false);
+    }
   };
 
   const pickGender = (g: Gender) => {
+    if (thinking) return;
     setGender(g);
     push('me', g === 'male' ? 'זכר' : 'נקבה');
+    const display = name.trim() || t(g, 'חבר', 'חברה');
     setTimeout(() => {
-      push('bot', afterGender(name, g));
+      push('bot', afterGender(display, g));
       setStep(2);
     }, 280);
   };
 
   const pickMarital = (m: 'single' | 'married', joint?: boolean) => {
+    if (thinking) return;
     setMarital(m);
     if (m === 'married') setIncludeSpouse(!!joint);
     push(
@@ -171,14 +359,17 @@ export default function OnboardingScreen() {
   };
 
   const pickRate = (r: MaaserRate) => {
+    if (thinking) return;
     setRate(r);
     push('me', r === 0.1 ? 'מעשר 10%' : 'חומש 20%');
+    const display = name.trim() || t(gender, 'חבר', 'חברה');
     setTimeout(() => {
-      push('bot', afterRate(name, gender, r));
+      push('bot', afterRate(display, gender, r));
       setTimeout(() => setStep(4), 500);
     }, 280);
   };
 
+  /** נכנסים לאפליקציה רק אחרי לחיצה מפורשת */
   const finish = async () => {
     if (finishing) return;
     setFinishing(true);
@@ -198,6 +389,13 @@ export default function OnboardingScreen() {
 
   const displayName = name.trim() || t(gender, 'חבר', 'חברה');
   const rateLabel = rate === 0.2 ? 'חומש 20%' : 'מעשר 10%';
+  const maritalLabel =
+    marital === 'single'
+      ? t(gender, 'רווק', 'רווקה')
+      : includeSpouse
+        ? t(gender, 'נשוי · ביחד', 'נשואה · ביחד')
+        : t(gender, 'נשוי · בנפרד', 'נשואה · בנפרד');
+  const showComposer = step < 4;
 
   return (
     <View style={[styles.root, DIR]}>
@@ -228,7 +426,9 @@ export default function OnboardingScreen() {
           </Animated.View>
           <View style={styles.headerText}>
             <Text style={styles.botName}>{BOT_NAME}</Text>
-            <Text style={styles.botMeta}>החבר שלך למעשר · עכשיו פעיל ✦</Text>
+            <Text style={styles.botMeta}>
+              {thinking ? 'מקליד…' : 'החבר שלך למעשר · עכשיו פעיל ✦'}
+            </Text>
           </View>
           <GlassPill gold>
             <Text style={styles.brandMini}>מעשר ישר</Text>
@@ -243,17 +443,35 @@ export default function OnboardingScreen() {
             ]}
           >
             <Glass dark gold style={styles.celebrateCard}>
+              <ConfettiBurst />
               <Text style={styles.celebrateEmoji}>✦</Text>
               <Text style={styles.celebrateTitle}>
-                {t(gender, 'ברוך הבא', 'ברוכה הבאה')}
+                {t(gender, 'הפנקס שלך מוכן', 'הפנקס שלך מוכן')}
               </Text>
               <Text style={styles.celebrateName}>{displayName}</Text>
+              {skippedName ? (
+                <Text style={styles.skippedHint}>
+                  בלי שם אישי — לגמרי בסדר. אפשר לעדכן בהגדרות מתי שרוצים.
+                </Text>
+              ) : (
+                <Text style={styles.celebrateHello}>
+                  {t(
+                    gender,
+                    `${BOT_NAME} שמח להכיר אותך`,
+                    `${BOT_NAME} שמח להכיר אותך`
+                  )}
+                </Text>
+              )}
               <Text style={styles.celebrateBody}>{welcomeDone(displayName, gender, rate)}</Text>
 
               <View style={styles.summaryRow}>
                 <View style={styles.summaryChip}>
                   <Text style={styles.summaryLbl}>שיעור</Text>
                   <Text style={styles.summaryVal}>{rateLabel}</Text>
+                </View>
+                <View style={styles.summaryChip}>
+                  <Text style={styles.summaryLbl}>מצב</Text>
+                  <Text style={styles.summaryVal}>{maritalLabel}</Text>
                 </View>
                 <View style={styles.summaryChip}>
                   <Text style={styles.summaryLbl}>חישוב</Text>
@@ -265,12 +483,20 @@ export default function OnboardingScreen() {
                 style={[styles.cta, finishing && { opacity: 0.55 }, shadow.float]}
                 onPress={finish}
                 disabled={finishing}
+                accessibilityRole="button"
+                accessibilityLabel={t(gender, 'כניסה לפנקס', 'כניסה לפנקס')}
               >
-                <Text style={styles.ctaText}>
-                  {finishing ? 'רגע…' : t(gender, 'יאללה, לעמוד הבית ✦', 'יאללה, לעמוד הבית ✦')}
-                </Text>
+                {finishing ? (
+                  <ActivityIndicator color={colors.ink} />
+                ) : (
+                  <Text style={styles.ctaText}>
+                    {t(gender, 'יאללה, נכנסים לפנקס ✦', 'יאללה, נכנסות לפנקס ✦')}
+                  </Text>
+                )}
               </Pressable>
-              <Text style={styles.celebrateHint}>צעד אחד בכל פעם — בלי למהר</Text>
+              <Text style={styles.celebrateHint}>
+                לא נכנסים אוטומטית — רק כשאתה לוחץ. בקצב שלך.
+              </Text>
             </Glass>
           </Animated.View>
         ) : (
@@ -304,7 +530,9 @@ export default function OnboardingScreen() {
                 </View>
               ))}
 
-              {step === 1 && (
+              {thinking ? <TypingRow /> : null}
+
+              {step === 1 && !thinking && (
                 <Glass style={styles.panel}>
                   <Text style={styles.panelTitle}>מה המגדר שלך?</Text>
                   <Accordion
@@ -333,7 +561,7 @@ export default function OnboardingScreen() {
                 </Glass>
               )}
 
-              {step === 2 && (
+              {step === 2 && !thinking && (
                 <Glass style={styles.panel}>
                   <Text style={styles.panelTitle}>מצב משפחתי</Text>
                   <Accordion
@@ -364,7 +592,7 @@ export default function OnboardingScreen() {
                 </Glass>
               )}
 
-              {step === 3 && (
+              {step === 3 && !thinking && (
                 <Glass style={styles.panel}>
                   <Text style={styles.panelTitle}>מעשר או חומש?</Text>
                   <Accordion
@@ -398,28 +626,37 @@ export default function OnboardingScreen() {
               )}
             </ScrollView>
 
-            {step === 0 && (
+            {showComposer ? (
               <View style={styles.composer}>
                 <Pressable
-                  style={[styles.send, !draft.trim() && styles.sendDisabled, shadow.float]}
-                  onPress={sendName}
-                  disabled={!draft.trim()}
+                  style={[
+                    styles.send,
+                    (!draft.trim() || thinking) && styles.sendDisabled,
+                    shadow.float,
+                  ]}
+                  onPress={() => void handleFreeText()}
+                  disabled={!draft.trim() || thinking}
                 >
-                  <Text style={styles.sendLabel}>שלח</Text>
+                  <Text style={styles.sendLabel}>{thinking ? '…' : 'שלח'}</Text>
                 </Pressable>
                 <TextInput
                   style={styles.input}
                   value={draft}
                   onChangeText={setDraft}
-                  placeholder="השם שלך…"
+                  placeholder={
+                    step === 0
+                      ? 'שם פרטי, שאלה, או «בלי שם»…'
+                      : 'שאלה לנועם…'
+                  }
                   placeholderTextColor="rgba(255,255,255,0.35)"
                   textAlign="right"
-                  onSubmitEditing={sendName}
+                  onSubmitEditing={() => void handleFreeText()}
                   returnKeyType="send"
                   autoCorrect={false}
+                  editable={!thinking}
                 />
               </View>
-            )}
+            ) : null}
           </KeyboardAvoidingView>
         )}
       </SafeAreaView>
@@ -562,6 +799,24 @@ const styles = StyleSheet.create({
   msg: { ...type.chat },
   msgBot: { color: '#F8FAFC' },
   msgMe: { ...type.chatMe, color: colors.ink },
+  typingRow: { alignSelf: 'flex-start' },
+  typingBubble: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.10)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.14)',
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  dot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: colors.accent,
+  },
   panel: { padding: spacing.md, marginTop: 6 },
   panelTitle: { ...type.h2, color: '#fff', textAlign: 'center' },
   two: { flexDirection: 'row', gap: 10, marginTop: 14 },
@@ -640,6 +895,19 @@ const styles = StyleSheet.create({
     padding: spacing.xl,
     alignItems: 'center',
     borderRadius: radii.xxl,
+    overflow: 'hidden',
+  },
+  confetti: {
+    ...StyleSheet.absoluteFill,
+    alignItems: 'center',
+    paddingTop: 24,
+  },
+  confettiBit: {
+    position: 'absolute',
+    top: 20,
+    width: 8,
+    height: 8,
+    borderRadius: 2,
   },
   celebrateEmoji: {
     fontSize: 36,
@@ -656,7 +924,21 @@ const styles = StyleSheet.create({
     color: colors.gold,
     textAlign: 'center',
     marginTop: 4,
-    marginBottom: 12,
+    marginBottom: 6,
+  },
+  celebrateHello: {
+    fontFamily: fonts.semi,
+    fontSize: 14,
+    color: colors.accent,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  skippedHint: {
+    ...type.caption,
+    color: colors.inkSoft,
+    textAlign: 'center',
+    marginBottom: 8,
+    paddingHorizontal: 8,
   },
   celebrateBody: {
     ...type.bodySm,
@@ -667,7 +949,7 @@ const styles = StyleSheet.create({
   },
   summaryRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 8,
     marginBottom: spacing.lg,
     width: '100%',
   },
@@ -675,6 +957,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     paddingVertical: 12,
+    paddingHorizontal: 4,
     borderRadius: radii.lg,
     backgroundColor: 'rgba(255,255,255,0.06)',
     borderWidth: 1,
@@ -683,13 +966,16 @@ const styles = StyleSheet.create({
   summaryLbl: { ...type.caption, color: colors.inkSoft },
   summaryVal: {
     fontFamily: fonts.bold,
-    fontSize: 15,
+    fontSize: 13,
     color: colors.ink,
     marginTop: 4,
+    textAlign: 'center',
   },
   cta: {
     width: '100%',
     alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 54,
     paddingVertical: 16,
     borderRadius: radii.pill,
     backgroundColor: 'rgba(139, 155, 255, 0.85)',

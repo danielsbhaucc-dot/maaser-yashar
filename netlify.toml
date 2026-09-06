@@ -15,6 +15,11 @@
   status = 200
 
 [[redirects]]
+  from = "/api/onboard"
+  to = "/.netlify/functions/onboard"
+  status = 200
+
+[[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
