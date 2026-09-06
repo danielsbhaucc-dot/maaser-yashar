@@ -125,6 +125,8 @@ export default function NoamChat() {
   const [applying, setApplying] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const launcherPulse = useRef(new Animated.Value(1)).current;
+  const threadsRef = useRef<ChatThread[]>(threads);
+  const sendingRef = useRef(false);
 
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
   const active = useMemo(
@@ -132,6 +134,10 @@ export default function NoamChat() {
     [threads, activeId]
   );
   const messages = active?.messages ?? [];
+
+  useEffect(() => {
+    threadsRef.current = threads;
+  }, [threads]);
 
   const tabBottom =
     (Platform.OS === 'ios' ? 22 : 12) + 64 + Math.max(insets.bottom - 8, 0);
@@ -169,6 +175,7 @@ export default function NoamChat() {
   }, [messages, typing, pending, open, mode]);
 
   const persist = useCallback(async (next: ChatThread[]) => {
+    threadsRef.current = next;
     setThreads(next);
     await saveThreads(next);
   }, []);
@@ -183,6 +190,7 @@ export default function NoamChat() {
     setOpen(false);
     setTyping(false);
     setDraft('');
+    sendingRef.current = false;
   };
 
   const startNewChat = (seed?: string) => {
@@ -207,13 +215,13 @@ export default function NoamChat() {
       updatedAt: new Date().toISOString(),
       messages: [welcome],
     };
-    const next = [th, ...threads];
+    const next = [th, ...threadsRef.current];
     void persist(next);
     setActiveId(id);
     setMode('chat');
     setPending([]);
     if (seed) {
-      setTimeout(() => void sendText(seed, id, next), 320);
+      setTimeout(() => void sendText(seed, id), 320);
     }
   };
 
@@ -224,21 +232,28 @@ export default function NoamChat() {
   };
 
   const patchThread = useCallback(
-    (threadId: string, updater: (th: ChatThread) => ChatThread, base?: ChatThread[]) => {
-      const list = base ?? threads;
+    (threadId: string, updater: (th: ChatThread) => ChatThread) => {
+      const list = threadsRef.current;
       const next = list.map((th) => (th.id === threadId ? updater(th) : th));
-      void persist(next);
+      threadsRef.current = next;
+      setThreads(next);
+      void saveThreads(next);
       return next;
     },
-    [threads, persist]
+    []
   );
 
-  const sendText = async (text: string, threadId?: string, baseThreads?: ChatThread[]) => {
+  const sendText = async (text: string, threadId?: string) => {
     const trimmed = text.trim();
-    if (!trimmed || typing) return;
+    if (!trimmed || typing || sendingRef.current) return;
     const tid = threadId || activeId;
     if (!tid) return;
 
+    const list = threadsRef.current;
+    const th = list.find((x) => x.id === tid);
+    if (!th) return;
+
+    sendingRef.current = true;
     const userMsg: ChatMessage = {
       id: msgId(),
       role: 'user',
@@ -246,20 +261,12 @@ export default function NoamChat() {
       createdAt: new Date().toISOString(),
     };
 
-    const list = baseThreads ?? threads;
-    const th = list.find((x) => x.id === tid);
-    if (!th) return;
-
-    const withUser = patchThread(
-      tid,
-      (cur) => ({
-        ...cur,
-        title: cur.messages.length <= 1 ? trimmed.slice(0, 28) : cur.title,
-        updatedAt: new Date().toISOString(),
-        messages: [...cur.messages, userMsg],
-      }),
-      list
-    );
+    const withUser = patchThread(tid, (cur) => ({
+      ...cur,
+      title: cur.messages.length <= 1 ? trimmed.slice(0, 28) : cur.title,
+      updatedAt: new Date().toISOString(),
+      messages: [...cur.messages, userMsg],
+    }));
     setDraft('');
     setPending([]);
     setTyping(true);
@@ -282,11 +289,16 @@ export default function NoamChat() {
         content: reply,
         createdAt: new Date().toISOString(),
       };
-      patchThread(tid, (cur) => ({
-        ...cur,
-        updatedAt: new Date().toISOString(),
-        messages: [...cur.messages, botMsg],
-      }));
+      // תמיד על בסיס threadsRef — לא סוגרים על state ישן
+      patchThread(tid, (cur) => {
+        const alreadyHasUser = cur.messages.some((m) => m.id === userMsg.id);
+        const baseMsgs = alreadyHasUser ? cur.messages : [...cur.messages, userMsg];
+        return {
+          ...cur,
+          updatedAt: new Date().toISOString(),
+          messages: [...baseMsgs, botMsg],
+        };
+      });
       setPending(actions);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'שגיאה לא ידועה';
@@ -296,12 +308,17 @@ export default function NoamChat() {
         content: `אופס — ${msg}`,
         createdAt: new Date().toISOString(),
       };
-      patchThread(tid, (cur) => ({
-        ...cur,
-        messages: [...cur.messages, botMsg],
-      }));
+      patchThread(tid, (cur) => {
+        const alreadyHasUser = cur.messages.some((m) => m.id === userMsg.id);
+        const baseMsgs = alreadyHasUser ? cur.messages : [...cur.messages, userMsg];
+        return {
+          ...cur,
+          messages: [...baseMsgs, botMsg],
+        };
+      });
     } finally {
       setTyping(false);
+      sendingRef.current = false;
     }
   };
 

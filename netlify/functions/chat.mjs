@@ -1,10 +1,10 @@
 /**
- * Netlify Function — שער ל־OpenRouter (מודל זול ויציב).
- * OPENROUTER_API_KEY חייב להיות ב־Production (וגם Dev) ב־Netlify Env.
+ * Netlify Function — OpenRouter → Llama 4 Scout (העדפת Groq).
+ * Fallback: Llama 3.1 8B אם Scout נכשל.
  */
 
-const PRIMARY_MODEL = 'meta-llama/llama-3.1-8b-instruct';
-const FALLBACK_MODEL = 'meta-llama/llama-3.1-8b-instruct:floor';
+const PRIMARY_MODEL = 'meta-llama/llama-4-scout';
+const FALLBACK_MODEL = 'meta-llama/llama-3.1-8b-instruct';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 const cors = {
@@ -19,7 +19,7 @@ const TOOLS = [
     function: {
       name: 'propose_entries',
       description:
-        'הצע תנועות להוספה לפנקס המעשר כשהמשתמש ציין סכומים ברורים.',
+        'הצע תנועות להוספה לפנקס כשהמשתמש נתן סכומים ברורים. תמיד גם תכתוב תשובה אנושית קצרה בנוסף לקריאה לכלי.',
       parameters: {
         type: 'object',
         properties: {
@@ -87,7 +87,6 @@ function parseToolActions(toolCalls) {
   return { actions, summary };
 }
 
-/** חילוץ תנועות מטקסט אם המודל כתב JSON בתוך התשובה */
 function parseEmbeddedActions(text) {
   const actions = [];
   const match = String(text || '').match(/```json\s*([\s\S]*?)```/i);
@@ -114,12 +113,15 @@ function parseEmbeddedActions(text) {
   }
 }
 
-async function callOpenRouter({ apiKey, model, messages, useTools }) {
+async function callOpenRouter({ apiKey, model, messages, useTools, preferGroq }) {
   const body = {
     model,
     messages,
-    temperature: 0.5,
-    max_tokens: 700,
+    temperature: 0.75,
+    max_tokens: 800,
+    provider: preferGroq
+      ? { order: ['Groq'], allow_fallbacks: true }
+      : { allow_fallbacks: true },
   };
   if (useTools) {
     body.tools = TOOLS;
@@ -156,7 +158,7 @@ export async function handler(event) {
   if (!apiKey) {
     return json(500, {
       error:
-        'חסר OPENROUTER_API_KEY ב־Netlify (Production). Site settings → Environment variables → הוסף ל־Production.',
+        'חסר OPENROUTER_API_KEY ב־Netlify (Production). Site settings → Environment variables.',
     });
   }
 
@@ -195,28 +197,41 @@ export async function handler(event) {
   const systemPrompt =
     typeof system === 'string' && system.trim()
       ? system.trim().slice(0, 6000)
-      : 'אתה נועם, עוזר למעשר. ענה בעברית קצרה.';
+      : 'אתה נועם. ענה בעברית כמו בן אדם.';
 
   const apiMessages = [{ role: 'system', content: systemPrompt }, ...cleaned];
 
   try {
+    // 1) Llama 4 Scout + Groq + tools
     let { res, data } = await callOpenRouter({
       apiKey,
       model: PRIMARY_MODEL,
       messages: apiMessages,
       useTools: true,
+      preferGroq: true,
     });
 
-    // אם נכשל — ניסיון בלי tools / מודל חלופי
+    // 2) אותו מודל בלי tools
     if (!res.ok) {
-      const detail = data?.error?.message || data?.error || res.statusText;
-      console.error('openrouter fail', res.status, detail);
+      console.error('scout+tools fail', res.status, data?.error?.message || data?.error);
+      ({ res, data } = await callOpenRouter({
+        apiKey,
+        model: PRIMARY_MODEL,
+        messages: apiMessages,
+        useTools: false,
+        preferGroq: true,
+      }));
+    }
 
+    // 3) Fallback זול
+    if (!res.ok) {
+      console.error('scout fail', res.status, data?.error?.message || data?.error);
       ({ res, data } = await callOpenRouter({
         apiKey,
         model: FALLBACK_MODEL,
         messages: apiMessages,
         useTools: false,
+        preferGroq: true,
       }));
     }
 
@@ -241,10 +256,10 @@ export async function handler(event) {
 
     if (!reply && summary) reply = summary;
     if (!reply && actions.length) {
-      reply = `רשמתי לעצמי ${actions.length} תנועות — לאשר בפנקס?`;
+      reply = `אוקיי, תפסתי ${actions.length} תנועות. מאשרים לפנקס?`;
     }
     if (!reply) {
-      reply = 'רגע, לא הצלחתי לנסח תשובה. נסה שוב בקצרה?';
+      reply = 'רגע, נתקעתי. תכתוב שוב בקצרה?';
     }
 
     return json(200, {
