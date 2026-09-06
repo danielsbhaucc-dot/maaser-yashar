@@ -666,7 +666,7 @@ function ChatPane({
               <Text style={styles.chatHeaderTitle}>{BOT_NAME}</Text>
               <View style={styles.onlineInline}>
                 <View style={styles.onlineDotSm} />
-                <Text style={styles.onlineTxt}>זמין · מנטור מעשר</Text>
+                <Text style={styles.onlineTxt}>זמין · נועם · מנטור מעשר</Text>
               </View>
             </View>
           </View>

@@ -197,7 +197,7 @@ export async function handler(event) {
   const systemPrompt =
     typeof system === 'string' && system.trim()
       ? system.trim().slice(0, 6000)
-      : 'אתה נועם. ענה בעברית כמו בן אדם.';
+      : 'אתה נועם — גבר, חבר חכם למעשר. ענה בעברית בלשון זכר על עצמך. תענה ואז תחזיר לפנקס.';
 
   const apiMessages = [{ role: 'system', content: systemPrompt }, ...cleaned];
 
