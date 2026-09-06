@@ -135,7 +135,7 @@ async function callOpenRouter({ apiKey, model, messages, useTools }) {
         process.env.URL ||
         process.env.DEPLOY_PRIME_URL ||
         'https://maaser-yashar.netlify.app',
-      'X-Title': 'Maaser Yashar — Noam',
+      'X-Title': 'Maaser Yashar - Noam',
     },
     body: JSON.stringify(body),
   });

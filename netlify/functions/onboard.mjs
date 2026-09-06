@@ -100,7 +100,7 @@ export async function handler(event) {
           process.env.URL ||
           process.env.DEPLOY_PRIME_URL ||
           'https://maaser-yashar.netlify.app',
-        'X-Title': 'Maaser Yashar — Onboard',
+        'X-Title': 'Maaser Yashar - Onboard',
       },
       body: JSON.stringify({
         model: MODEL,
