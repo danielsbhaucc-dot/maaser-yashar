@@ -70,6 +70,7 @@ export function SwipeTabs() {
             right: 12,
           },
         ]}
+        accessibilityRole="tablist"
       >
         <View style={styles.tabBg}>
           {Platform.OS !== 'web' ? (
@@ -90,6 +91,7 @@ export function SwipeTabs() {
               style={styles.tabItem}
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
+              accessibilityLabel={tab.title}
               hitSlop={6}
             >
               <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>

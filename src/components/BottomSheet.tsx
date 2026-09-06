@@ -102,7 +102,12 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
             },
           ]}
         >
-          <Pressable style={StyleSheet.absoluteFill} onPress={dismiss} />
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={dismiss}
+            accessibilityRole="button"
+            accessibilityLabel="סגור"
+          />
         </Animated.View>
 
         <KeyboardAvoidingView
@@ -113,14 +118,16 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
           <Animated.View
             style={[styles.sheet, { transform: [{ translateY }] }]}
             {...pan.panHandlers}
+            accessibilityViewIsModal
+            accessibilityLabel={title || 'חלון'}
           >
-            <View style={styles.handleHit}>
+            <View style={styles.handleHit} accessibilityLabel="גרור לסגירה">
               <View style={styles.handle} />
             </View>
 
             <View style={styles.head}>
               {title ? (
-                <Text style={styles.title} numberOfLines={1}>
+                <Text style={styles.title} numberOfLines={1} accessibilityRole="header">
                   {title}
                 </Text>
               ) : (

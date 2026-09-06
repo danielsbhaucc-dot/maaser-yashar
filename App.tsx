@@ -33,8 +33,12 @@ import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-cont
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { ToastProvider, useToast } from './src/context/ToastContext';
-import OnboardingScreen from './src/screens/OnboardingScreen';
-import ErrorBoundary from './src/components/ErrorBoundary';
+import {
+  AccessibilityProvider,
+  AccessibilityWidget,
+  AccessibilityRoot,
+} from './src/accessibility';
+import OnboardingScreen from './src/screens/OnboardingScreen';import ErrorBoundary from './src/components/ErrorBoundary';
 import AddEntryModal from './src/components/AddEntryModal';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
 import { colors, fonts, shadow } from './src/theme';
@@ -152,13 +156,23 @@ function Root() {
       </View>
     );
   }
-  if (!profile.onboardingDone) return <OnboardingScreen />;
+  if (!profile.onboardingDone) {
+    return (
+      <AccessibilityRoot>
+        <OnboardingScreen />
+        <AccessibilityWidget />
+      </AccessibilityRoot>
+    );
+  }
   return (
-    <View style={styles.mainShell}>
-      <SwipeTabs />
-      <FloatingFab />
-      <GlobalAddModal />
-    </View>
+    <AccessibilityRoot>
+      <View style={styles.mainShell}>
+        <SwipeTabs />
+        <FloatingFab />
+        <GlobalAddModal />
+        <AccessibilityWidget />
+      </View>
+    </AccessibilityRoot>
   );
 }
 
@@ -197,10 +211,12 @@ export default function App() {
             <View style={styles.phoneFrame}>
               <AppProvider>
                 <ToastProvider>
-                  <NavigationContainer theme={navTheme}>
-                    <StatusBar style="light" />
-                    <Root />
-                  </NavigationContainer>
+                  <AccessibilityProvider>
+                    <NavigationContainer theme={navTheme}>
+                      <StatusBar style="light" />
+                      <Root />
+                    </NavigationContainer>
+                  </AccessibilityProvider>
                 </ToastProvider>
               </AppProvider>
             </View>

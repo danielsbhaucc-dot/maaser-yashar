@@ -126,6 +126,9 @@ export default function AddEntryModal({
               <Pressable
                 key={k}
                 onPress={() => selectKind(k)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: on }}
+                accessibilityLabel={meta.label}
                 style={[
                   styles.kindBtn,
                   {
@@ -153,10 +156,11 @@ export default function AddEntryModal({
           placeholderTextColor={colors.inkSoft}
           textAlign="right"
           autoFocus
+          accessibilityLabel="סכום התנועה"
         />
 
         <Text style={styles.label}>קטגוריה</Text>
-        <View style={styles.cats}>
+        <View style={styles.cats} accessibilityRole="radiogroup">
           {categories.map((c) => (
             <Chip key={c} label={c} selected={category === c} onPress={() => setCategory(c)} />
           ))}
@@ -170,6 +174,7 @@ export default function AddEntryModal({
           placeholder="אופציונלי"
           placeholderTextColor={colors.inkSoft}
           textAlign="right"
+          accessibilityLabel="הערה לתנועה"
         />
 
         <PrimaryButton

@@ -20,6 +20,8 @@ type Props = {
   light?: boolean;
   /** כרטיס זכוכית כהה */
   dark?: boolean;
+  accessibilityLabel?: string;
+  accessibilityRole?: 'none' | 'text' | 'summary' | 'header';
 };
 
 function resolveRadius(style?: StyleProp<ViewStyle>): number {
@@ -28,7 +30,16 @@ function resolveRadius(style?: StyleProp<ViewStyle>): number {
   return typeof r === 'number' ? r : radii.xl;
 }
 
-export function Glass({ children, style, strong, gold, light, dark }: Props) {
+export function Glass({
+  children,
+  style,
+  strong,
+  gold,
+  light,
+  dark,
+  accessibilityLabel,
+  accessibilityRole,
+}: Props) {
   const elevated = dark || light;
   const useBlur = Platform.OS !== 'web';
   const radius = resolveRadius(style);
@@ -40,6 +51,8 @@ export function Glass({ children, style, strong, gold, light, dark }: Props) {
 
   return (
     <View
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole={accessibilityRole}
       style={[
         styles.wrap,
         round,

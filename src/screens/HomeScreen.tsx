@@ -149,6 +149,9 @@ export default function HomeScreen() {
               key={p}
               onPress={() => setPeriod(p)}
               style={[styles.periodChip, period === p && styles.periodChipOn]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: period === p }}
+              accessibilityLabel={`תקופה ${formatPeriod(p)}`}
             >
               <Text style={[styles.periodText, period === p && styles.periodTextOn]}>
                 {formatPeriod(p)}
@@ -158,7 +161,12 @@ export default function HomeScreen() {
         </ScrollView>
       </View>
 
-      <Glass dark gold style={styles.balanceCard}>
+      <Glass
+        dark
+        gold
+        style={styles.balanceCard}
+        accessibilityLabel={`יתרה לתת ${formatMoney(totals.remaining)}, מתוך חובה ${formatMoney(totals.obligation)}`}
+      >
         <View style={styles.balanceRow}>
           <View style={styles.balanceText}>
             <Text style={styles.balanceLabel}>יתרה לתת</Text>
@@ -241,6 +249,9 @@ export default function HomeScreen() {
         style={[styles.saveBtn, shadow.float, saving && { opacity: 0.55 }]}
         onPress={onSaveMonth}
         disabled={saving}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: saving }}
+        accessibilityLabel={saving ? 'שומר סיכום חודש' : 'שמור סיכום חודש'}
       >
         <Text style={styles.saveText}>{saving ? 'שומר…' : 'שמור סיכום חודש'}</Text>
       </Pressable>
@@ -252,7 +263,7 @@ export default function HomeScreen() {
 
 function Stat({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <View style={styles.stat}>
+    <View style={styles.stat} accessibilityLabel={`${label}: ${value}`}>
       <Text style={[styles.statVal, { color }]}>{value}</Text>
       <Text style={styles.statLbl}>{label}</Text>
     </View>
@@ -273,6 +284,8 @@ function Action({
   return (
     <Pressable
       onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`הוסף ${label}`}
       style={[
         styles.action,
         primary && { backgroundColor: colors.primarySoft, borderColor: colors.primary },
@@ -303,7 +316,13 @@ function LedgerRow({
   });
 
   return (
-    <Pressable onLongPress={onDelete} style={[styles.row, !isLast && styles.rowBorder]}>
+    <Pressable
+      onLongPress={onDelete}
+      style={[styles.row, !isLast && styles.rowBorder]}
+      accessibilityRole="button"
+      accessibilityLabel={`${entry.category}, ${sign}${formatMoney(entry.amount)}${entry.note ? `, ${entry.note}` : ''}`}
+      accessibilityHint="לחיצה ארוכה למחיקה"
+    >
       <View style={[styles.rowAccent, { backgroundColor: color }]} />
       <View style={styles.rowMid}>
         <Text style={styles.rowCat}>{entry.category}</Text>

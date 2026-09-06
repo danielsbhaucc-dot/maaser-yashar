@@ -54,7 +54,7 @@ export function ScreenTitle({
   light?: boolean;
 }) {
   return (
-    <View style={styles.screenTitleWrap}>
+    <View style={styles.screenTitleWrap} accessibilityRole="header">
       <Text style={[styles.screenTitle, light && styles.inkDark]}>{title}</Text>
       {subtitle ? (
         <Text style={[styles.screenSub, light && styles.inkMutedDark]}>{subtitle}</Text>
@@ -86,6 +86,8 @@ export function MoneyField({
         placeholder="0"
         placeholderTextColor={colors.inkSoft}
         textAlign="center"
+        accessibilityLabel={label}
+        accessibilityHint={hint}
       />
     </View>
   );
@@ -107,6 +109,9 @@ export function Chip({
     <Pressable
       onPress={onPress}
       style={[styles.chip, fill && styles.chipFill, selected && styles.chipSelected]}
+      accessibilityRole="button"
+      accessibilityState={{ selected }}
+      accessibilityLabel={label}
     >
       <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{label}</Text>
     </Pressable>
@@ -115,7 +120,7 @@ export function Chip({
 
 /** שורת בחירה מפולגת וממורכזת בסגנון iOS */
 export function SegmentedRow({ children }: { children: React.ReactNode }) {
-  return <View style={styles.segmentRow}>{children}</View>;
+  return <View style={styles.segmentRow} accessibilityRole="radiogroup">{children}</View>;
 }
 
 export function PrimaryButton({
@@ -132,6 +137,9 @@ export function PrimaryButton({
       onPress={onPress}
       disabled={disabled}
       style={[styles.primaryBtn, shadow.float, disabled && { opacity: 0.45 }]}
+      accessibilityRole="button"
+      accessibilityState={{ disabled: !!disabled }}
+      accessibilityLabel={label}
     >
       <Text style={styles.primaryBtnText}>{label}</Text>
     </Pressable>
@@ -158,6 +166,8 @@ export function Banner({
 
   return (
     <View
+      accessibilityRole="text"
+      accessibilityLiveRegion="polite"
       style={[
         styles.banner,
         { backgroundColor: bg, borderColor: `${accent}55` },
@@ -180,7 +190,12 @@ export function StatHero({
   hint?: string;
 }) {
   return (
-    <Glass dark gold style={styles.statHero}>
+    <Glass
+      dark
+      gold
+      style={styles.statHero}
+      accessibilityLabel={`${label}: ${value}${hint ? `. ${hint}` : ''}`}
+    >
       <Text style={styles.statLabel}>{label}</Text>
       <Text style={styles.statValue}>{value}</Text>
       {hint ? <Text style={styles.statHint}>{hint}</Text> : null}
@@ -197,7 +212,7 @@ export function SectionHeader({
   light?: boolean;
 }) {
   return (
-    <View style={styles.sectionHead}>
+    <View style={styles.sectionHead} accessibilityRole="header">
       <View style={styles.sectionAccent} />
       <Text style={styles.sectionTitle}>{title}</Text>
     </View>

@@ -56,6 +56,7 @@ export function Accordion({ items, defaultOpenId = null, style }: Props) {
               style={[styles.header, open && styles.headerOpen]}
               accessibilityRole="button"
               accessibilityState={{ expanded: open }}
+              accessibilityLabel={item.question}
             >
               <View style={styles.qMark}>
                 <Text style={styles.qMarkText}>?</Text>

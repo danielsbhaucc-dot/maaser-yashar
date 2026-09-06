@@ -107,6 +107,8 @@ function LinkRow({
     <Pressable
       onPress={() => Linking.openURL(url)}
       style={[styles.link, !last && styles.linkBorder]}
+      accessibilityRole="link"
+      accessibilityLabel={label}
     >
       <GlassNumber n={n} color={color} size={28} />
       <Text style={styles.linkText}>{label}</Text>

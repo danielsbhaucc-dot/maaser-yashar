@@ -77,7 +77,10 @@ export function SwipeTabs() {
         ))}
       </ScrollView>
 
-      <View style={[styles.tabBar, { bottom, left: 12, right: 12 }]}>
+      <View
+        style={[styles.tabBar, { bottom, left: 12, right: 12 }]}
+        accessibilityRole="tablist"
+      >
         <View style={styles.tabBg}>
           <View style={styles.tabTint} />
         </View>
@@ -90,6 +93,7 @@ export function SwipeTabs() {
               style={styles.tabItem}
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
+              accessibilityLabel={tab.title}
               hitSlop={6}
             >
               <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>

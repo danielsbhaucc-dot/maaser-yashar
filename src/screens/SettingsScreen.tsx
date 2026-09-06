@@ -17,6 +17,7 @@ import { Glass, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
+import { useA11y } from '../accessibility';
 import { BOT_NAME, type Gender, t } from '../utils/copy';
 import { EXPLAIN } from '../utils/chatScript';
 import { colors, fonts, radii, spacing, type } from '../theme';
@@ -34,6 +35,7 @@ function FieldLabel({ children }: { children: string }) {
 export default function SettingsScreen() {
   const { profile, patchProfile } = useApp();
   const toast = useToast();
+  const { openPanel, showWidget } = useA11y();
   const [saved, setSaved] = React.useState(false);
   const initial = (profile.displayName?.trim()?.[0] || 'מ').toUpperCase();
   const ratePct = Math.round(profile.rate * 100);
@@ -72,6 +74,7 @@ export default function SettingsScreen() {
           textAlign="center"
           placeholderTextColor={colors.sheetMuted}
           placeholder="השם שלך"
+          accessibilityLabel="שם לתצוגה"
         />
 
         <View style={styles.divider} />
@@ -170,6 +173,14 @@ export default function SettingsScreen() {
       <Banner light text={`${BOT_NAME} תמיד מחשב מהנטו — פחות כאב ראש`} tone="ok" />
 
       <PrimaryButton
+        label="♿ תפריט נגישות"
+        onPress={() => {
+          showWidget();
+          openPanel();
+        }}
+      />
+
+      <PrimaryButton
         label={saved ? 'נשמר ✓' : 'שמור הגדרות'}
         onPress={() => {
           setSaved(true);
@@ -194,6 +205,8 @@ export default function SettingsScreen() {
             },
           })
         }
+        accessibilityRole="button"
+        accessibilityLabel="התחל מחדש את ההיכרות"
       >
         <Text style={styles.reset}>
           {t(

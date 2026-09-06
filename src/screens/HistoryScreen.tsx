@@ -108,6 +108,8 @@ export default function HistoryScreen() {
               },
             })
           }
+          accessibilityRole="button"
+          accessibilityLabel="נקה את כל ההיסטוריה"
         >
           <Text style={styles.clearText}>נקה הכול</Text>
         </Pressable>
@@ -126,7 +128,7 @@ function Cell({
   strong?: boolean;
 }) {
   return (
-    <View style={styles.cell}>
+    <View style={styles.cell} accessibilityLabel={`${label}: ${value}`}>
       <Text style={[styles.cellVal, strong && { color: colors.gold }]}>{value}</Text>
       <Text style={styles.cellLbl}>{label}</Text>
     </View>
