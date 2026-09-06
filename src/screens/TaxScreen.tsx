@@ -13,11 +13,22 @@ import {
 import { Glass, GlassNumber, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
 import { NoamNudge } from '../components/NoamNudge';
+import { SmartInsights } from '../components/SmartInsights';
 import { colors, fonts, spacing, type } from '../theme';
-import { calculateSection46, SECTION_46 } from '../utils/taxCalc';
+import { calculateSection46, SECTION_46, getMinDonation } from '../utils/taxCalc';
 import { useApp } from '../context/AppContext';
 import { BOT_NAME, t } from '../utils/copy';
 import { noamTaxHero } from '../utils/noamCompanion';
+import {
+  currentPeriod,
+} from '../utils/history';
+import { computeTotals, entriesForPeriod } from '../utils/ledger';
+import {
+  suggestTaxDonationsFromLedger,
+  taxSmartInsights,
+} from '../utils/smartInsights';
+import type { SmartInsight } from '../utils/smartInsights';
+import { useToast } from '../context/ToastContext';
 
 const YEARS = [2026, 2025, 2024, 2023, 2022];
 const TIP_COLORS = [colors.primary, colors.gold, colors.accent, colors.success];
@@ -27,7 +38,8 @@ const TAX_EXPLAIN = `יחיד זכאי לזיכוי של 35% מסכום התרו
 שמרו קבלות תקינות. מ־2026 חשוב דיווח דיגיטלי של העמותה.`;
 
 export default function TaxScreen() {
-  const { profile } = useApp();
+  const { profile, ledger } = useApp();
+  const toast = useToast();
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
   const [donationsTotal, setDonations] = useState(0);
   const [taxableIncome, setTaxable] = useState(0);
@@ -35,6 +47,11 @@ export default function TaxScreen() {
   const [isCompany, setIsCompany] = useState(false);
   const [taxYear, setYear] = useState(2026);
   const [knowsIncome, setKnowsIncome] = useState(true);
+
+  const ledgerTzedaka = useMemo(() => {
+    const month = entriesForPeriod(ledger, currentPeriod());
+    return computeTotals(month, profile.rate).tzedaka;
+  }, [ledger, profile.rate]);
 
   const result = useMemo(
     () =>
@@ -50,6 +67,42 @@ export default function TaxScreen() {
 
   const effectiveCredit =
     taxPaid > 0 ? Math.min(result.creditAmount, taxPaid) : result.creditAmount;
+
+  const insights = useMemo(
+    () =>
+      taxSmartInsights({
+        name,
+        gender: profile.gender,
+        donationsTotal,
+        taxableIncome: knowsIncome ? taxableIncome : 0,
+        taxPaid,
+        taxYear,
+        ledgerTzedaka,
+        eligible: result.eligible,
+        creditAmount: result.creditAmount,
+        minDonation: getMinDonation(taxYear),
+      }),
+    [
+      name,
+      profile.gender,
+      donationsTotal,
+      taxableIncome,
+      knowsIncome,
+      taxPaid,
+      taxYear,
+      ledgerTzedaka,
+      result.eligible,
+      result.creditAmount,
+    ]
+  );
+
+  const onInsightAction = (item: SmartInsight) => {
+    if (item.actionKind === 'tax_fill') {
+      const v = suggestTaxDonationsFromLedger(ledgerTzedaka);
+      setDonations(v);
+      toast.success('מילוי חכם ✦', `תרומות: ${v.toLocaleString('he-IL')} ₪ מהפנקס`);
+    }
+  };
 
   const hero = (
     <>
@@ -70,6 +123,7 @@ export default function TaxScreen() {
           'תזיני תרומות והכנסה חייבת — ואני אעזור לך להבין את האומדן. זה לא ייעוץ מס, רק חישוב ברור.'
         )}
       />
+      <SmartInsights items={insights} onAction={onInsightAction} />
       <Accordion
         items={[
           {

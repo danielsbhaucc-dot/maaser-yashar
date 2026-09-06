@@ -22,6 +22,8 @@ import { BOT_NAME, type Gender, t } from '../utils/copy';
 import { EXPLAIN } from '../utils/chatScript';
 import { noamSettingsHero } from '../utils/noamCompanion';
 import { NoamNudge } from '../components/NoamNudge';
+import { SmartInsights } from '../components/SmartInsights';
+import { settingsSmartInsights } from '../utils/smartInsights';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import type { MaaserRate } from '../types';
 
@@ -42,6 +44,10 @@ export default function SettingsScreen() {
   const initial = (profile.displayName?.trim()?.[0] || 'מ').toUpperCase();
   const ratePct = Math.round(profile.rate * 100);
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
+  const insights = React.useMemo(
+    () => settingsSmartInsights({ name, gender: profile.gender, profile }),
+    [name, profile]
+  );
 
   const hero = (
     <>
@@ -69,6 +75,7 @@ export default function SettingsScreen() {
           `שלום ${name}. כל שינוי כאן משפיע על איך אני מדבר איתך ועל חישוב המעשר.`
         )}
       />
+      <SmartInsights items={insights} />
       <Glass light strong style={styles.panel}>
         <FieldLabel>שם</FieldLabel>
         <TextInput

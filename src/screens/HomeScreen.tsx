@@ -30,9 +30,12 @@ import {
   noamSaveMonthToast,
 } from '../utils/noamCompanion';
 import { NoamNudge } from '../components/NoamNudge';
+import { SmartInsights } from '../components/SmartInsights';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import type { LedgerEntry } from '../types/ledger';
 import { defaultMaaserInputs } from '../utils/maaserCalc';
+import { homeSmartInsights } from '../utils/smartInsights';
+import type { SmartInsight } from '../utils/smartInsights';
 
 export default function HomeScreen() {
   const { profile, ledger, removeEntry, openAdd } = useApp();
@@ -135,6 +138,26 @@ export default function HomeScreen() {
     () => noamEmptyLedger(name, profile.gender),
     [name, profile.gender]
   );
+  const insights = useMemo(
+    () =>
+      homeSmartInsights({
+        name,
+        gender: profile.gender,
+        totals,
+        entries: monthEntries,
+        rate: profile.rate,
+        period,
+        isCurrentPeriod: period === currentPeriod(),
+      }),
+    [name, profile.gender, profile.rate, totals, monthEntries, period]
+  );
+
+  const onInsightAction = (item: SmartInsight) => {
+    if (item.actionKind === 'income') openAdd('income');
+    else if (item.actionKind === 'expense') openAdd('expense');
+    else if (item.actionKind === 'tzedaka') openAdd('tzedaka');
+    else if (item.actionKind === 'save') void onSaveMonth();
+  };
 
   const hero = (
     <View style={styles.hero}>
@@ -162,6 +185,7 @@ export default function HomeScreen() {
   return (
     <Screen sheet hero={hero} scroll>
       <NoamNudge text={companionLine} />
+      <SmartInsights items={insights} onAction={onInsightAction} />
 
       <View style={styles.periodWrap}>
         <ScrollView

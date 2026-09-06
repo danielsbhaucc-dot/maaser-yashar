@@ -1,10 +1,11 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Screen } from '../components/Screen';
 import { StatHero, formatMoney, PrimaryButton } from '../components/ui';
 import { Glass, GlassPill } from '../components/Glass';
 import { DeleteButton } from '../components/DeleteButton';
+import { SmartInsights } from '../components/SmartInsights';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import {
   clearHistory,
@@ -18,6 +19,7 @@ import { useToast } from '../context/ToastContext';
 import { BOT_NAME, t } from '../utils/copy';
 import { noamHistoryEmpty, noamHistoryHero } from '../utils/noamCompanion';
 import { NoamNudge } from '../components/NoamNudge';
+import { historySmartInsights } from '../utils/smartInsights';
 
 export default function HistoryScreen() {
   const { openAdd, profile } = useApp();
@@ -33,6 +35,10 @@ export default function HistoryScreen() {
   const totalRemaining = entries.reduce((s, e) => s + e.result.remaining, 0);
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
   const empty = noamHistoryEmpty(name, profile.gender);
+  const insights = useMemo(
+    () => historySmartInsights({ name, gender: profile.gender, entries }),
+    [name, profile.gender, entries]
+  );
 
   const hero = (
     <View style={styles.hero}>
@@ -55,6 +61,7 @@ export default function HistoryScreen() {
               `${name}, יש כאן ${entries.length} חודשים שסגרנו יחד. יתרות פתוחות: ${formatMoney(totalRemaining)}.`
             )}
           />
+          <SmartInsights items={insights} />
           <StatHero
             label="סה״כ יתרות לתת"
             value={formatMoney(totalRemaining)}

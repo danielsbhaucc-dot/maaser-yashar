@@ -1,15 +1,19 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Linking, Pressable } from 'react-native';
 import { Screen } from '../components/Screen';
 import { Banner, SectionHeader } from '../components/ui';
 import { Glass, GlassNumber, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
+import { SmartInsights } from '../components/SmartInsights';
 import { HALACHA_GUIDE, TAX_GUIDE_STEPS } from '../constants/guides';
 import { colors, fonts, spacing, type } from '../theme';
 import { useApp } from '../context/AppContext';
 import { BOT_NAME, t } from '../utils/copy';
 import { noamGuideHero } from '../utils/noamCompanion';
 import { NoamNudge } from '../components/NoamNudge';
+import { currentPeriod } from '../utils/history';
+import { computeTotals, entriesForPeriod } from '../utils/ledger';
+import { guideSmartInsights } from '../utils/smartInsights';
 
 const STEP_COLORS = [
   colors.primary,
@@ -21,8 +25,16 @@ const STEP_COLORS = [
 ];
 
 export default function GuideScreen() {
-  const { profile } = useApp();
+  const { profile, ledger } = useApp();
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
+  const remaining = useMemo(() => {
+    const month = entriesForPeriod(ledger, currentPeriod());
+    return computeTotals(month, profile.rate).remaining;
+  }, [ledger, profile.rate]);
+  const insights = useMemo(
+    () => guideSmartInsights({ name, gender: profile.gender, profile, remaining }),
+    [name, profile, remaining]
+  );
 
   const hero = (
     <View style={styles.hero}>
@@ -43,6 +55,7 @@ export default function GuideScreen() {
           `${name}, תעברי צעד־צעד. אם משהו לא ברור — תפתחי אותי בצ'אט ונפרק את זה יחד.`
         )}
       />
+      <SmartInsights items={insights} />
       <SectionHeader title="מפת החזר מס" />
       <View style={styles.map}>
         {TAX_GUIDE_STEPS.map((step, i) => {
