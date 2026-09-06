@@ -183,22 +183,24 @@ export default function SettingsScreen() {
 
       <Banner light text={`${BOT_NAME} תמיד מחשב מהנטו — פחות כאב ראש`} tone="ok" />
 
-      <PrimaryButton
-        label="תפריט נגישות ✦"
-        onPress={() => {
-          showWidget();
-          openPanel();
-        }}
-      />
+      <View style={styles.actions}>
+        <PrimaryButton
+          label="תפריט נגישות ✦"
+          onPress={() => {
+            showWidget();
+            openPanel();
+          }}
+        />
 
-      <PrimaryButton
-        label={saved ? 'נשמר ✓' : 'שמור הגדרות'}
-        onPress={() => {
-          setSaved(true);
-          toast.success('ההגדרות נשמרו ✦');
-          setTimeout(() => setSaved(false), 1400);
-        }}
-      />
+        <PrimaryButton
+          label={saved ? 'נשמר ✓' : 'שמור הגדרות'}
+          onPress={() => {
+            setSaved(true);
+            toast.success('ההגדרות נשמרו ✦');
+            setTimeout(() => setSaved(false), 1400);
+          }}
+        />
+      </View>
 
       <Pressable
         style={styles.resetWrap}
@@ -343,8 +345,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
     alignItems: 'center',
   },
+  actions: {
+    marginBottom: spacing.sm,
+  },
   resetWrap: {
-    marginTop: spacing.lg,
+    marginTop: spacing.md,
     marginBottom: spacing.md,
     padding: spacing.md,
     borderRadius: radii.lg,

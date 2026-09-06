@@ -312,6 +312,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.22)',
+    marginBottom: spacing.md,
   },
   primaryBtnText: {
     ...type.button,
