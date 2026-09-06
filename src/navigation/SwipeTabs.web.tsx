@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,11 +6,10 @@ import {
   Pressable,
   Platform,
   ScrollView,
-  useWindowDimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  LayoutChangeEvent,
 } from 'react-native';
-import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../components/Icon';
 import { colors, fonts } from '../theme';
@@ -29,59 +28,112 @@ const TABS = [
   { key: 'Settings', title: 'הגדרות', icon: 'settings', iconOut: 'settings-outline', Screen: SettingsScreen },
 ] as const;
 
-/** Web: ScrollView עם paging — בלי react-native-pager-view (native-only) */
+/**
+ * Web: pager ב־LTR (מתמטיקה יציבה) + טאב־בר RTL.
+ * בלי direction:rtl על ה־ScrollView — אחרת scrollTo/החלקה נשברים.
+ */
 export function SwipeTabs() {
   const scrollRef = useRef<ScrollView>(null);
   const [index, setIndex] = useState(0);
+  const [pageWidth, setPageWidth] = useState(0);
+  const indexRef = useRef(0);
   const insets = useSafeAreaInsets();
-  const { width } = useWindowDimensions();
-  const pageWidth = Math.min(width, 480);
   const bottom = (Platform.OS === 'ios' ? 22 : 12) + Math.max(insets.bottom - 8, 0);
 
-  const onScrollEnd = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      const x = e.nativeEvent.contentOffset.x;
-      const i = Math.round(x / pageWidth);
-      if (i >= 0 && i < TABS.length) setIndex(i);
+  useEffect(() => {
+    indexRef.current = index;
+  }, [index]);
+
+  const onRootLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      const w = Math.round(e.nativeEvent.layout.width);
+      if (w <= 0) return;
+      if (Math.abs(w - pageWidth) < 1) return;
+      setPageWidth(w);
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({
+          x: indexRef.current * w,
+          y: 0,
+          animated: false,
+        });
+      });
     },
     [pageWidth]
   );
 
+  const syncIndexFromOffset = useCallback(
+    (x: number) => {
+      if (pageWidth <= 0) return;
+      const i = Math.round(x / pageWidth);
+      const next = Math.max(0, Math.min(TABS.length - 1, i));
+      if (next !== indexRef.current) {
+        indexRef.current = next;
+        setIndex(next);
+      }
+    },
+    [pageWidth]
+  );
+
+  const onScrollEnd = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      syncIndexFromOffset(e.nativeEvent.contentOffset.x);
+    },
+    [syncIndexFromOffset]
+  );
+
   const goTo = useCallback(
     (i: number) => {
+      if (i < 0 || i >= TABS.length) return;
+      indexRef.current = i;
       setIndex(i);
-      scrollRef.current?.scrollTo({ x: i * pageWidth, animated: true });
+      if (pageWidth <= 0) return;
+      // web לפעמים צריך tick אחרי setState
+      requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ x: i * pageWidth, y: 0, animated: true });
+      });
     },
     [pageWidth]
   );
 
   return (
-    <View style={[styles.root, DIR]}>
+    <View style={styles.root} onLayout={onRootLayout}>
       <ScrollView
         ref={scrollRef}
         horizontal
         pagingEnabled
         nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
         showsHorizontalScrollIndicator={false}
         bounces={false}
         decelerationRate="fast"
+        disableIntervalMomentum
         onMomentumScrollEnd={onScrollEnd}
         onScrollEndDrag={onScrollEnd}
-        style={styles.pager}
-        contentContainerStyle={{ width: pageWidth * TABS.length }}
+        scrollEventThrottle={16}
+        style={[styles.pager, styles.pagerLtr]}
+        contentContainerStyle={
+          pageWidth > 0
+            ? { width: pageWidth * TABS.length, flexDirection: 'row' }
+            : { flexDirection: 'row' }
+        }
       >
         {TABS.map(({ key, Screen }) => (
-          <View key={key} style={[styles.page, { width: pageWidth }]}>
+          <View
+            key={key}
+            style={[styles.page, pageWidth > 0 ? { width: pageWidth } : styles.pageFlex, DIR]}
+            collapsable={false}
+          >
             <Screen />
           </View>
         ))}
       </ScrollView>
 
       <View
-        style={[styles.tabBar, { bottom, left: 12, right: 12 }]}
+        style={[styles.tabBar, DIR, { bottom, left: 12, right: 12 }]}
         accessibilityRole="tablist"
+        pointerEvents="box-none"
       >
-        <View style={styles.tabBg}>
+        <View style={styles.tabBg} pointerEvents="none">
           <View style={styles.tabTint} />
         </View>
         {TABS.map((tab, i) => {
@@ -90,11 +142,14 @@ export function SwipeTabs() {
             <Pressable
               key={tab.key}
               onPress={() => goTo(i)}
-              style={styles.tabItem}
+              style={({ pressed }) => [
+                styles.tabItem,
+                pressed && styles.tabPressed,
+              ]}
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
               accessibilityLabel={tab.title}
-              hitSlop={6}
+              hitSlop={8}
             >
               <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>
                 <Icon
@@ -118,9 +173,14 @@ export function SwipeTabs() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, width: '100%', maxWidth: '100%' },
+  root: { flex: 1, width: '100%', maxWidth: '100%', overflow: 'hidden' },
   pager: { flex: 1, width: '100%' },
-  page: { flex: 1 },
+  /** קריטי ל־web: בלי זה RTL הורס paging + scrollTo */
+  pagerLtr: {
+    direction: 'ltr',
+  },
+  page: { flex: 1, height: '100%', overflow: 'hidden' },
+  pageFlex: { flex: 1 },
   tabBar: {
     position: 'absolute',
     height: 64,
@@ -131,10 +191,11 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 8,
     paddingHorizontal: 4,
-    zIndex: 40,
+    zIndex: 100,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.glassBorder,
+    elevation: 12,
   },
   tabBg: {
     ...StyleSheet.absoluteFill,
@@ -143,16 +204,18 @@ const styles = StyleSheet.create({
   },
   tabTint: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(12, 16, 32, 0.88)',
+    backgroundColor: 'rgba(12, 16, 32, 0.92)',
     borderRadius: 28,
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 52,
     gap: 2,
+    zIndex: 2,
   },
+  tabPressed: { opacity: 0.75 },
   tabIconWrap: {
     paddingHorizontal: 10,
     paddingVertical: 4,

@@ -425,7 +425,8 @@ export function AccessibilityWidget() {
     return () => window.removeEventListener('keydown', onKey);
   }, [settings.panelOpen, settings.widgetHidden, a11y]);
 
-  const fabBottom = 16 + Math.max(insets.bottom, 8);
+  const fabBottom =
+    (Platform.OS === 'ios' ? 22 : 12) + 64 + Math.max(insets.bottom - 8, 0) + 10;
   const activeCount = [
     settings.contrast !== 'off',
     settings.saturation !== 'off',

@@ -27,7 +27,8 @@ const TABS = [
 ] as const;
 
 /**
- * טאבים עם החלקה ימינה/שמאלה (Pager) — RTL מלא, מובייל־פירסט.
+ * Native: PagerView ב־LTR (setPage יציב) + תוכן/טאבים RTL.
+ * החלקה ימינה/שמאלה מחליפה מסכים; לחיצה על טאב קוראת setPage.
  */
 export function SwipeTabs() {
   const pagerRef = useRef<PagerView>(null);
@@ -40,39 +41,38 @@ export function SwipeTabs() {
   }, []);
 
   const goTo = useCallback((i: number) => {
+    if (i < 0 || i >= TABS.length) return;
     setIndex(i);
-    pagerRef.current?.setPage(i);
+    // setPage אחרי frame — לפעמים ה־ref עדיין לא מוכן אחרי לחיצה מהירה
+    requestAnimationFrame(() => {
+      pagerRef.current?.setPage(i);
+    });
   }, []);
 
   return (
-    <View style={[styles.root, DIR]}>
+    <View style={styles.root}>
       <PagerView
         ref={pagerRef}
         style={styles.pager}
         initialPage={0}
         onPageSelected={onPageSelected}
-        layoutDirection="rtl"
+        layoutDirection="ltr"
         overdrag
+        offscreenPageLimit={1}
       >
         {TABS.map(({ key, Screen }) => (
-          <View key={key} style={styles.page} collapsable={false}>
+          <View key={key} style={[styles.page, DIR]} collapsable={false}>
             <Screen />
           </View>
         ))}
       </PagerView>
 
       <View
-        style={[
-          styles.tabBar,
-          {
-            bottom,
-            left: 12,
-            right: 12,
-          },
-        ]}
+        style={[styles.tabBar, DIR, { bottom, left: 12, right: 12 }]}
         accessibilityRole="tablist"
+        pointerEvents="box-none"
       >
-        <View style={styles.tabBg}>
+        <View style={styles.tabBg} pointerEvents="none">
           {Platform.OS !== 'web' ? (
             <BlurView
               intensity={Platform.OS === 'ios' ? 70 : 40}
@@ -88,11 +88,11 @@ export function SwipeTabs() {
             <Pressable
               key={tab.key}
               onPress={() => goTo(i)}
-              style={styles.tabItem}
+              style={({ pressed }) => [styles.tabItem, pressed && styles.tabPressed]}
               accessibilityRole="tab"
               accessibilityState={{ selected: focused }}
               accessibilityLabel={tab.title}
-              hitSlop={6}
+              hitSlop={8}
             >
               <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>
                 <Icon
@@ -129,10 +129,11 @@ const styles = StyleSheet.create({
     paddingTop: 6,
     paddingBottom: 8,
     paddingHorizontal: 4,
-    zIndex: 40,
+    zIndex: 100,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.glassBorder,
+    elevation: 12,
   },
   tabBg: {
     ...StyleSheet.absoluteFill,
@@ -148,9 +149,11 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    minHeight: 52,
     gap: 2,
+    zIndex: 2,
   },
+  tabPressed: { opacity: 0.75 },
   tabIconWrap: {
     paddingHorizontal: 10,
     paddingVertical: 4,
