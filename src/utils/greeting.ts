@@ -436,7 +436,7 @@ export function getSmartGreeting(input: GreetingInput | Date = new Date()): Gree
   const shabbat = shabbatBlock(now, name, g);
   if (shabbat) return shabbat;
 
-  // בראשון אחרי הצהריים — עדיין נועם של «שבוע טוב» כהערה
+  // בראשון אחרי הצהריים — עדיין נועם של שבוע טוב כהערה
   const tod = timeOfDay(now);
   const sundayAfterNoon = now.getDay() === 0 && minutesOfDay(now) >= 12 * 60;
   return {

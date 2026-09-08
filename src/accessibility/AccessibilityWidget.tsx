@@ -373,13 +373,14 @@ const STATEMENT = `הצהרת נגישות — מעשר ישר
 מה כלול בתוסף הנגישות:
 • פרופילי נגישות מוכנים (ראייה, מוטוריקה, דיסלקציה, קשב, אפילפסיה ועוד)
 • התאמות ניגודיות, רוויה וצבעים מותאמים
-• שליטה מדויקת בגודל טקסט וריווחים
-• הדגשת קישורים, כותרות, פוקוס ואלמנטים
+• שליטה מדויקת בגודל טקסט וריווחים — עם תצוגה חיה
+• יישור טקסט, הדגשה, קו תחתון לקישורים וריווח ממשק
+• הדגשת קישורים, כותרות, פוקוס, מעבר עכבר ואלמנטים
 • מדריך קריאה, מסכת מיקוד ומבנה עמוד
-• עצירת אנימציות והפחתת תנועה
+• עצירת אנימציות, הפחתת תנועה והפחתת שקיפות
 • סמן מוגדל, כפתורים גדולים וניווט מקלדת
-• קריאת טקסט (TTS) בעברית
-• הסתרה ושחזור של תפריט הנגישות
+• קריאת טקסט (TTS) בעברית + לחיצה להקראה
+• רמזי קורא מסך והסתרה/שחזור של תפריט הנגישות
 
 קיצורי מקלדת (Web):
 • Alt + A — פתיחה / סגירה
@@ -393,7 +394,7 @@ export function AccessibilityWidget() {
   const a11y = useA11y();
   const { settings } = a11y;
   const insets = useSafeAreaInsets();
-  const [openId, setOpenId] = useState<string | null>('profiles');
+  const [openId, setOpenId] = useState<string | null>('content');
   const [colorTarget, setColorTarget] = useState<'bg' | 'text' | 'headings'>('bg');
   const [statementOpen, setStatementOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -409,7 +410,13 @@ export function AccessibilityWidget() {
   };
 
   const bump = (
-    key: 'fontSize' | 'lineHeight' | 'letterSpacing' | 'wordSpacing' | 'zoomLevel',
+    key:
+      | 'fontSize'
+      | 'lineHeight'
+      | 'letterSpacing'
+      | 'wordSpacing'
+      | 'zoomLevel'
+      | 'contentSpacing',
     delta: number
   ) => {
     const cur = settings[key] as number;
@@ -418,6 +425,12 @@ export function AccessibilityWidget() {
 
   const colorKey =
     colorTarget === 'bg' ? 'colorBg' : colorTarget === 'text' ? 'colorText' : 'colorHeadings';
+
+  const activeChips = listActiveChips(settings);
+  const tips = smartTips(settings);
+  const previewScale = fontScale(settings);
+  const previewLh = 1.35 + settings.lineHeight * 0.28;
+  const previewLs = settings.letterSpacing * 0.7;
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
@@ -444,36 +457,7 @@ export function AccessibilityWidget() {
 
   const fabBottom =
     (Platform.OS === 'ios' ? 22 : 12) + 64 + Math.max(insets.bottom - 8, 0) + 10;
-  const activeCount = [
-    settings.contrast !== 'off',
-    settings.saturation !== 'off',
-    settings.highlightLinks,
-    settings.highlightHeadings,
-    settings.highlightFocus,
-    settings.highlightElements,
-    settings.fontSize > 0,
-    settings.lineHeight > 0,
-    settings.letterSpacing > 0,
-    settings.wordSpacing > 0,
-    settings.readableFont,
-    settings.dyslexiaFont,
-    settings.readingGuide,
-    settings.readingMask,
-    settings.readingMode,
-    settings.stopAnimations,
-    settings.reduceMotion,
-    settings.largeButtons,
-    settings.hideImages,
-    settings.bigCursor !== 'off',
-    settings.keyboardNav,
-    settings.textToSpeech,
-    settings.muteMedia,
-    settings.zoomLevel > 0,
-    !!settings.colorBg,
-    !!settings.colorText,
-    !!settings.colorHeadings,
-    settings.profile !== 'none',
-  ].filter(Boolean).length;
+  const activeCount = activeChips.length;
 
   const contrastTiles: { id: ContrastMode; label: string; icon: string; hint: string }[] = [
     { id: 'high', label: 'ניגודיות גבוהה', icon: '◐', hint: 'חיזוק ניגודיות' },
@@ -576,6 +560,41 @@ export function AccessibilityWidget() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+          {activeChips.length > 0 ? (
+            <View style={styles.activeStrip}>
+              <Text style={styles.activeStripTitle}>התאמות פעילות — הקשה לביטול</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.activeChipsRow}
+              >
+                {activeChips.map((chip) => (
+                  <Pressable
+                    key={chip.id}
+                    onPress={() => {
+                      if (chip.id === 'profile') a11y.setProfile('none');
+                      else a11y.patch(chip.clear);
+                    }}
+                    style={styles.activeChip}
+                    accessibilityLabel={`בטל ${chip.label}`}
+                  >
+                    <Text style={styles.activeChipTxt}>× {chip.label}</Text>
+                  </Pressable>
+                ))}
+              </ScrollView>
+            </View>
+          ) : null}
+
+          {tips.length > 0 ? (
+            <View style={styles.tipCard}>
+              {tips.map((tip, i) => (
+                <Text key={i} style={styles.tipTxt}>
+                  ✦ {tip}
+                </Text>
+              ))}
+            </View>
+          ) : null}
+
           <AccordionSection
             id="profiles"
             title="פרופילי נגישות"
@@ -675,6 +694,30 @@ export function AccessibilityWidget() {
             open={openId === 'content'}
             onToggle={toggleSec}
           >
+            <View style={styles.previewCard} accessibilityLabel="תצוגה מקדימה של הטקסט">
+              <Text style={styles.previewLabel}>תצוגה חיה</Text>
+              <Text
+                style={[
+                  styles.previewSample,
+                  {
+                    fontSize: Math.round(15 * previewScale),
+                    lineHeight: Math.round(15 * previewScale * previewLh),
+                    letterSpacing: previewLs,
+                    fontWeight: settings.boldText ? '700' : '400',
+                    textAlign: settings.textAlign === 2 ? 'center' : 'left',
+                  },
+                ]}
+              >
+                שלום! כך ייראה הטקסט באפליקציה. מעשר ישר מתאים את עצמו אליכם.
+              </Text>
+              <Text style={styles.previewMeta}>
+                גודל ×{previewScale.toFixed(2)}
+                {settings.fontSize > 0 || settings.zoomLevel > 0
+                  ? ' · חל על כל המסך'
+                  : ''}
+              </Text>
+            </View>
+
             <Segmented
               value={metricTab}
               onChange={(id) => setMetricTab(id as typeof metricTab)}
@@ -700,6 +743,38 @@ export function AccessibilityWidget() {
               onInc={() => bump('zoomLevel', 1)}
               onReset={() => a11y.setSetting('zoomLevel', 0)}
             />
+            <Stepper
+              label="ריווח ממשק"
+              value={settings.contentSpacing}
+              onDec={() => bump('contentSpacing', -1)}
+              onInc={() => bump('contentSpacing', 1)}
+              onReset={() => a11y.setSetting('contentSpacing', 0)}
+            />
+
+            <Text style={[styles.groupLabel, { marginTop: 6 }]}>יישור טקסט</Text>
+            <Segmented
+              value={String(settings.textAlign)}
+              onChange={(id) =>
+                a11y.setSetting('textAlign', Number(id) as 0 | 1 | 2)
+              }
+              options={TEXT_ALIGN_OPTIONS.map((o) => ({
+                id: String(o.id),
+                label: o.label,
+              }))}
+            />
+
+            <Text style={[styles.groupLabel, { marginTop: 10 }]}>קצב הקראה</Text>
+            <Segmented
+              value={String(settings.speechRate)}
+              onChange={(id) =>
+                a11y.setSetting('speechRate', Number(id) as 0 | 1 | 2)
+              }
+              options={SPEECH_RATE_LABELS.map((label, i) => ({
+                id: String(i),
+                label,
+              }))}
+            />
+
             <View style={[styles.grid3, { marginTop: 8 }]}>
               <Tile
                 label="גופן קריא"
@@ -714,6 +789,20 @@ export function AccessibilityWidget() {
                 hint="ריווח מוגבר"
                 active={settings.dyslexiaFont}
                 onPress={() => a11y.toggle('dyslexiaFont')}
+              />
+              <Tile
+                label="טקסט מודגש"
+                icon="𝐁"
+                hint="משקל כבד"
+                active={settings.boldText}
+                onPress={() => a11y.toggle('boldText')}
+              />
+              <Tile
+                label="קו לקישורים"
+                icon="̲"
+                hint="הדגשת קישורים"
+                active={settings.underlineLinks}
+                onPress={() => a11y.toggle('underlineLinks')}
               />
               <Tile
                 label="מצב קריאה"
@@ -745,17 +834,35 @@ export function AccessibilityWidget() {
                   const next = !settings.textToSpeech;
                   a11y.setSetting('textToSpeech', next);
                   if (next) {
-                    a11y.speak('קורא הטקסט הופעל');
-                  } else a11y.stopSpeak();
+                    a11y.speak('קורא הטקסט הופעל', true);
+                  } else {
+                    a11y.stopSpeak();
+                    if (settings.clickToSpeak) a11y.setSetting('clickToSpeak', false);
+                  }
+                }}
+              />
+              <Tile
+                label="לחיצה=הקראה"
+                icon="☝"
+                hint="לחיצה על טקסט"
+                active={settings.clickToSpeak}
+                onPress={() => {
+                  const next = !settings.clickToSpeak;
+                  a11y.setSetting('clickToSpeak', next);
+                  if (next && !settings.textToSpeech) {
+                    a11y.setSetting('textToSpeech', true);
+                  }
+                  if (next) a11y.speak('לחיצה להקראה הופעלה', true);
                 }}
               />
             </View>
-            {settings.textToSpeech ? (
+            {settings.textToSpeech || settings.clickToSpeak ? (
               <Pressable
                 style={styles.ttsBar}
                 onPress={() =>
                   a11y.speak(
-                    'שלום. זהו קורא הטקסט של מעשר ישר. אפשר להפעיל התאמות נגישות מהתפריט.'
+                    'שלום. זהו קורא הטקסט של מעשר ישר. אפשר להפעיל התאמות נגישות מהתפריט.',
+                    true
                   )
                 }
                 accessibilityLabel="הקרא הודעת בדיקה"
@@ -794,6 +901,13 @@ export function AccessibilityWidget() {
                 hint="כפתורים ושדות"
                 active={settings.highlightElements}
                 onPress={() => a11y.toggle('highlightElements')}
+              />
+              <Tile
+                label="הדגשת מעבר"
+                icon="◌"
+                hint="hover מודגש"
+                active={settings.highlightHover}
+                onPress={() => a11y.toggle('highlightHover')}
               />
               <Tile
                 label="מבנה העמוד"
@@ -867,6 +981,13 @@ export function AccessibilityWidget() {
                 hint="פחות עומס חזותי"
                 active={settings.hideImages}
                 onPress={() => a11y.toggle('hideImages')}
+              />
+              <Tile
+                label="פחות שקיפות"
+                icon="▣"
+                hint="רקעים אטומים"
+                active={settings.lowTransparency}
+                onPress={() => a11y.toggle('lowTransparency')}
               />
               <Tile
                 label="כפתורים גדולים"
@@ -1024,7 +1145,7 @@ export function AccessibilityWidget() {
       <DocModal
         visible={shortcutsOpen}
         title="מקשי קיצור"
-        body={`Alt + A — פתיחה / סגירה של תפריט הנגישות\nEscape — סגירת התפריט\nAlt + R — איפוס כל ההתאמות\nAlt + H — הסתרה / הצגה של כפתור הנגישות\n\nבמובייל: כפתור הנגישות הצף. להסתרה — «הסתר תפריט», לשחזור — פס התחתון או הגדרות.`}
+        body={`Alt + A — פתיחה / סגירה של תפריט הנגישות\nEscape — סגירת התפריט\nAlt + R — איפוס כל ההתאמות\nAlt + H — הסתרה / הצגה של כפתור הנגישות\n\nבמובייל: כפתור הנגישות הצף. להסתרה — הסתר תפריט, לשחזור — פס התחתון או הגדרות.`}
         onClose={() => setShortcutsOpen(false)}
         bottomInset={insets.bottom}
       />
@@ -1035,6 +1156,8 @@ export function AccessibilityWidget() {
     <>
       <ReadingGuideOverlay />
       <ReadingMaskOverlay />
+      <ClickToSpeakOverlay />
+      <ScreenReaderHintsOverlay />
       <PageStructureModal />
 
       {settings.widgetHidden ? null : (
@@ -1212,6 +1335,85 @@ const styles = StyleSheet.create({
   },
   scroll: { flex: 1 },
   scrollContent: { padding: 12, paddingBottom: 22, gap: 12 },
+  activeStrip: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
+    gap: 8,
+  },
+  activeStripTitle: {
+    fontFamily: fonts.semi,
+    fontSize: 11,
+    color: colors.gold,
+    textAlign: 'left',
+    writingDirection: 'rtl',
+  },
+  activeChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingEnd: 4,
+  },
+  activeChip: {
+    backgroundColor: colors.surface,
+    borderRadius: radii.pill,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+  },
+  activeChipTxt: {
+    fontFamily: fonts.semi,
+    fontSize: 11,
+    color: colors.inkMuted,
+  },
+  tipCard: {
+    backgroundColor: 'rgba(240,198,116,0.12)',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.glassGoldBorder,
+    padding: 12,
+    gap: 6,
+  },
+  tipTxt: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    lineHeight: 18,
+    color: colors.inkMuted,
+    textAlign: 'left',
+    writingDirection: 'rtl',
+  },
+  previewCard: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    padding: 12,
+    marginBottom: 4,
+  },
+  previewLabel: {
+    fontFamily: fonts.semi,
+    fontSize: 10,
+    color: colors.gold,
+    textAlign: 'left',
+    writingDirection: 'rtl',
+    marginBottom: 6,
+  },
+  previewSample: {
+    color: colors.ink,
+    textAlign: 'left',
+    writingDirection: 'rtl',
+  },
+  previewMeta: {
+    fontFamily: fonts.regular,
+    fontSize: 10,
+    color: colors.inkSoft,
+    textAlign: 'left',
+    writingDirection: 'rtl',
+    marginTop: 8,
+  },
   glassCard: {
     borderRadius: radii.lg,
     overflow: 'hidden',

@@ -21,6 +21,7 @@ import { noamHistoryEmpty, noamHistoryHero } from '../utils/noamCompanion';
 import { NoamNudge } from '../components/NoamNudge';
 import { historySmartInsights } from '../utils/smartInsights';
 import { monthsClosedTogetherLabel, monthsLabel } from '../utils/plural';
+import { formatRelativeTime } from '../utils/relativeTime';
 import { exportHistoryCsv } from '../utils/exportCsv';
 
 export default function HistoryScreen() {
@@ -112,7 +113,7 @@ export default function HistoryScreen() {
             <View style={styles.cardHeadText}>
               <Text style={styles.cardTitle}>{e.label || formatPeriod(e.period)}</Text>
               <Text style={styles.cardMeta}>
-                {new Date(e.savedAt).toLocaleDateString('he-IL')} · {e.result.ratePercent}%
+                {formatRelativeTime(e.savedAt)} · {e.result.ratePercent}%
               </Text>
             </View>
           </View>

@@ -35,7 +35,7 @@ const TIP_COLORS = [colors.primary, colors.gold, colors.accent, colors.success];
 
 const TAX_EXPLAIN_SHORT = `יחיד: זיכוי 35% מתרומה למוסד עם אישור 46 (בכפוף למינימום ותקרות). חברה: 30%. הזיכוי מקזז מס ששולם — בלי מס ששולם אין החזר.`;
 
-const TAX_EXPLAIN_DETAIL = `שמרו קבלות תקינות. מ־2026 חשוב דיווח דיגיטלי של העמותה («תרומות ישראל»).
+const TAX_EXPLAIN_DETAIL = `שמרו קבלות תקינות. מ־2026 חשוב דיווח דיגיטלי של העמותה (תרומות ישראל).
 אומדן בלבד — לא ייעוץ מס.`;
 
 export default function TaxScreen() {
@@ -152,7 +152,7 @@ export default function TaxScreen() {
             <Text style={styles.missingText}>
               {!hasDonations
                 ? 'הזינו סה״כ תרומות כדי לראות אומדן זיכוי — בלי זה לא מציגים 0 מטעה.'
-                : 'הזינו הכנסה חייבת, או בחרו «לא בטוח» אם אין לכם את המספר.'}
+                : 'הזינו הכנסה חייבת, או בחרו לא בטוח אם אין לכם את המספר.'}
             </Text>
           </Glass>
         ) : result.eligible ? (

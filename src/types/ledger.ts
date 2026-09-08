@@ -1,6 +1,6 @@
 export type LedgerKind = 'income' | 'expense' | 'tzedaka';
 
-/** expense: מוריד מבסיס המעשר | tzedaka: נספר כ«כבר ניתן» | income: מוסיף לבסיס */
+/** expense: מוריד מבסיס המעשר | tzedaka: נספר ככבר ניתן | income: מוסיף לבסיס */
 export interface LedgerEntry {
   id: string;
   period: string; // YYYY-MM

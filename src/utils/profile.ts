@@ -13,7 +13,7 @@ export interface UserProfile {
   rate: MaaserRate;
   hasSalary: boolean;
   hasBusiness: boolean;
-  /** ISO — לתצוגת «ימי מסע» */
+  /** ISO — לתצוגת ימי מסע */
   joinedAt?: string;
 }
 

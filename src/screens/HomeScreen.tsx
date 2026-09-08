@@ -38,6 +38,7 @@ import { homeSmartInsights } from '../utils/smartInsights';
 import type { SmartInsight } from '../utils/smartInsights';
 import { EXPLAIN } from '../utils/chatScript';
 import { daysLabel, entriesLabel } from '../utils/plural';
+import { formatRelativeTime } from '../utils/relativeTime';
 
 const BASE_EXPLAIN_SHORT = `בסיס המעשר כאן = הכנסות שרשמת פחות הוצאות מותרות (מס / ביטוח / בריאות / הוצאות עסק).
 לא מנכים הוצאות מחיה (שכירות, אוכל וכו'). צדקה לא מורידה מהבסיס — רק נספרת מול החובה.`;
@@ -382,10 +383,7 @@ function LedgerRow({
       : 'rgba(240, 168, 184, 0.12)';
   const kindLabel = isIn ? 'הכנסה' : isTz ? 'צדקה' : 'ניכוי';
   const sign = isIn ? '+' : '−';
-  const time = new Date(entry.createdAt).toLocaleDateString('he-IL', {
-    day: 'numeric',
-    month: 'short',
-  });
+  const time = formatRelativeTime(entry.createdAt);
 
   return (
     <Pressable

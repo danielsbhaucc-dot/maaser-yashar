@@ -280,11 +280,12 @@ function buildWebCss(s: A11ySettings): string {
     parts.push(`#root { -webkit-user-select: text; user-select: text; }`);
   }
 
-  /* הווידג'ט עצמו תמיד מעל ובלי פילטרים / זום */
+  /* הווידג'ט עצמו תמיד מעל ובלי פילטרים; zoom הפוך מבטל זום של #root */
+  const inv = z > 1.001 ? 1 / z : 1;
   parts.push(`
     #maaser-a11y-root {
       filter: none !important;
-      zoom: 1 !important;
+      zoom: ${inv} !important;
       transform: none !important;
       font-size: 16px !important;
       font-family: Heebo, Assistant, Arial, sans-serif !important;
@@ -474,9 +475,6 @@ export function listActiveChips(s: A11ySettings): ActiveChip[] {
 /** טיפים חכמים לפי מצב נוכחי */
 export function smartTips(s: A11ySettings): string[] {
   const tips: string[] = [];
-  if (s.contrast === 'invert' && (s.contrast as string) === 'dark') {
-    /* unreachable guard */
-  }
   if (s.fontSize === 0 && s.zoomLevel === 0 && s.profile === 'none') {
     tips.push('טיפ: הגדילו גודל טקסט אם קשה לקרוא — השינוי חל מיד על כל המסך.');
   }
@@ -487,7 +485,7 @@ export function smartTips(s: A11ySettings): string[] {
     tips.push('מדריך קריאה ומסכת מיקוד פעילים יחד — אפשר להשאיר רק אחד לנוחות.');
   }
   if (s.textToSpeech && !s.clickToSpeak) {
-    tips.push('הפעילו «לחיצה להקראה» כדי לקרוא כל טקסט במסך בלחיצה.');
+    tips.push('הפעילו לחיצה להקראה כדי לקרוא כל טקסט במסך בלחיצה.');
   }
   if (s.bigCursor !== 'off' && Platform.OS !== 'web') {
     tips.push('סמן מוגדל זמין בעיקר בדפדפן / מחשב.');
@@ -496,7 +494,7 @@ export function smartTips(s: A11ySettings): string[] {
     tips.push('לדיסלקציה מומלץ גם ריווח אותיות מוגדל.');
   }
   if (s.largeButtons && s.contentSpacing === 0) {
-    tips.push('אפשר להוסיף «ריווח ממשק» ליעדי מגע נוחים יותר.');
+    tips.push('אפשר להוסיף ריווח ממשק ליעדי מגע נוחים יותר.');
   }
   return tips.slice(0, 2);
 }

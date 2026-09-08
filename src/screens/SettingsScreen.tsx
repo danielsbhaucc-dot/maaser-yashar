@@ -50,7 +50,7 @@ export default function SettingsScreen() {
     ledger,
   } = useApp();
   const toast = useToast();
-  const { openPanel, settings, toggle } = useA11y();
+  const { openPanel, settings, toggle, cycleMetric } = useA11y();
   const [saved, setSaved] = React.useState(false);
   const initial = (profile.displayName?.trim()?.[0] || 'מ').toUpperCase();
   const ratePct = Math.round(profile.rate * 100);
@@ -82,9 +82,19 @@ export default function SettingsScreen() {
       <Glass light strong style={styles.a11yTop}>
         <FieldLabel>נגישות</FieldLabel>
         <Text style={styles.a11yHint}>
-          ניגודיות, טקסט מוגדל, סמן ועוד — בלי כפתור צף שמסתיר תוכן.
+          ניגודיות, טקסט מוגדל, סמן ועוד — נשמר במכשיר. גודל הטקסט חל מיד על כל המסך.
         </Text>
         <SegmentedRow>
+          <Chip
+            fill
+            label={
+              settings.fontSize > 0
+                ? `טקסט ×${(1 + settings.fontSize * 0.16).toFixed(1)}`
+                : 'הגדל טקסט'
+            }
+            selected={settings.fontSize > 0}
+            onPress={() => cycleMetric('fontSize')}
+          />
           <Chip
             fill
             label={settings.stopAnimations ? 'אנימציות כבויות' : 'כיבוי אנימציות'}

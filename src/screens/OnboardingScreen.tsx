@@ -668,7 +668,7 @@ export default function OnboardingScreen() {
                   onChangeText={setDraft}
                   placeholder={
                     step === 0
-                      ? 'שם פרטי, שאלה, או «בלי שם»…'
+                      ? 'שם פרטי, שאלה, או בלי שם…'
                       : 'שאלה לנועם…'
                   }
                   placeholderTextColor="rgba(255,255,255,0.35)"

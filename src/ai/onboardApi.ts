@@ -73,7 +73,7 @@ function looksLikeNameToken(token: string): boolean {
   return true;
 }
 
-/** חילוץ שם ממשפטים כמו «שמי דני», «קוראים לי מיכאל», «אני נועה» */
+/** חילוץ שם ממשפטים כמו שמי דני, קוראים לי מיכאל, אני נועה */
 function extractNameFromText(raw: string): string | null {
   const text = raw.trim();
 
@@ -121,7 +121,7 @@ function isRealQuestion(raw: string): boolean {
   const t = raw.trim();
   if (t.includes('?')) return true;
 
-  // שאלות אמיתיות — לא שמות שמתחילים ב־«מי» (מיכאל, מיכל…)
+  // שאלות אמיתיות — לא שמות שמתחילים ב־מי (מיכאל, מיכל…)
   if (
     /^(מה זה|מה המין|מה המגדר|מי אתה|מי את\b|מי זה|איך עובד|למה |האם |כמה |ספר לי|תסביר)/.test(t)
   ) {
@@ -169,7 +169,7 @@ export function localOnboardParse(text: string): OnboardResult {
     };
   }
 
-  // קודם שם — כדי ש«מיכאל» / «שמי דני» לא ייפלו לשאלות
+  // קודם שם — כדי שמיכאל / שמי דני לא ייפלו לשאלות
   const extracted = extractNameFromText(raw);
   if (extracted && !isRealQuestion(raw)) {
     return { intent: 'name', name: extracted, reply: '' };
@@ -187,7 +187,7 @@ export function localOnboardParse(text: string): OnboardResult {
     return {
       intent: 'gibberish',
       name: null,
-      reply: `רגע, זה לא נשמע לי כמו שם 😅 זרוק שם פרטי אמיתי — או תגיד במפורש «בלי שם».`,
+      reply: `רגע, זה לא נשמע לי כמו שם 😅 זרוק שם פרטי אמיתי — או תגיד במפורש בלי שם.`,
     };
   }
 
@@ -198,7 +198,7 @@ export function localOnboardParse(text: string): OnboardResult {
   return {
     intent: 'gibberish',
     name: null,
-    reply: `שם פרטי מספיק — קצר ופשוט. או «בלי שם» אם מעדיפים.`,
+    reply: `שם פרטי מספיק — קצר ופשוט. או בלי שם אם מעדיפים.`,
   };
 }
 
@@ -250,7 +250,7 @@ export function afterValidNameAi(name: string, genderJoke: string): string {
 export function skipNameContinue(g: Gender): string {
   return t(
     g,
-    `סבבה, ממשיכים בלי שם. אני אקרא לך «חבר» בינתיים — אפשר לשנות בהגדרות.\n\nעכשיו שאלה קטנה…`,
-    `סבבה, ממשיכות בלי שם. אני אקרא לך «חברה» בינתיים — אפשר לשנות בהגדרות.\n\nעכשיו שאלה קטנה…`
+    `סבבה, ממשיכים בלי שם. אני אקרא לך חבר בינתיים — אפשר לשנות בהגדרות.\n\nעכשיו שאלה קטנה…`,
+    `סבבה, ממשיכות בלי שם. אני אקרא לך חברה בינתיים — אפשר לשנות בהגדרות.\n\nעכשיו שאלה קטנה…`
   );
 }

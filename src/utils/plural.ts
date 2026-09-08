@@ -12,7 +12,7 @@ export function pluralHe(
   return forms.many;
 }
 
-/** «חודש אחד» / «חודשיים» / «N חודשים» */
+/** חודש אחד / חודשיים / N חודשים */
 export function monthsLabel(n: number): string {
   return pluralHe(n, {
     one: 'חודש אחד',
@@ -21,7 +21,7 @@ export function monthsLabel(n: number): string {
   });
 }
 
-/** «0/1 חודש מכוסה» / «2/3 חודשים מכוסים» */
+/** 0/1 חודש מכוסה / 2/3 חודשים מכוסים */
 export function monthsCoveredLabel(covered: number, total: number): string {
   return pluralHe(total, {
     one: `${covered}/1 חודש מכוסה`,
@@ -30,7 +30,7 @@ export function monthsCoveredLabel(covered: number, total: number): string {
   });
 }
 
-/** «יש חודש אחד עם יתרה» / «יש N חודשים עם יתרה» */
+/** יש חודש אחד עם יתרה / יש N חודשים עם יתרה */
 export function monthsWithBalanceLabel(n: number): string {
   return pluralHe(n, {
     one: 'יש חודש אחד עם יתרה',
@@ -39,7 +39,7 @@ export function monthsWithBalanceLabel(n: number): string {
   });
 }
 
-/** «חודש אחד שסגרנו יחד» / «N חודשים שסגרנו יחד» */
+/** חודש אחד שסגרנו יחד / N חודשים שסגרנו יחד */
 export function monthsClosedTogetherLabel(n: number, verb: 'סגרנו' | 'שמרנו' = 'סגרנו'): string {
   return pluralHe(n, {
     one: `חודש אחד ש${verb} יחד`,
@@ -48,7 +48,7 @@ export function monthsClosedTogetherLabel(n: number, verb: 'סגרנו' | 'שמ�
   });
 }
 
-/** «יום אחד» / «יומיים» / «N ימים» */
+/** יום אחד / יומיים / N ימים */
 export function daysLabel(n: number): string {
   return pluralHe(n, {
     one: 'יום אחד',
@@ -57,7 +57,7 @@ export function daysLabel(n: number): string {
   });
 }
 
-/** «עוד יום אחד בחודש» / «עוד N ימים בחודש» */
+/** עוד יום אחד בחודש / עוד N ימים בחודש */
 export function daysLeftInMonthLabel(n: number): string {
   return pluralHe(n, {
     one: 'עוד יום אחד בחודש',
@@ -66,7 +66,7 @@ export function daysLeftInMonthLabel(n: number): string {
   });
 }
 
-/** «נגמר בעוד יום אחד» / «נגמר בעוד N ימים» */
+/** נגמר בעוד יום אחד / נגמר בעוד N ימים */
 export function endsInDaysLabel(n: number): string {
   return pluralHe(n, {
     one: 'נגמר בעוד יום אחד',
@@ -75,7 +75,7 @@ export function endsInDaysLabel(n: number): string {
   });
 }
 
-/** «תנועה אחת» / «שתי תנועות» / «N תנועות» */
+/** תנועה אחת / שתי תנועות / N תנועות */
 export function entriesLabel(n: number): string {
   return pluralHe(n, {
     one: 'תנועה אחת',
