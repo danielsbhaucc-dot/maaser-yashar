@@ -11,12 +11,13 @@ import {
   Platform,
   Animated,
   Easing,
-  ActivityIndicator,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassCloseButton } from './Glass';
+import { InlineLoader } from './LoadingScreen';
+import { useMotionEnabled } from '../hooks/useMotionEnabled';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { BOT_NAME, t } from '../utils/copy';
@@ -37,7 +38,10 @@ import {
   type ProposedEntry,
 } from '../ai/noam';
 import { noamChatWelcome } from '../utils/noamCompanion';
+import { entriesLabel } from '../utils/plural';
+import { formatRelativeTime } from '../utils/relativeTime';
 import { computeTotals, entriesForPeriod } from '../utils/ledger';
+import { RichMessageText } from './RichMessageText';
 import type { MaaserRate } from '../types';
 
 type ViewMode = 'home' | 'chat' | 'history';
@@ -59,11 +63,18 @@ function NoamAvatar({ size = 56, glow }: { size?: number; glow?: boolean }) {
 }
 
 function TypingDots() {
+  const run = useMotionEnabled();
   const a = useRef(new Animated.Value(0)).current;
   const b = useRef(new Animated.Value(0)).current;
   const c = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!run) {
+      a.setValue(0.55);
+      b.setValue(0.55);
+      c.setValue(0.55);
+      return;
+    }
     const bounce = (v: Animated.Value, delay: number) =>
       Animated.loop(
         Animated.sequence([
@@ -84,7 +95,7 @@ function TypingDots() {
       l2.stop();
       l3.stop();
     };
-  }, [a, b, c]);
+  }, [a, b, c, run]);
 
   const lift = (v: Animated.Value) => ({
     transform: [
@@ -127,6 +138,7 @@ export default function NoamChat() {
   const launcherPulse = useRef(new Animated.Value(1)).current;
   const threadsRef = useRef<ChatThread[]>(threads);
   const sendingRef = useRef(false);
+  const motionOk = useMotionEnabled();
 
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
   const active = useMemo(
@@ -148,6 +160,10 @@ export default function NoamChat() {
   }, []);
 
   useEffect(() => {
+    if (!motionOk) {
+      launcherPulse.setValue(1);
+      return;
+    }
     const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(launcherPulse, {
@@ -166,13 +182,16 @@ export default function NoamChat() {
     );
     loop.start();
     return () => loop.stop();
-  }, [launcherPulse]);
+  }, [launcherPulse, motionOk]);
 
   useEffect(() => {
     if (!open || mode !== 'chat') return;
-    const tmr = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 80);
+    const tmr = setTimeout(
+      () => scrollRef.current?.scrollToEnd({ animated: motionOk }),
+      80
+    );
     return () => clearTimeout(tmr);
-  }, [messages, typing, pending, open, mode]);
+  }, [messages, typing, pending, open, mode, motionOk]);
 
   const persist = useCallback(async (next: ChatThread[]) => {
     threadsRef.current = next;
@@ -352,7 +371,7 @@ export default function NoamChat() {
           note: a.note || `נועם · צ'אט`,
         }))
       );
-      toast.success('נרשם בפנקס ✦', `${batch.length} תנועות`);
+      toast.success('נרשם בפנקס ✦', entriesLabel(batch.length));
       setPending([]);
       if (activeId) {
         const botMsg: ChatMessage = {
@@ -360,8 +379,8 @@ export default function NoamChat() {
           role: 'assistant',
           content: t(
             profile.gender,
-            `סגור. ${batch.length} תנועות בפנקס. רוצה שנבדוק כמה נשאר לתת?`,
-            `סגור. ${batch.length} תנועות בפנקס. רוצה שנבדוק כמה נשאר לתת?`
+            `סגור. ${entriesLabel(batch.length)} בפנקס. רוצה שנבדוק כמה נשאר לתת?`,
+            `סגור. ${entriesLabel(batch.length)} בפנקס. רוצה שנבדוק כמה נשאר לתת?`
           ),
           createdAt: new Date().toISOString(),
         };
@@ -599,14 +618,7 @@ function HistoryPane({
                 <Text style={styles.histTitle} numberOfLines={1}>
                   {th.title}
                 </Text>
-                <Text style={styles.histDate}>
-                  {new Date(th.updatedAt).toLocaleString('he-IL', {
-                    day: 'numeric',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
-                </Text>
+                <Text style={styles.histDate}>{formatRelativeTime(th.updatedAt)}</Text>
               </View>
             </Pressable>
           ))
@@ -703,7 +715,11 @@ function ChatPane({
                 </View>
               ) : null}
               <View style={[styles.bubble, isMe ? styles.bubbleMe : styles.bubbleBot]}>
-                <Text style={[styles.bubbleTxt, isMe && styles.bubbleTxtMe]}>{m.content}</Text>
+                <RichMessageText
+                  content={m.content}
+                  tone={isMe ? 'me' : 'bot'}
+                  style={isMe ? styles.bubbleTxtMe : styles.bubbleTxt}
+                />
               </View>
             </View>
           );
@@ -726,7 +742,7 @@ function ChatPane({
                 style={[styles.proposeYes, applying && { opacity: 0.6 }]}
               >
                 {applying ? (
-                  <ActivityIndicator color={colors.primaryOn} />
+                  <InlineLoader color={colors.primaryOn} size={16} label="מוסיף תנועות" />
                 ) : (
                   <Text style={styles.proposeYesTxt}>אשר והוסף</Text>
                 )}

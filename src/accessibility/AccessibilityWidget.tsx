@@ -17,14 +17,23 @@ import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useA11y } from './AccessibilityContext';
-import { A11Y_PROFILES, COLOR_SWATCHES, LEVEL_LABELS } from './profiles';
+import {
+  A11Y_PROFILES,
+  COLOR_SWATCHES,
+  LEVEL_LABELS,
+  SPEECH_RATE_LABELS,
+  TEXT_ALIGN_OPTIONS,
+} from './profiles';
 import type { ContrastMode, SaturationMode } from './types';
 import { colors, fonts, radii, shadow } from '../theme';
 import { DIR } from '../rtl';
+import { fontScale, listActiveChips, smartTips } from './effects';
 import {
   PageStructureModal,
   ReadingGuideOverlay,
   ReadingMaskOverlay,
+  ClickToSpeakOverlay,
+  ScreenReaderHintsOverlay,
 } from './Overlays';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -195,15 +204,21 @@ function AccordionSection({
   children: React.ReactNode;
 }) {
   const rot = useRef(new Animated.Value(open ? 1 : 0)).current;
+  const { settings } = useA11y();
+  const motionOk = !settings.stopAnimations && !settings.reduceMotion;
 
   useEffect(() => {
+    if (!motionOk) {
+      rot.setValue(open ? 1 : 0);
+      return;
+    }
     Animated.timing(rot, {
       toValue: open ? 1 : 0,
       duration: 260,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-  }, [open, rot]);
+  }, [open, rot, motionOk]);
 
   const spin = rot.interpolate({
     inputRange: [0, 1],
@@ -387,7 +402,9 @@ export function AccessibilityWidget() {
   >('fontSize');
 
   const toggleSec = (id: string) => {
-    LayoutAnimation.configureNext(animConfig);
+    if (!settings.stopAnimations && !settings.reduceMotion) {
+      LayoutAnimation.configureNext(animConfig);
+    }
     setOpenId((cur) => (cur === id ? null : id));
   };
 
@@ -826,14 +843,14 @@ export function AccessibilityWidget() {
               <Tile
                 label="הפחתת תנועה"
                 icon="〰"
-                hint="פחות אנימציה"
+                hint="פחות תזוזה"
                 active={settings.reduceMotion}
                 onPress={() => a11y.toggle('reduceMotion')}
               />
               <Tile
-                label="עצור אנימציות"
+                label="כיבוי אנימציות"
                 icon="⏸"
-                hint="ללא מעברים"
+                hint="טעינה ומעברים"
                 active={settings.stopAnimations}
                 onPress={() => a11y.toggle('stopAnimations')}
               />

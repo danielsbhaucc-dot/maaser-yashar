@@ -1,6 +1,7 @@
 import { BOT_NAME, t, type Gender } from './copy';
 import type { LedgerTotals } from '../types/ledger';
 import type { MaaserRate } from '../types';
+import { entriesLabel, monthsClosedTogetherLabel } from './plural';
 
 function money(n: number) {
   return `₪${Math.round(n).toLocaleString('he-IL')}`;
@@ -69,8 +70,8 @@ export function noamLedgerNudge(opts: {
 
   return t(
     g,
-    `${BOT_NAME} איתך. ${entryCount} תנועות החודש — רוצה שאעשה סדר בצ'אט?`,
-    `${BOT_NAME} איתך. ${entryCount} תנועות החודש — רוצה שאעשה סדר בצ'אט?`
+    `${BOT_NAME} איתך. ${entriesLabel(entryCount)} החודש — רוצה שאעשה סדר בצ'אט?`,
+    `${BOT_NAME} איתך. ${entriesLabel(entryCount)} החודש — רוצה שאעשה סדר בצ'אט?`
   );
 }
 
@@ -114,8 +115,8 @@ export function noamHistoryHero(name: string, g: Gender, count: number): string 
   }
   return t(
     g,
-    `${name}, ${count} חודשים ששמרנו יחד — כל אחד סיפור קטן של נתינה`,
-    `${name}, ${count} חודשים ששמרנו יחד — כל אחד סיפור קטן של נתינה`
+    `${name}, ${monthsClosedTogetherLabel(count, 'שמרנו')} — כל אחד סיפור קטן של נתינה`,
+    `${name}, ${monthsClosedTogetherLabel(count, 'שמרנו')} — כל אחד סיפור קטן של נתינה`
   );
 }
 

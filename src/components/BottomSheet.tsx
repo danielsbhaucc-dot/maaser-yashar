@@ -11,6 +11,7 @@ import {
   Dimensions,
   Text,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassCloseButton } from './Glass';
 import { colors, fonts, spacing, type } from '../theme';
 import { DIR } from '../rtl';
@@ -28,8 +29,10 @@ type Props = {
 
 /** מגירת iOS: ידית, גרירה למטה, איקס זכוכית */
 export function BottomSheet({ visible, onClose, title, children }: Props) {
+  const insets = useSafeAreaInsets();
   const translateY = useRef(new Animated.Value(0)).current;
   const backdrop = useRef(new Animated.Value(0)).current;
+  const safeBottom = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12) + 12;
 
   useEffect(() => {
     if (visible) {
@@ -116,7 +119,10 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
           pointerEvents="box-none"
         >
           <Animated.View
-            style={[styles.sheet, { transform: [{ translateY }] }]}
+            style={[
+              styles.sheet,
+              { transform: [{ translateY }], paddingBottom: safeBottom },
+            ]}
             {...pan.panHandlers}
             accessibilityViewIsModal
             accessibilityLabel={title || 'חלון'}
@@ -165,7 +171,6 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     borderBottomWidth: 0,
     backgroundColor: '#141B30',
-    paddingBottom: Platform.OS === 'ios' ? 28 : 16,
     maxHeight: '100%',
     ...Platform.select({
       web: {

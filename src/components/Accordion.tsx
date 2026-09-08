@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR } from '../rtl';
+import { useMotionEnabled } from '../hooks/useMotionEnabled';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -36,9 +37,12 @@ type Props = {
  */
 export function Accordion({ items, defaultOpenId = null, style }: Props) {
   const [openId, setOpenId] = useState<string | null>(defaultOpenId);
+  const motionOk = useMotionEnabled();
 
   const toggle = (id: string) => {
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    if (motionOk) {
+      LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    }
     setOpenId((cur) => (cur === id ? null : id));
   };
 

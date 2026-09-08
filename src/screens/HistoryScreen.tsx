@@ -20,6 +20,8 @@ import { BOT_NAME, t } from '../utils/copy';
 import { noamHistoryEmpty, noamHistoryHero } from '../utils/noamCompanion';
 import { NoamNudge } from '../components/NoamNudge';
 import { historySmartInsights } from '../utils/smartInsights';
+import { monthsClosedTogetherLabel, monthsLabel } from '../utils/plural';
+import { exportHistoryCsv } from '../utils/exportCsv';
 
 export default function HistoryScreen() {
   const { openAdd, profile } = useApp();
@@ -57,16 +59,28 @@ export default function HistoryScreen() {
           <NoamNudge
             text={t(
               profile.gender,
-              `${name}, יש כאן ${entries.length} חודשים שסגרנו יחד. יתרות פתוחות: ${formatMoney(totalRemaining)}.`,
-              `${name}, יש כאן ${entries.length} חודשים שסגרנו יחד. יתרות פתוחות: ${formatMoney(totalRemaining)}.`
+              `${name}, יש כאן ${monthsClosedTogetherLabel(entries.length)}. יתרות פתוחות: ${formatMoney(totalRemaining)}.`,
+              `${name}, יש כאן ${monthsClosedTogetherLabel(entries.length)}. יתרות פתוחות: ${formatMoney(totalRemaining)}.`
             )}
           />
           <SmartInsights items={insights} />
           <StatHero
             label="סה״כ יתרות לתת"
             value={formatMoney(totalRemaining)}
-            hint={`${entries.length} חודשים`}
+            hint={monthsLabel(entries.length)}
           />
+          <PrimaryButton
+            label="ייצוא CSV לרו״ח ✦"
+            onPress={async () => {
+              try {
+                await exportHistoryCsv(entries);
+                toast.success('הקובץ מוכן ✦', 'נשמר / שותף מהמכשיר');
+              } catch {
+                toast.error('הייצוא נכשל', 'נסה שוב');
+              }
+            }}
+          />
+          <View style={{ height: spacing.md }} />
         </>
       ) : (
         <Glass dark style={styles.emptyCard}>

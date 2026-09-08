@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, ScrollView, ViewStyle, StyleProp } from 'react-native';
 import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radii, spacing } from '../theme';
+import { colors, layout, radii, spacing } from '../theme';
 import { DIR } from '../rtl';
 
 type Props = {
@@ -25,22 +25,19 @@ export function Screen({
   sheet = false,
   hero,
 }: Props) {
-  const scrollBody = (
-    <ScrollView
-      style={styles.scroll}
-      contentContainerStyle={[
-        sheet ? styles.sheetContent : styles.content,
-        contentStyle,
-      ]}
-      keyboardShouldPersistTaps={keyboardShouldPersistTaps}
-      showsVerticalScrollIndicator={false}
-      showsHorizontalScrollIndicator={false}
-      bounces={false}
-      overScrollMode="never"
-      horizontal={false}
-    >
-      {children}
-    </ScrollView>
+  /**
+   * גלילת עמוד שלם: hero + כרטיס מעוגל יחד —
+   * לא ScrollView פנימי ש״כולא״ את התוכן בתוך הגיליון.
+   */
+  const page = sheet ? (
+    <View style={styles.sheetRoot}>
+      {hero ? <View style={styles.heroPad}>{hero}</View> : null}
+      <View style={styles.sheet}>
+        <View style={[styles.sheetInner, contentStyle]}>{children}</View>
+      </View>
+    </View>
+  ) : (
+    <View style={[styles.content, contentStyle]}>{children}</View>
   );
 
   return (
@@ -55,20 +52,23 @@ export function Screen({
         />
         <View style={[styles.orb, styles.orbA]} />
         <View style={[styles.orb, styles.orbB]} />
-        <View style={[styles.orb, styles.orbC]} />
       </View>
       <SafeAreaView style={styles.safe} edges={edges}>
-        {sheet ? (
-          <View style={styles.sheetRoot}>
-            {hero ? <View style={styles.heroPad}>{hero}</View> : null}
-            <View style={styles.sheet}>
-              {scroll ? scrollBody : children}
-            </View>
-          </View>
-        ) : scroll ? (
-          scrollBody
+        {scroll ? (
+          <ScrollView
+            style={styles.scroll}
+            contentContainerStyle={sheet ? styles.pageScroll : undefined}
+            keyboardShouldPersistTaps={keyboardShouldPersistTaps}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+            bounces
+            overScrollMode="never"
+            horizontal={false}
+          >
+            {page}
+          </ScrollView>
         ) : (
-          children
+          page
         )}
       </SafeAreaView>
     </View>
@@ -88,13 +88,20 @@ const styles = StyleSheet.create({
   },
   safe: { flex: 1, width: '100%' },
   scroll: { flex: 1, width: '100%' },
+  pageScroll: {
+    flexGrow: 1,
+    paddingBottom: 8,
+  },
   content: {
     padding: spacing.lg,
-    paddingBottom: 148,
+    paddingBottom: layout.contentBottomPad,
     width: '100%',
     maxWidth: '100%',
   },
-  sheetRoot: { flex: 1 },
+  sheetRoot: {
+    flexGrow: 1,
+    width: '100%',
+  },
   heroPad: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
@@ -102,11 +109,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   /**
-   * גיליון אטום מספיק + פינות עליונות גדולות.
-   * חפיפה קלה על ה-hero כדי שהקשת תיראה בלי תפר חד.
+   * גיליון אטום + פינות עליונות — גובה לפי תוכן (לא flex קשיח עם scroll פנימי).
    */
   sheet: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: colors.sheet,
     borderTopLeftRadius: radii.sheet,
     borderTopRightRadius: radii.sheet,
@@ -114,34 +120,28 @@ const styles = StyleSheet.create({
     marginTop: -8,
     borderTopWidth: 1,
     borderColor: 'rgba(255,255,255,0.14)',
+    minHeight: 320,
   },
-  sheetContent: {
+  sheetInner: {
     padding: spacing.lg,
     paddingTop: spacing.lg + 6,
-    paddingBottom: 148,
+    paddingBottom: layout.contentBottomPad,
     width: '100%',
   },
-  orb: { position: 'absolute', borderRadius: 999, opacity: 0.28 },
+  orb: { position: 'absolute', borderRadius: 999, opacity: 0.22 },
   orbA: {
-    width: 280,
-    height: 280,
-    top: -60,
-    end: -70,
+    width: 220,
+    height: 220,
+    top: -70,
+    end: -60,
     backgroundColor: colors.orbA,
   },
   orbB: {
-    width: 220,
-    height: 220,
-    bottom: 160,
-    start: -80,
+    width: 160,
+    height: 160,
+    bottom: 200,
+    start: -70,
     backgroundColor: colors.orbB,
-  },
-  orbC: {
-    width: 170,
-    height: 170,
-    top: '40%',
-    end: -50,
-    backgroundColor: colors.orbC,
-    opacity: 0.18,
+    opacity: 0.16,
   },
 });

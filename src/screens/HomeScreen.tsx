@@ -25,17 +25,22 @@ import { getSmartGreeting } from '../utils/greeting';
 import {
   noamBannerTip,
   noamEmptyLedger,
-  noamHomeHeroLine,
   noamLedgerNudge,
   noamSaveMonthToast,
 } from '../utils/noamCompanion';
 import { NoamNudge } from '../components/NoamNudge';
 import { SmartInsights } from '../components/SmartInsights';
+import { Accordion } from '../components/Accordion';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import type { LedgerEntry } from '../types/ledger';
 import { defaultMaaserInputs } from '../utils/maaserCalc';
 import { homeSmartInsights } from '../utils/smartInsights';
 import type { SmartInsight } from '../utils/smartInsights';
+import { EXPLAIN } from '../utils/chatScript';
+import { daysLabel, entriesLabel } from '../utils/plural';
+
+const BASE_EXPLAIN_SHORT = `בסיס המעשר כאן = הכנסות שרשמת פחות הוצאות מותרות (מס / ביטוח / בריאות / הוצאות עסק).
+לא מנכים הוצאות מחיה (שכירות, אוכל וכו'). צדקה לא מורידה מהבסיס — רק נספרת מול החובה.`;
 
 export default function HomeScreen() {
   const { profile, ledger, removeEntry, openAdd } = useApp();
@@ -165,25 +170,19 @@ export default function HomeScreen() {
         <Text style={styles.brandPillText}>מעשר ישר · {BOT_NAME}</Text>
       </View>
       <Text style={styles.greet}>{greet.line}</Text>
-      {greet.note ? <Text style={styles.greetNote}>{greet.note}</Text> : null}
-      <Text style={styles.heroLine}>
-        {noamHomeHeroLine(name, profile.gender)}
-        <Text style={styles.heroEm}> · צדקה וחסד</Text>
-      </Text>
       <Text style={styles.sub}>
-        עו״ש · {formatPeriod(period)} · שיעור{' '}
-        <Text style={styles.subEm}>{profile.rate * 100}%</Text>
+        {formatPeriod(period)} · {profile.rate * 100}%
+        {journeyDays != null ? ` · ${daysLabel(journeyDays)}` : ''}
       </Text>
-      {journeyDays != null ? (
-        <View style={styles.journeyPill}>
-          <Text style={styles.journeyText}>✦ {journeyDays} ימי מסע עם {BOT_NAME}</Text>
-        </View>
-      ) : null}
     </View>
   );
 
   return (
     <Screen sheet hero={hero} scroll>
+      <Banner
+        text="הנתונים נשמרים במכשיר בלבד — לא נשלחים לשרת"
+        tone="ok"
+      />
       <NoamNudge text={companionLine} />
       <SmartInsights items={insights} onAction={onInsightAction} />
 
@@ -230,23 +229,45 @@ export default function HomeScreen() {
           <ProgressRing percent={progressPct} color={colors.gold} />
         </View>
         <View style={styles.balanceGrid}>
-          <Stat label="הכנסות" value={formatMoney(totals.income)} color={colors.income} />
-          <Stat label="הוצאות" value={formatMoney(totals.expenses)} color={colors.expense} />
-          <Stat label="נטו" value={formatMoney(totals.netBase)} color={colors.accent} />
-          <Stat label="צדקה" value={formatMoney(totals.tzedaka)} color={colors.tzedaka} />
+          <Stat
+            label="הכנסות (+בסיס)"
+            value={formatMoney(totals.income)}
+            color={colors.income}
+          />
+          <Stat
+            label="ניכויים (−בסיס)"
+            value={formatMoney(totals.expenses)}
+            color={colors.expense}
+          />
+          <Stat label="בסיס נטו" value={formatMoney(totals.netBase)} color={colors.accent} />
+          <Stat label="צדקה (מול חובה)" value={formatMoney(totals.tzedaka)} color={colors.tzedaka} />
         </View>
+        <Text style={styles.baseHint}>
+          חובה = {profile.rate * 100}% × בסיס נטו · הוצאה כאן = ניכוי מהבסיס (לא מחיה)
+        </Text>
         <View style={styles.cardFooter}>
           <View style={styles.monthBadge}>
             <Text style={styles.monthBadgeText}>
-              ✦ {monthEntries.length} תנועות החודש
+              ✦ {entriesLabel(monthEntries.length)} החודש
             </Text>
           </View>
         </View>
       </Glass>
 
+      <Accordion
+        items={[
+          {
+            id: 'base',
+            question: 'מה נכנס לבסיס המעשר?',
+            answer: `${BASE_EXPLAIN_SHORT}\n\n${EXPLAIN.net}`,
+          },
+        ]}
+        style={{ marginBottom: spacing.md }}
+      />
+
       <View style={styles.actions}>
         <Action label="הכנסה" color={colors.income} onPress={() => openAdd('income')} />
-        <Action label="הוצאה" color={colors.expense} onPress={() => openAdd('expense')} />
+        <Action label="ניכוי" color={colors.expense} onPress={() => openAdd('expense')} />
         <Action label="צדקה" color={colors.tzedaka} onPress={() => openAdd('tzedaka')} primary />
       </View>
 
@@ -354,6 +375,12 @@ function LedgerRow({
   const isIn = entry.kind === 'income';
   const isTz = entry.kind === 'tzedaka';
   const color = isIn ? colors.income : isTz ? colors.tzedaka : colors.expense;
+  const softBg = isIn
+    ? 'rgba(126, 200, 227, 0.12)'
+    : isTz
+      ? 'rgba(255, 216, 138, 0.14)'
+      : 'rgba(240, 168, 184, 0.12)';
+  const kindLabel = isIn ? 'הכנסה' : isTz ? 'צדקה' : 'ניכוי';
   const sign = isIn ? '+' : '−';
   const time = new Date(entry.createdAt).toLocaleDateString('he-IL', {
     day: 'numeric',
@@ -363,14 +390,19 @@ function LedgerRow({
   return (
     <Pressable
       onLongPress={onDelete}
-      style={[styles.row, !isLast && styles.rowBorder]}
+      style={[styles.row, { backgroundColor: softBg }, !isLast && styles.rowBorder]}
       accessibilityRole="button"
-      accessibilityLabel={`${entry.category}, ${sign}${formatMoney(entry.amount)}${entry.note ? `, ${entry.note}` : ''}`}
+      accessibilityLabel={`${kindLabel}, ${entry.category}, ${sign}${formatMoney(entry.amount)}${entry.note ? `, ${entry.note}` : ''}`}
       accessibilityHint="לחיצה ארוכה למחיקה"
     >
       <View style={[styles.rowAccent, { backgroundColor: color }]} />
       <View style={styles.rowMid}>
-        <Text style={styles.rowCat}>{entry.category}</Text>
+        <View style={styles.rowKindRow}>
+          <View style={[styles.rowKindPill, { borderColor: `${color}88`, backgroundColor: `${color}22` }]}>
+            <Text style={[styles.rowKindText, { color }]}>{kindLabel}</Text>
+          </View>
+          <Text style={styles.rowCat}>{entry.category}</Text>
+        </View>
         {entry.note ? <Text style={styles.rowNote}>{entry.note}</Text> : null}
         <Text style={styles.rowDate}>{time}</Text>
       </View>
@@ -407,54 +439,16 @@ const styles = StyleSheet.create({
   },
   greet: {
     ...type.highlight,
-    fontSize: 28,
+    fontSize: 26,
     color: colors.gold,
     textAlign: 'center',
     writingDirection: 'rtl',
     marginTop: 4,
   },
-  greetNote: {
-    ...type.bodySm,
-    color: colors.inkMuted,
-    textAlign: 'center',
-    marginTop: 8,
-    paddingHorizontal: spacing.md,
-    lineHeight: 22,
-    writingDirection: 'rtl',
-  },
-  heroLine: {
-    ...type.h3,
-    color: colors.ink,
-    marginTop: 10,
-    textAlign: 'center',
-  },
-  heroEm: {
-    fontFamily: fonts.extra,
-    color: colors.accent,
-  },
   sub: {
     ...type.caption,
     color: colors.inkSoft,
-    marginTop: 8,
-    textAlign: 'center',
-  },
-  subEm: {
-    fontFamily: fonts.bold,
-    color: colors.gold,
-  },
-  journeyPill: {
-    marginTop: spacing.sm,
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    borderColor: colors.glassGoldBorder,
-    backgroundColor: 'rgba(240, 198, 116, 0.12)',
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-  },
-  journeyText: {
-    fontFamily: fonts.semi,
-    fontSize: 12,
-    color: colors.gold,
+    marginTop: 6,
     textAlign: 'center',
   },
   periodWrap: { width: '100%', marginBottom: spacing.md },
@@ -506,6 +500,14 @@ const styles = StyleSheet.create({
   balanceHintEm: {
     fontFamily: fonts.bold,
     color: colors.inkMuted,
+  },
+  baseHint: {
+    ...type.caption,
+    color: colors.inkSoft,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    lineHeight: 18,
   },
   balanceGrid: {
     flexDirection: 'row',
@@ -641,6 +643,22 @@ const styles = StyleSheet.create({
     minHeight: 28,
   },
   rowMid: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
+  rowKindRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  rowKindPill: {
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  rowKindText: {
+    fontFamily: fonts.semi,
+    fontSize: 11,
+  },
   rowCat: {
     ...type.emphasis,
     fontSize: 14,

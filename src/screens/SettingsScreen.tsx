@@ -26,6 +26,7 @@ import { NoamNudge } from '../components/NoamNudge';
 import { SmartInsights } from '../components/SmartInsights';
 import { settingsSmartInsights } from '../utils/smartInsights';
 import { kindLabel } from '../utils/recurring';
+import { exportLedgerCsv } from '../utils/exportCsv';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import type { MaaserRate } from '../types';
 
@@ -46,9 +47,10 @@ export default function SettingsScreen() {
     toggleRecurring,
     removeRecurring,
     openAdd,
+    ledger,
   } = useApp();
   const toast = useToast();
-  const { openPanel, showWidget } = useA11y();
+  const { openPanel, settings, toggle } = useA11y();
   const [saved, setSaved] = React.useState(false);
   const initial = (profile.displayName?.trim()?.[0] || 'מ').toUpperCase();
   const ratePct = Math.round(profile.rate * 100);
@@ -77,6 +79,35 @@ export default function SettingsScreen() {
 
   return (
     <Screen sheet hero={hero} scroll contentStyle={{ paddingTop: spacing.lg }}>
+      <Glass light strong style={styles.a11yTop}>
+        <FieldLabel>נגישות</FieldLabel>
+        <Text style={styles.a11yHint}>
+          ניגודיות, טקסט מוגדל, סמן ועוד — בלי כפתור צף שמסתיר תוכן.
+        </Text>
+        <SegmentedRow>
+          <Chip
+            fill
+            label={settings.stopAnimations ? 'אנימציות כבויות' : 'כיבוי אנימציות'}
+            selected={settings.stopAnimations}
+            onPress={() => toggle('stopAnimations')}
+          />
+          <Chip
+            fill
+            label={settings.reduceMotion ? 'תנועה מופחתת' : 'הפחתת תנועה'}
+            selected={settings.reduceMotion}
+            onPress={() => toggle('reduceMotion')}
+          />
+        </SegmentedRow>
+        <View style={{ height: spacing.sm }} />
+        <PrimaryButton label="פתח תפריט נגישות ✦" onPress={() => openPanel()} />
+      </Glass>
+
+      <Banner
+        light
+        text="הנתונים נשמרים במכשיר בלבד — לא נשלחים לשרת. גם סכומים וצדקה נשארים אצלך."
+        tone="ok"
+      />
+
       <NoamNudge
         text={t(
           profile.gender,
@@ -190,7 +221,25 @@ export default function SettingsScreen() {
         </View>
       </Glass>
 
-      <Banner light text={`${BOT_NAME} תמיד מחשב מהנטו — פחות כאב ראש`} tone="ok" />
+      <Banner light text={`${BOT_NAME} מחשב מהנטו: הכנסות פחות ניכויי חובה/עסק — לא הוצאות מחיה`} tone="ok" />
+
+      <Glass light strong style={styles.panel}>
+        <FieldLabel>ייצוא לרו״ח</FieldLabel>
+        <Text style={styles.recurIntro}>
+          הורדת CSV של הפנקס או הארכיון — קובץ מקומי במכשיר, בלי שליחה לשרת.
+        </Text>
+        <PrimaryButton
+          label="ייצוא פנקס (CSV) ✦"
+          onPress={async () => {
+            try {
+              await exportLedgerCsv(ledger);
+              toast.success('הקובץ מוכן ✦', 'נשמר / שותף מהמכשיר');
+            } catch {
+              toast.error('הייצוא נכשל', 'נסה שוב');
+            }
+          }}
+        />
+      </Glass>
 
       <Glass light strong style={styles.panel}>
         <FieldLabel>הוראות קבע</FieldLabel>
@@ -246,14 +295,6 @@ export default function SettingsScreen() {
       </Glass>
 
       <View style={styles.actions}>
-        <PrimaryButton
-          label="תפריט נגישות ✦"
-          onPress={() => {
-            showWidget();
-            openPanel();
-          }}
-        />
-
         <PrimaryButton
           label={saved ? 'נשמר ✓' : 'שמור הגדרות'}
           onPress={() => {
@@ -340,6 +381,18 @@ const styles = StyleSheet.create({
     padding: spacing.lg,
     marginBottom: spacing.lg,
     borderRadius: radii.xxl,
+  },
+  a11yTop: {
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderRadius: radii.xxl,
+  },
+  a11yHint: {
+    ...type.bodySm,
+    color: colors.sheetMuted,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+    writingDirection: 'rtl',
   },
   ratePanel: {
     padding: spacing.lg,

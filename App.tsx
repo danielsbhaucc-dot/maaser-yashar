@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   StyleSheet,
-  ActivityIndicator,
   Platform,
   I18nManager,
   Pressable,
@@ -43,6 +42,7 @@ import {
 import OnboardingScreen from './src/screens/OnboardingScreen';import ErrorBoundary from './src/components/ErrorBoundary';
 import AddEntryModal from './src/components/AddEntryModal';
 import NoamChat from './src/components/NoamChat';
+import { LoadingScreen } from './src/components/LoadingScreen';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
 import { colors, fonts, shadow } from './src/theme';
 import { DIR } from './src/rtl';
@@ -190,11 +190,7 @@ function GlobalAddModal() {
 function Root() {
   const { ready, profile } = useApp();
   if (!ready) {
-    return (
-      <View style={styles.boot}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
+    return <LoadingScreen variant="app" message="מכין את המעשר שלך…" />;
   }
   if (!profile.onboardingDone) {
     return (
@@ -237,11 +233,7 @@ export default function App() {
   }
 
   if (!fontsLoaded && !fontError) {
-    return (
-      <View style={styles.boot}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    );
+    return <LoadingScreen variant="boot" message="מעשר ישר נטען…" />;
   }
 
   return (
@@ -287,12 +279,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   mainShell: { flex: 1, width: '100%' },
-  boot: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-  },
   fab: {
     position: 'absolute',
     alignSelf: 'center',

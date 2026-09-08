@@ -37,10 +37,11 @@ export const colors = {
   accent2: '#A78BFA',
   accent3: '#F0A8B8',
   accentSoft: 'rgba(196, 181, 253, 0.20)',
-  gold: '#F0C674',
-  goldDeep: '#E8B86D',
-  goldSoft: 'rgba(240, 198, 116, 0.24)',
-  goldGradient: ['#F5D78E', '#E8B86D'] as const,
+  /** בהיר יותר לניגודיות על רקע כהה / מצב נגישות */
+  gold: '#FFD88A',
+  goldDeep: '#F0C674',
+  goldSoft: 'rgba(255, 216, 138, 0.28)',
+  goldGradient: ['#FFE6A8', '#F0C674'] as const,
   badgePink: '#F472B6',
   danger: '#F0A8B8',
   dangerSoft: 'rgba(240, 168, 184, 0.18)',
@@ -69,6 +70,13 @@ export const spacing = {
   lg: 20,
   xl: 28,
   xxl: 40,
+};
+
+/** מרווחים גלובליים לטאב־בר + FABs (בלי כפתור נגישות צף) */
+export const layout = {
+  tabBarHeight: 64,
+  /** ריווח תחתון לתוכן כדי שלא יוסתר ע״י טאב־בר + כוכב/צ׳אט */
+  contentBottomPad: 188,
 };
 
 export const radii = {

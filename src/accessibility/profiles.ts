@@ -20,9 +20,11 @@ export const A11Y_PROFILES: ProfileMeta[] = [
       largeButtons: true,
       keyboardNav: true,
       highlightFocus: true,
+      highlightHover: true,
       bigCursor: 'large',
       stopAnimations: true,
       fontSize: 1,
+      contentSpacing: 2,
     },
   },
   {
@@ -37,7 +39,9 @@ export const A11Y_PROFILES: ProfileMeta[] = [
       wordSpacing: 2,
       lineHeight: 2,
       highlightLinks: true,
+      underlineLinks: true,
       readingGuide: true,
+      boldText: false,
     },
   },
   {
@@ -53,6 +57,8 @@ export const A11Y_PROFILES: ProfileMeta[] = [
       readableFont: true,
       stopAnimations: true,
       highlightHeadings: true,
+      contentSpacing: 1,
+      lowTransparency: true,
     },
   },
   {
@@ -66,6 +72,7 @@ export const A11Y_PROFILES: ProfileMeta[] = [
       stopAnimations: true,
       reduceMotion: true,
       highlightFocus: true,
+      lowTransparency: true,
     },
   },
   {
@@ -82,6 +89,9 @@ export const A11Y_PROFILES: ProfileMeta[] = [
       highlightHeadings: true,
       highlightFocus: true,
       readableFont: true,
+      boldText: true,
+      underlineLinks: true,
+      largeButtons: true,
     },
   },
   {
@@ -94,6 +104,7 @@ export const A11Y_PROFILES: ProfileMeta[] = [
       reduceMotion: true,
       saturation: 'low',
       muteMedia: true,
+      highlightHover: false,
     },
   },
 ];
@@ -122,6 +133,14 @@ export function applyProfile(
 }
 
 export const LEVEL_LABELS = ['רגיל', 'גדול', 'גדול מאוד', 'ענק', 'מקסימלי'] as const;
+
+export const SPEECH_RATE_LABELS = ['רגיל', 'איטי', 'איטי מאוד'] as const;
+
+export const TEXT_ALIGN_OPTIONS = [
+  { id: 0 as const, label: 'ברירת מחדל' },
+  { id: 1 as const, label: 'לימין' },
+  { id: 2 as const, label: 'מרכז' },
+];
 
 /** בלי לבן טהור — גוונים מהפלטה */
 export const COLOR_SWATCHES = [

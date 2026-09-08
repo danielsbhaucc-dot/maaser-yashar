@@ -33,9 +33,10 @@ import { useToast } from '../context/ToastContext';
 const YEARS = [2026, 2025, 2024, 2023, 2022];
 const TIP_COLORS = [colors.primary, colors.gold, colors.accent, colors.success];
 
-const TAX_EXPLAIN = `יחיד זכאי לזיכוי של 35% מסכום התרומה למוסד עם אישור סעיף 46 (בכפוף למינימום ולתקרות).
-חברה — 30%. הזיכוי מקזז מס ששולם.
-שמרו קבלות תקינות. מ־2026 חשוב דיווח דיגיטלי של העמותה.`;
+const TAX_EXPLAIN_SHORT = `יחיד: זיכוי 35% מתרומה למוסד עם אישור 46 (בכפוף למינימום ותקרות). חברה: 30%. הזיכוי מקזז מס ששולם — בלי מס ששולם אין החזר.`;
+
+const TAX_EXPLAIN_DETAIL = `שמרו קבלות תקינות. מ־2026 חשוב דיווח דיגיטלי של העמותה («תרומות ישראל»).
+אומדן בלבד — לא ייעוץ מס.`;
 
 export default function TaxScreen() {
   const { profile, ledger } = useApp();
@@ -47,6 +48,10 @@ export default function TaxScreen() {
   const [isCompany, setIsCompany] = useState(false);
   const [taxYear, setYear] = useState(2026);
   const [knowsIncome, setKnowsIncome] = useState(true);
+
+  const hasDonations = donationsTotal > 0;
+  const missingIncome = knowsIncome && taxableIncome <= 0;
+  const canShowEstimate = hasDonations && (!knowsIncome || taxableIncome > 0);
 
   const ledgerTzedaka = useMemo(() => {
     const month = entriesForPeriod(ledger, currentPeriod());
@@ -116,11 +121,16 @@ export default function TaxScreen() {
 
   return (
     <Screen sheet hero={hero} scroll contentStyle={{ paddingTop: spacing.lg }}>
+      <Banner
+        light
+        text="הסכומים נשמרים במכשיר בלבד — לא נשלחים לשרת"
+        tone="ok"
+      />
       <NoamNudge
         text={t(
           profile.gender,
-          'תזין תרומות והכנסה חייבת — ואני אעזור לך להבין את האומדן. זה לא ייעוץ מס, רק חישוב ברור.',
-          'תזיני תרומות והכנסה חייבת — ואני אעזור לך להבין את האומדן. זה לא ייעוץ מס, רק חישוב ברור.'
+          'תזין תרומות והכנסה חייבת — ואני אעזור לך להבין את האומדן. זה לא ייעוץ מס.',
+          'תזיני תרומות והכנסה חייבת — ואני אעזור לך להבין את האומדן. זה לא ייעוץ מס.'
         )}
       />
       <SmartInsights items={insights} onAction={onInsightAction} />
@@ -128,20 +138,41 @@ export default function TaxScreen() {
         items={[
           {
             id: 'section46',
-            question: 'הסבר על סעיף 46',
-            answer: TAX_EXPLAIN,
+            question: 'סעיף 46 בקצרה',
+            answer: `${TAX_EXPLAIN_SHORT}\n\n${TAX_EXPLAIN_DETAIL}`,
           },
         ]}
-        style={{ marginBottom: spacing.md }}
+        style={{ marginBottom: spacing.lg }}
       />
 
       <View style={styles.block}>
-        {result.eligible ? (
-          <StatHero
-            label="זיכוי משוער"
-            value={formatMoney(effectiveCredit)}
-            hint={`עלות אחרי זיכוי: ${formatMoney(Math.max(0, donationsTotal - effectiveCredit))}`}
-          />
+        {!canShowEstimate ? (
+          <Glass light gold style={styles.missingGlass}>
+            <Text style={styles.missingTitle}>חסר נתון</Text>
+            <Text style={styles.missingText}>
+              {!hasDonations
+                ? 'הזינו סה״כ תרומות כדי לראות אומדן זיכוי — בלי זה לא מציגים 0 מטעה.'
+                : 'הזינו הכנסה חייבת, או בחרו «לא בטוח» אם אין לכם את המספר.'}
+            </Text>
+          </Glass>
+        ) : result.eligible ? (
+          <>
+            {taxPaid <= 0 ? (
+              <Glass light gold style={styles.missingGlass}>
+                <Text style={styles.missingTitle}>חסר נתון</Text>
+                <Text style={styles.missingText}>
+                  הזינו מס ששולם — בלי זה האומדן עלול להיות גבוה מדי (הזיכוי לא עובר את המס ששילמתם).
+                </Text>
+              </Glass>
+            ) : null}
+            <StatHero
+              label="זיכוי משוער"
+              value={formatMoney(effectiveCredit)}
+              hint={`עלות אחרי זיכוי: ${formatMoney(Math.max(0, donationsTotal - effectiveCredit))}${
+                taxPaid <= 0 ? ' · אומדן בלי תקרת מס ששולם' : ''
+              }`}
+            />
+          </>
         ) : (
           <Glass light gold style={styles.infoGlass}>
             <Text style={styles.infoText}>
@@ -169,7 +200,7 @@ export default function TaxScreen() {
       <SectionHeader title="סכומים" light />
       <Glass light strong gold style={styles.card}>
         <MoneyField label="סה״כ תרומות" value={donationsTotal} onChange={setDonations} />
-        <View style={{ marginTop: spacing.md }}>
+        <View style={{ marginTop: spacing.lg }}>
           <SegmentedRow>
           <Chip
             fill
@@ -186,14 +217,21 @@ export default function TaxScreen() {
           </SegmentedRow>
         </View>
         {knowsIncome ? (
-          <MoneyField label="הכנסה חייבת" value={taxableIncome} onChange={setTaxable} />
+          <View style={{ marginTop: spacing.md }}>
+            <MoneyField label="הכנסה חייבת" value={taxableIncome} onChange={setTaxable} />
+            {missingIncome ? (
+              <Text style={styles.fieldWarn}>חסר נתון — בלי הכנסה חייבת האומדן מוסתר</Text>
+            ) : null}
+          </View>
         ) : null}
-        <MoneyField
-          label="מס ששולם (אופציונלי)"
-          value={taxPaid}
-          onChange={setTaxPaid}
-          hint="הזיכוי לא עובר את המס ששילמתם"
-        />
+        <View style={{ marginTop: spacing.md }}>
+          <MoneyField
+            label="מס ששולם (מומלץ)"
+            value={taxPaid}
+            onChange={setTaxPaid}
+            hint="הזיכוי לא עובר את המס ששילמתם — בלי מס ששולם האומדן עלול להיות גבוה מדי"
+          />
+        </View>
       </Glass>
 
       <SectionHeader title="טיפים חשובים" light />
@@ -237,11 +275,38 @@ const styles = StyleSheet.create({
   },
   heroTitle: { ...type.h1, color: '#fff', marginTop: spacing.sm },
   heroSub: { ...type.bodySm, color: colors.inkSoft, marginTop: 4 },
-  block: { marginTop: spacing.sm, marginBottom: spacing.sm },
-  infoGlass: { padding: spacing.md, marginBottom: spacing.md },
+  block: { marginTop: spacing.md, marginBottom: spacing.lg },
+  infoGlass: { padding: spacing.lg, marginBottom: spacing.md },
   infoText: { ...type.bodySm, color: colors.sheetMuted },
   infoEm: { fontFamily: fonts.bold, color: colors.goldDeep },
-  card: { padding: spacing.md, marginBottom: spacing.lg },
+  missingGlass: {
+    padding: spacing.lg,
+    marginBottom: spacing.md,
+    borderColor: colors.glassGoldBorder,
+  },
+  missingTitle: {
+    fontFamily: fonts.extra,
+    fontSize: 16,
+    color: colors.gold,
+    textAlign: 'center',
+    marginBottom: 8,
+    writingDirection: 'rtl',
+  },
+  missingText: {
+    ...type.bodySm,
+    color: colors.sheetMuted,
+    textAlign: 'center',
+    lineHeight: 22,
+    writingDirection: 'rtl',
+  },
+  fieldWarn: {
+    ...type.caption,
+    color: colors.danger,
+    marginTop: 8,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  card: { padding: spacing.lg, marginBottom: spacing.xl },
   yearRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -260,9 +325,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    marginBottom: spacing.md,
+    marginBottom: spacing.lg,
   },
-  tipCard: { flex: 1, padding: spacing.md, borderRadius: 22 },
+  tipCard: { flex: 1, padding: spacing.lg, borderRadius: 22 },
   tipText: {
     ...type.bodySm,
     fontFamily: fonts.medium,
@@ -271,8 +336,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   metaCard: {
-    padding: spacing.md,
-    marginBottom: spacing.md,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    marginTop: spacing.sm,
     borderColor: colors.glassGoldBorder,
   },
   meta: {

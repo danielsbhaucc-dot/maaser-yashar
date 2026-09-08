@@ -245,7 +245,7 @@ export default function AddEntryModal({
           }
           onPress={submit}
         />
-        <View style={{ height: 28 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
     </BottomSheet>
   );

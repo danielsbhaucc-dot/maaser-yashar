@@ -10,12 +10,13 @@ import {
   Platform,
   Animated,
   Easing,
-  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Glass, GlassPill } from '../components/Glass';
+import { InlineLoader } from '../components/LoadingScreen';
 import { Accordion } from '../components/Accordion';
+import { useMotionEnabled } from '../hooks/useMotionEnabled';
 import { useApp } from '../context/AppContext';
 import { BOT_NAME, type Gender, t } from '../utils/copy';
 import {
@@ -33,6 +34,7 @@ import {
 import { askOnboardAi, skipNameContinue } from '../ai/onboardApi';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR } from '../rtl';
+import { RichMessageText } from '../components/RichMessageText';
 import type { MaaserRate } from '../types';
 
 type Msg = { id: string; from: 'bot' | 'me'; text: string };
@@ -41,6 +43,7 @@ type Msg = { id: string; from: 'bot' | 'me'; text: string };
 const STORY_COUNT = 5;
 
 function StoryBars({ step }: { step: number }) {
+  const motionOk = useMotionEnabled();
   const anims = useRef(
     Array.from({ length: STORY_COUNT }, () => new Animated.Value(0))
   ).current;
@@ -51,6 +54,8 @@ function StoryBars({ step }: { step: number }) {
         a.setValue(1);
       } else if (i > step) {
         a.setValue(0);
+      } else if (!motionOk) {
+        a.setValue(step === STORY_COUNT - 1 ? 1 : 0.55);
       } else {
         a.setValue(0);
         Animated.timing(a, {
@@ -61,7 +66,7 @@ function StoryBars({ step }: { step: number }) {
         }).start();
       }
     });
-  }, [step, anims]);
+  }, [step, anims, motionOk]);
 
   return (
     <View style={styles.storyBars}>
@@ -85,11 +90,18 @@ function StoryBars({ step }: { step: number }) {
 }
 
 function TypingRow() {
+  const motionOk = useMotionEnabled();
   const a = useRef(new Animated.Value(0)).current;
   const b = useRef(new Animated.Value(0)).current;
   const c = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!motionOk) {
+      a.setValue(0.55);
+      b.setValue(0.55);
+      c.setValue(0.55);
+      return;
+    }
     const bounce = (v: Animated.Value, delay: number) =>
       Animated.loop(
         Animated.sequence([
@@ -120,7 +132,7 @@ function TypingRow() {
       l2.stop();
       l3.stop();
     };
-  }, [a, b, c]);
+  }, [a, b, c, motionOk]);
 
   const lift = (v: Animated.Value) => ({
     opacity: v.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1] }),
@@ -141,6 +153,7 @@ function TypingRow() {
 }
 
 function ConfettiBurst() {
+  const motionOk = useMotionEnabled();
   const bits = useRef(
     Array.from({ length: 12 }, (_, i) => ({
       x: (i % 6) * 16 - 40,
@@ -152,6 +165,10 @@ function ConfettiBurst() {
 
   useEffect(() => {
     bits.forEach((bit) => {
+      if (!motionOk) {
+        bit.anim.setValue(1);
+        return;
+      }
       bit.anim.setValue(0);
       Animated.timing(bit.anim, {
         toValue: 1,
@@ -161,7 +178,7 @@ function ConfettiBurst() {
         easing: Easing.out(Easing.cubic),
       }).start();
     });
-  }, [bits]);
+  }, [bits, motionOk]);
 
   return (
     <View style={styles.confetti} pointerEvents="none">
@@ -232,30 +249,45 @@ export default function OnboardingScreen() {
   const pulse = useRef(new Animated.Value(1)).current;
   const celebrateScale = useRef(new Animated.Value(0.86)).current;
   const celebrateOpacity = useRef(new Animated.Value(0)).current;
+  const motionOk = useMotionEnabled();
 
   useEffect(() => {
-    Animated.loop(
+    if (!motionOk) {
+      pulse.setValue(1);
+      return;
+    }
+    const loop = Animated.loop(
       Animated.sequence([
         Animated.timing(pulse, { toValue: 1.06, duration: 1200, useNativeDriver: true }),
         Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: true }),
       ])
-    ).start();
-  }, [pulse]);
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [pulse, motionOk]);
 
   useEffect(() => {
-    const tmr = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
+    const tmr = setTimeout(
+      () => scrollRef.current?.scrollToEnd({ animated: motionOk }),
+      60
+    );
     return () => clearTimeout(tmr);
-  }, [msgs, step, thinking]);
+  }, [msgs, step, thinking, motionOk]);
 
   useEffect(() => {
     if (step !== 4) return;
+    if (!motionOk) {
+      celebrateScale.setValue(1);
+      celebrateOpacity.setValue(1);
+      return;
+    }
     celebrateScale.setValue(0.86);
     celebrateOpacity.setValue(0);
     Animated.parallel([
       Animated.spring(celebrateScale, { toValue: 1, friction: 7, useNativeDriver: true }),
       Animated.timing(celebrateOpacity, { toValue: 1, duration: 420, useNativeDriver: true }),
     ]).start();
-  }, [step, celebrateScale, celebrateOpacity]);
+  }, [step, celebrateScale, celebrateOpacity, motionOk]);
 
   const push = (from: 'bot' | 'me', text: string) => {
     setMsgs((m) => [...m, { id: `${Date.now()}-${Math.random()}`, from, text }]);
@@ -300,7 +332,7 @@ export default function OnboardingScreen() {
           push(
             'bot',
             result.reply ||
-              'זה לא נשמע כמו שם 😅 שם פרטי אמיתי — או במפורש «בלי שם».'
+              'זה לא נשמע כמו שם 😅 שם פרטי אמיתי — או במפורש בלי שם.'
           );
           return;
         }
@@ -308,7 +340,7 @@ export default function OnboardingScreen() {
         push(
           'bot',
           result.reply ||
-            `שאלה טובה. ואחרי זה — איך קוראים לך? (או תגיד במפורש «בלי שם».)`
+            `שאלה טובה. ואחרי זה — איך קוראים לך? (או תגיד במפורש בלי שם.)`
         );
         return;
       }
@@ -487,7 +519,7 @@ export default function OnboardingScreen() {
                 accessibilityLabel={t(gender, 'כניסה לפנקס', 'כניסה לפנקס')}
               >
                 {finishing ? (
-                  <ActivityIndicator color={colors.ink} />
+                  <InlineLoader color={colors.ink} size={18} label="שומר פרופיל" />
                 ) : (
                   <Text style={styles.ctaText}>
                     {t(gender, 'יאללה, נכנסים לפנקס ✦', 'יאללה, נכנסות לפנקס ✦')}
@@ -523,9 +555,11 @@ export default function OnboardingScreen() {
                   <View
                     style={[styles.bubble, m.from === 'me' ? styles.bubbleMe : styles.bubbleBot]}
                   >
-                    <Text style={[styles.msg, m.from === 'me' ? styles.msgMe : styles.msgBot]}>
-                      {m.text}
-                    </Text>
+                    <RichMessageText
+                      content={m.text}
+                      tone={m.from === 'me' ? 'me' : 'bot'}
+                      style={m.from === 'me' ? styles.msgMe : styles.msgBot}
+                    />
                   </View>
                 </View>
               ))}

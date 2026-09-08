@@ -5,6 +5,12 @@ import type { HistoryEntry } from './history';
 import type { UserProfile } from './profile';
 import { formatPeriod } from './history';
 import { getMinDonation } from './taxCalc';
+import {
+  daysLeftInMonthLabel,
+  endsInDaysLabel,
+  monthsCoveredLabel,
+  monthsWithBalanceLabel,
+} from './plural';
 
 export type SmartTone = 'tip' | 'warn' | 'ok' | 'action';
 
@@ -88,8 +94,8 @@ export function homeSmartInsights(opts: {
       title: 'קצב נתינה מומלץ',
       body: t(
         g,
-        `נשאר ${money(totals.remaining)}. עוד ${left} ימים בחודש — בערך ${money(weekly)} לשבוע וזה נסגר ברכות.`,
-        `נשאר ${money(totals.remaining)}. עוד ${left} ימים בחודש — בערך ${money(weekly)} לשבוע וזה נסגר ברכות.`
+        `נשאר ${money(totals.remaining)}. ${daysLeftInMonthLabel(left)} — בערך ${money(weekly)} לשבוע וזה נסגר ברכות.`,
+        `נשאר ${money(totals.remaining)}. ${daysLeftInMonthLabel(left)} — בערך ${money(weekly)} לשבוע וזה נסגר ברכות.`
       ),
       tone: 'action',
       actionLabel: 'רשום צדקה',
@@ -103,8 +109,8 @@ export function homeSmartInsights(opts: {
       title: 'סוף חודש מתקרב',
       body: t(
         g,
-        `${formatPeriod(period)} נגמר בעוד ${left} ימים. נשאר ${money(totals.remaining)} — שווה לסגור או לשמור סיכום.`,
-        `${formatPeriod(period)} נגמר בעוד ${left} ימים. נשאר ${money(totals.remaining)} — שווה לסגור או לשמור סיכום.`
+        `${formatPeriod(period)} ${endsInDaysLabel(left)}. נשאר ${money(totals.remaining)} — שווה לסגור או לשמור סיכום.`,
+        `${formatPeriod(period)} ${endsInDaysLabel(left)}. נשאר ${money(totals.remaining)} — שווה לסגור או לשמור סיכום.`
       ),
       tone: 'warn',
       actionLabel: 'שמור סיכום',
@@ -165,8 +171,8 @@ export function historySmartInsights(opts: {
     title: 'סיכום מסע',
     body: t(
       g,
-      `${name}: ${completed}/${entries.length} חודשים מכוסים · ממוצע כיסוי ~${avgPct}% · סה״כ צדקה בארכיון ${money(totalGiven)}.`,
-      `${name}: ${completed}/${entries.length} חודשים מכוסים · ממוצע כיסוי ~${avgPct}% · סה״כ צדקה בארכיון ${money(totalGiven)}.`
+      `${name}: ${monthsCoveredLabel(completed, entries.length)} · ממוצע כיסוי ~${avgPct}% · סה״כ צדקה בארכיון ${money(totalGiven)}.`,
+      `${name}: ${monthsCoveredLabel(completed, entries.length)} · ממוצע כיסוי ~${avgPct}% · סה״כ צדקה בארכיון ${money(totalGiven)}.`
     ),
     tone: 'ok',
   });
@@ -178,8 +184,8 @@ export function historySmartInsights(opts: {
       title: 'יתרות פתוחות',
       body: t(
         g,
-        `יש ${open.length} חודשים עם יתרה (סה״כ ${money(sumOpen)}). לא חובה לסגור רטרו — רק שתדע מה פתוח.`,
-        `יש ${open.length} חודשים עם יתרה (סה״כ ${money(sumOpen)}). לא חובה לסגור רטרו — רק שתדעי מה פתוח.`
+        `${monthsWithBalanceLabel(open.length)} (סה״כ ${money(sumOpen)}). לא חובה לסגור רטרו — רק שתדע מה פתוח.`,
+        `${monthsWithBalanceLabel(open.length)} (סה״כ ${money(sumOpen)}). לא חובה לסגור רטרו — רק שתדעי מה פתוח.`
       ),
       tone: 'warn',
     });

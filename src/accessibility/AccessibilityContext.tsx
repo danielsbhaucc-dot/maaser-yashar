@@ -16,7 +16,7 @@ import {
   type TextMetric,
 } from './types';
 import { applyProfile } from './profiles';
-import { applyWebAccessibility, hasActiveAdjustments } from './effects';
+import { applyWebAccessibility, hasActiveAdjustments, speechRateValue } from './effects';
 
 type A11yContextValue = {
   settings: A11ySettings;
@@ -32,11 +32,11 @@ type A11yContextValue = {
   closePanel: () => void;
   hideWidget: () => void;
   showWidget: () => void;
-  speak: (text: string) => void;
+  speak: (text: string, force?: boolean) => void;
   stopSpeak: () => void;
 };
 
-const A11yContext = createContext<A11yContextValue | null>(null);
+export const A11yContext = createContext<A11yContextValue | null>(null);
 
 const META_KEYS = new Set<keyof A11ySettings>([
   'widgetHidden',
@@ -58,10 +58,15 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
     let cancelled = false;
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(A11Y_STORAGE_KEY);
+        let raw = await AsyncStorage.getItem(A11Y_STORAGE_KEY);
+        if (!raw) {
+          // מיגרציה מגרסה קודמת
+          raw = await AsyncStorage.getItem('@maaser/a11y-v1');
+        }
         if (raw && !cancelled) {
           const parsed = JSON.parse(raw) as Partial<A11ySettings>;
-          setSettings({ ...DEFAULT_A11Y, ...parsed, panelOpen: false });
+          // נגישות רק מהגדרות — בלי FAB / פס שחזור שמסתירים תוכן
+          setSettings({ ...DEFAULT_A11Y, ...parsed, panelOpen: false, widgetHidden: true });
         }
       } catch {
         // ignore
@@ -123,11 +128,15 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const cycleMetric = useCallback((metric: TextMetric, max = 4) => {
-    setSettings((cur) => ({
-      ...cur,
-      [metric]: clampLevel((cur[metric] as number) + 1, max),
-      profile: 'none',
-    }));
+    setSettings((cur) => {
+      const curVal = cur[metric];
+      if (typeof curVal !== 'number') return cur;
+      return {
+        ...cur,
+        [metric]: clampLevel(curVal + 1, max),
+        profile: 'none',
+      };
+    });
   }, []);
 
   const setProfile = useCallback((id: A11yProfileId) => {
@@ -144,7 +153,7 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const openPanel = useCallback(() => {
-    setSettings((cur) => ({ ...cur, panelOpen: true, widgetHidden: false }));
+    setSettings((cur) => ({ ...cur, panelOpen: true }));
   }, []);
 
   const closePanel = useCallback(() => {
@@ -156,16 +165,21 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const showWidget = useCallback(() => {
-    setSettings((cur) => ({ ...cur, widgetHidden: false }));
+    setSettings((cur) => ({ ...cur, widgetHidden: false, panelOpen: true }));
   }, []);
 
   const speak = useCallback(
-    (text: string) => {
-      if (!settings.textToSpeech && !text) return;
+    (text: string, force = false) => {
+      const trimmed = (text || '').replace(/\s+/g, ' ').trim();
+      if (!trimmed) return;
+      if (!force && !settings.textToSpeech && !settings.clickToSpeak) return;
       Speech.stop();
-      Speech.speak(text, { language: 'he-IL', rate: 0.95 });
+      Speech.speak(trimmed.slice(0, 600), {
+        language: 'he-IL',
+        rate: speechRateValue(settings),
+      });
     },
-    [settings.textToSpeech]
+    [settings]
   );
 
   const stopSpeak = useCallback(() => {
