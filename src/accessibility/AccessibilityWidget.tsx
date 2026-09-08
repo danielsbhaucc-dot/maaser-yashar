@@ -545,11 +545,11 @@ export function AccessibilityWidget() {
             <Text style={styles.quickPillTxt}>▤ הצהרה</Text>
           </Pressable>
           <Pressable
-            onPress={a11y.hideWidget}
+            onPress={a11y.closePanel}
             style={styles.quickPill}
-            accessibilityLabel="הסתרת נגישות"
+            accessibilityLabel="סגור תפריט נגישות"
           >
-            <Text style={styles.quickPillTxt}>− הסתרה</Text>
+            <Text style={styles.quickPillTxt}>× סגור</Text>
           </Pressable>
         </View>
 
@@ -1020,16 +1020,7 @@ export function AccessibilityWidget() {
       <ReadingMaskOverlay />
       <PageStructureModal />
 
-      {settings.widgetHidden ? (
-        <Pressable
-          onPress={a11y.showWidget}
-          style={[styles.restoreBar, { bottom: fabBottom }]}
-          accessibilityLabel="הצג מחדש את תפריט הנגישות"
-        >
-          <A11yMark size={14} color={colors.gold} />
-          <Text style={styles.restoreTxt}>הצג נגישות</Text>
-        </Pressable>
-      ) : (
+      {settings.widgetHidden ? null : (
         <Pressable
           onPress={() => (settings.panelOpen ? a11y.closePanel() : a11y.openPanel())}
           style={[styles.fab, { bottom: fabBottom }, a11y.active && styles.fabActive]}
@@ -1053,7 +1044,7 @@ export function AccessibilityWidget() {
       )}
 
       <Modal
-        visible={settings.panelOpen && !settings.widgetHidden}
+        visible={settings.panelOpen}
         animationType="slide"
         transparent
         onRequestClose={a11y.closePanel}
@@ -1159,14 +1150,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.displayExtra,
     fontSize: 22,
     color: colors.ink,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   headerSub: {
     fontFamily: fonts.regular,
     fontSize: 11,
     color: 'rgba(255,255,255,0.82)',
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
     marginTop: 3,
   },
@@ -1252,14 +1243,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 15,
     color: colors.ink,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   sectionSub: {
     fontFamily: fonts.regular,
     fontSize: 11,
     color: colors.inkSoft,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
     marginTop: 2,
   },
@@ -1293,7 +1284,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semi,
     fontSize: 11,
     color: colors.gold,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
     marginBottom: 4,
     paddingHorizontal: 2,
@@ -1403,14 +1394,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   profileSub: {
     fontFamily: fonts.regular,
     fontSize: 11,
     color: colors.inkSoft,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
     marginTop: 4,
     lineHeight: 15,
@@ -1435,7 +1426,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 13,
     color: colors.ink,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
     flex: 1,
   },
@@ -1530,7 +1521,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 12,
     color: colors.inkSoft,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
     marginBottom: 6,
   },
@@ -1575,14 +1566,14 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
     fontSize: 14,
     color: colors.ink,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   infoSub: {
     fontFamily: fonts.regular,
     fontSize: 12,
     color: colors.inkSoft,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
     marginTop: 2,
   },
@@ -1721,7 +1712,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 24,
     color: colors.inkMuted,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
 });

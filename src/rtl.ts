@@ -1,12 +1,15 @@
 import { FlexStyle, TextStyle, ViewStyle } from 'react-native';
 
 /**
- * RTL יציב בנייד וב־web.
- * - Native: expo-localization forcesRTL + I18nManager
- * - Web: document.dir=rtl (App.tsx)
+ * RTL אחיד ב־Web ובנייד.
  *
- * עם I18nManager.isRTL, textAlign:'left' = התחלה (ימין בעברית).
- * textAlign:'right' האבסולוטי הופך לשמאל — לכן rtlText משתמש ב־left.
+ * מודל: I18nManager.isRTL = true בכל הפלטפורמות.
+ * - textAlign:'left'  = start (ימין בעברית)
+ * - textAlign:'right' = end   (שמאל בעברית) — לא להשתמש ליישור עברית
+ * - flex-start / flex-end מתהפכים אוטומטית
+ *
+ * Web: גם document.dir + dir="rtl" על השורש (App.tsx).
+ * Native: expo-localization forcesRTL + forceRTL + reload אם צריך.
  */
 export const DIR: ViewStyle = { direction: 'rtl' };
 

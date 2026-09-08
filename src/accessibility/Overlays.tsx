@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 15,
     color: colors.inkMuted,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
 });

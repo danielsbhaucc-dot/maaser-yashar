@@ -9,6 +9,8 @@ import {
   Text,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { reloadAppAsync } from 'expo';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import {
@@ -64,6 +66,8 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     root.style.width = '100%';
     root.style.maxWidth = '100%';
     root.style.margin = '0 auto';
+    root.setAttribute('dir', 'rtl');
+    root.setAttribute('lang', 'he');
   }
   // מובייל־פירסט: viewport צפוף
   let meta = document.querySelector('meta[name="viewport"]');
@@ -77,14 +81,34 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover'
   );
 }
+/**
+ * RTL חייב להיות פעיל ב־I18nManager — אחרת textAlign:'left' נשאר שמאל פיזי
+ * (ההיפוך מול Web, שבו forceRTL נכנס לתוקף מיד).
+ * ב־native השינוי נשמר רק אחרי reload. פעם אחת בלבד (בלי לולאה).
+ */
+const RTL_RELOAD_KEY = '__maaser_rtl_reload_v1';
 try {
   I18nManager.allowRTL(true);
   I18nManager.forceRTL(true);
   if (typeof I18nManager.swapLeftAndRightInRTL === 'function') {
     I18nManager.swapLeftAndRightInRTL(true);
   }
+  if (Platform.OS !== 'web' && !I18nManager.isRTL) {
+    void (async () => {
+      try {
+        const attempted = await AsyncStorage.getItem(RTL_RELOAD_KEY);
+        if (attempted === '1') return;
+        await AsyncStorage.setItem(RTL_RELOAD_KEY, '1');
+        await reloadAppAsync('force-hebrew-rtl');
+      } catch {
+        // ignore
+      }
+    })();
+  } else if (I18nManager.isRTL) {
+    void AsyncStorage.removeItem(RTL_RELOAD_KEY);
+  }
 } catch {
-  // web / Expo Go
+  // Expo Go / סביבות בלי native RTL prefs
 }
 
 const navTheme = {
@@ -224,8 +248,8 @@ export default function App() {
     <ErrorBoundary>
       <GestureHandlerRootView style={styles.flex}>
         <SafeAreaProvider>
-          <View style={[styles.appRoot, DIR]}>
-            <View style={styles.phoneFrame}>
+          <View style={[styles.appRoot, DIR]} {...({ dir: 'rtl' } as object)}>
+            <View style={styles.phoneFrame} {...({ dir: 'rtl' } as object)}>
               <AppProvider>
                 <ToastProvider>
                   <AccessibilityProvider>

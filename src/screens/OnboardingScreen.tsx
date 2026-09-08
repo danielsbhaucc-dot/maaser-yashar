@@ -12,7 +12,7 @@ import {
   Easing,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Glass, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
@@ -206,6 +206,7 @@ function ConfettiBurst() {
 
 export default function OnboardingScreen() {
   const { profile, setProfile } = useApp();
+  const insets = useSafeAreaInsets();
   const intro = useMemo(() => pick(INTROS), []);
   const askName = useMemo(
     () =>
@@ -409,7 +410,6 @@ export default function OnboardingScreen() {
         />
         <View style={[styles.orb, styles.orbA]} />
         <View style={[styles.orb, styles.orbB]} />
-        <View style={[styles.orb, styles.orbC]} />
       </View>
 
       <SafeAreaView style={styles.safe}>
@@ -627,7 +627,23 @@ export default function OnboardingScreen() {
             </ScrollView>
 
             {showComposer ? (
-              <View style={styles.composer}>
+              <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+                <TextInput
+                  style={styles.input}
+                  value={draft}
+                  onChangeText={setDraft}
+                  placeholder={
+                    step === 0
+                      ? 'שם פרטי, שאלה, או «בלי שם»…'
+                      : 'שאלה לנועם…'
+                  }
+                  placeholderTextColor="rgba(255,255,255,0.35)"
+                  textAlign="left"
+                  onSubmitEditing={() => void handleFreeText()}
+                  returnKeyType="send"
+                  autoCorrect={false}
+                  editable={!thinking}
+                />
                 <Pressable
                   style={[
                     styles.send,
@@ -639,22 +655,6 @@ export default function OnboardingScreen() {
                 >
                   <Text style={styles.sendLabel}>{thinking ? '…' : 'שלח'}</Text>
                 </Pressable>
-                <TextInput
-                  style={styles.input}
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder={
-                    step === 0
-                      ? 'שם פרטי, שאלה, או «בלי שם»…'
-                      : 'שאלה לנועם…'
-                  }
-                  placeholderTextColor="rgba(255,255,255,0.35)"
-                  textAlign="right"
-                  onSubmitEditing={() => void handleFreeText()}
-                  returnKeyType="send"
-                  autoCorrect={false}
-                  editable={!thinking}
-                />
               </View>
             ) : null}
           </KeyboardAvoidingView>
@@ -676,28 +676,21 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   safe: { flex: 1, width: '100%', overflow: 'hidden' },
-  orb: { position: 'absolute', borderRadius: 999, opacity: 0.32 },
+  orb: { position: 'absolute', borderRadius: 999, opacity: 0.18 },
   orbA: {
-    width: 260,
-    height: 260,
-    top: -40,
-    end: -50,
+    width: 180,
+    height: 180,
+    top: -50,
+    end: -40,
     backgroundColor: colors.orbA,
   },
   orbB: {
-    width: 220,
-    height: 220,
-    bottom: 120,
-    start: -70,
+    width: 140,
+    height: 140,
+    bottom: 180,
+    start: -50,
     backgroundColor: colors.orbB,
-  },
-  orbC: {
-    width: 180,
-    height: 180,
-    top: '40%',
-    end: -40,
-    backgroundColor: colors.orbC,
-    opacity: 0.22,
+    opacity: 0.14,
   },
   storyBars: {
     flexDirection: 'row',
@@ -873,7 +866,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.glassGoldBorder,
     writingDirection: 'rtl',
-    textAlign: 'right',
+    textAlign: 'left',
   },
   send: {
     backgroundColor: 'rgba(139, 155, 255, 0.82)',

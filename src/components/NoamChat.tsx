@@ -754,14 +754,6 @@ function ChatPane({
       </Text>
 
       <View style={styles.inputRow}>
-        <Pressable
-          onPress={onSend}
-          disabled={!draft.trim() || typing}
-          style={[styles.sendBtn, (!draft.trim() || typing) && styles.sendDisabled]}
-          accessibilityLabel="שלח"
-        >
-          <Text style={styles.sendGlyph}>➤</Text>
-        </Pressable>
         <TextInput
           value={draft}
           onChangeText={setDraft}
@@ -773,6 +765,14 @@ function ChatPane({
           onSubmitEditing={onSend}
           blurOnSubmit={false}
         />
+        <Pressable
+          onPress={onSend}
+          disabled={!draft.trim() || typing}
+          style={[styles.sendBtn, (!draft.trim() || typing) && styles.sendDisabled]}
+          accessibilityLabel="שלח"
+        >
+          <Text style={styles.sendGlyph}>➤</Text>
+        </Pressable>
       </View>
       <Text style={styles.inputHint}>{name} · מעשר ישר</Text>
     </View>
@@ -1122,7 +1122,6 @@ const styles = StyleSheet.create({
   bubbleRowMe: {
     alignSelf: 'flex-end',
     maxWidth: '92%',
-    flexDirection: 'row-reverse',
   },
   bubbleAvatar: {
     marginBottom: 2,
@@ -1149,13 +1148,13 @@ const styles = StyleSheet.create({
   bubbleTxt: {
     ...type.chat,
     color: colors.ink,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   bubbleTxtMe: {
     ...type.chatMe,
     color: colors.chatMeText,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
 
@@ -1283,7 +1282,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontFamily: fonts.regular,
     fontSize: 15,
-    textAlign: 'right',
+    textAlign: 'left',
     writingDirection: 'rtl',
   },
   sendBtn: {
@@ -1335,12 +1334,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semi,
     fontSize: 15,
     color: colors.ink,
-    textAlign: 'right',
+    textAlign: 'left',
   },
   histDate: {
     ...type.caption,
     color: colors.inkSoft,
-    textAlign: 'right',
+    textAlign: 'left',
     marginTop: 2,
   },
 });
