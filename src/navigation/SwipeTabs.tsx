@@ -6,7 +6,10 @@ import {
   Pressable,
   Platform,
 } from 'react-native';
-import PagerView, { type PagerViewOnPageSelectedEvent } from 'react-native-pager-view';
+import PagerView, {
+  type PagerViewOnPageSelectedEvent,
+  type PagerViewOnPageScrollEvent,
+} from 'react-native-pager-view';
 import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../components/Icon';
@@ -27,44 +30,75 @@ const TABS = [
 ] as const;
 
 /**
- * Native: PagerView ב־RTL — מסך 0 (בית) מימין, כמו הטאב־בר.
- * כך החלקה ימינה/שמאלה תואמת את מיקום הטאבים (לא הפוך כמו ב־LTR).
+ * Native swipe:
+ * האפליקציה כבר ב־RTL (I18nManager). PagerView עם layoutDirection="rtl"
+ * עושה היפוך כפול — החלקה הפוכה. לכן ה־pager ב־LTR מבודד,
+ * והטאב־בר נשאר RTL (בית מימין).
+ * החלקה שמאלה → מסך הבא (היסטוריה וכו') — תואם למיקום הטאבים.
  */
 export function SwipeTabs() {
   const pagerRef = useRef<PagerView>(null);
   const [index, setIndex] = useState(0);
+  const indexRef = useRef(0);
   const insets = useSafeAreaInsets();
   const bottom = (Platform.OS === 'ios' ? 22 : 12) + Math.max(insets.bottom - 8, 0);
 
-  const onPageSelected = useCallback((e: PagerViewOnPageSelectedEvent) => {
-    setIndex(e.nativeEvent.position);
+  const setIndexSafe = useCallback((i: number) => {
+    const next = Math.max(0, Math.min(TABS.length - 1, i));
+    if (next === indexRef.current) return;
+    indexRef.current = next;
+    setIndex(next);
   }, []);
 
-  const goTo = useCallback((i: number) => {
-    if (i < 0 || i >= TABS.length) return;
-    setIndex(i);
-    requestAnimationFrame(() => {
-      pagerRef.current?.setPage(i);
-    });
-  }, []);
+  const onPageSelected = useCallback(
+    (e: PagerViewOnPageSelectedEvent) => {
+      setIndexSafe(e.nativeEvent.position);
+    },
+    [setIndexSafe]
+  );
+
+  /** עדכון טאב גם תוך כדי החלקה — לא רק בסוף */
+  const onPageScroll = useCallback(
+    (e: PagerViewOnPageScrollEvent) => {
+      const { position, offset } = e.nativeEvent;
+      setIndexSafe(Math.round(position + offset));
+    },
+    [setIndexSafe]
+  );
+
+  const goTo = useCallback(
+    (i: number) => {
+      if (i < 0 || i >= TABS.length) return;
+      indexRef.current = i;
+      setIndex(i);
+      requestAnimationFrame(() => {
+        pagerRef.current?.setPage(i);
+      });
+    },
+    []
+  );
 
   return (
-    <View style={[styles.root, DIR]}>
-      <PagerView
-        ref={pagerRef}
-        style={styles.pager}
-        initialPage={0}
-        onPageSelected={onPageSelected}
-        layoutDirection="rtl"
-        overdrag
-        offscreenPageLimit={1}
-      >
-        {TABS.map(({ key, Screen }) => (
-          <View key={key} style={[styles.page, DIR]} collapsable={false}>
-            <Screen />
-          </View>
-        ))}
-      </PagerView>
+    <View style={styles.root}>
+      {/* מבודד מ־RTL של האפליקציה — מונע היפוך כיוון החלקה */}
+      <View style={styles.pagerHost}>
+        <PagerView
+          ref={pagerRef}
+          style={styles.pager}
+          initialPage={0}
+          onPageSelected={onPageSelected}
+          onPageScroll={onPageScroll}
+          layoutDirection="ltr"
+          overdrag
+          offscreenPageLimit={1}
+        >
+          {TABS.map(({ key, Screen }) => (
+            <View key={key} style={[styles.page, DIR]} collapsable={false}>
+              <Screen />
+            </View>
+          ))}
+        </PagerView>
+      </View>
 
       <View
         style={[styles.tabBar, DIR, { bottom, left: 12, right: 12 }]}
@@ -116,6 +150,12 @@ export function SwipeTabs() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, width: '100%', maxWidth: '100%' },
+  /** LTR מפורש — בלי direction:rtl מההורה */
+  pagerHost: {
+    flex: 1,
+    width: '100%',
+    direction: 'ltr',
+  },
   pager: { flex: 1, width: '100%' },
   page: { flex: 1, width: '100%' },
   tabBar: {

@@ -29,8 +29,8 @@ const TABS = [
 ] as const;
 
 /**
- * Web: pager ב־LTR (מתמטיקה יציבה) + טאב־בר RTL.
- * בלי direction:rtl על ה־ScrollView — אחרת scrollTo/החלקה נשברים.
+ * Web: pager ב־LTR (מתמטיקה + כיוון החלקה יציבים) + טאב־בר RTL.
+ * בית מימין בטאבים; החלקה שמאלה → המסך הבא.
  */
 export function SwipeTabs() {
   const scrollRef = useRef<ScrollView>(null);
@@ -43,6 +43,13 @@ export function SwipeTabs() {
   useEffect(() => {
     indexRef.current = index;
   }, [index]);
+
+  const setIndexSafe = useCallback((i: number) => {
+    const next = Math.max(0, Math.min(TABS.length - 1, i));
+    if (next === indexRef.current) return;
+    indexRef.current = next;
+    setIndex(next);
+  }, []);
 
   const onRootLayout = useCallback(
     (e: LayoutChangeEvent) => {
@@ -64,14 +71,16 @@ export function SwipeTabs() {
   const syncIndexFromOffset = useCallback(
     (x: number) => {
       if (pageWidth <= 0) return;
-      const i = Math.round(x / pageWidth);
-      const next = Math.max(0, Math.min(TABS.length - 1, i));
-      if (next !== indexRef.current) {
-        indexRef.current = next;
-        setIndex(next);
-      }
+      setIndexSafe(Math.round(x / pageWidth));
     },
-    [pageWidth]
+    [pageWidth, setIndexSafe]
+  );
+
+  const onScroll = useCallback(
+    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+      syncIndexFromOffset(e.nativeEvent.contentOffset.x);
+    },
+    [syncIndexFromOffset]
   );
 
   const onScrollEnd = useCallback(
@@ -87,7 +96,6 @@ export function SwipeTabs() {
       indexRef.current = i;
       setIndex(i);
       if (pageWidth <= 0) return;
-      // web לפעמים צריך tick אחרי setState
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ x: i * pageWidth, y: 0, animated: true });
       });
@@ -96,7 +104,7 @@ export function SwipeTabs() {
   );
 
   return (
-    <View style={styles.root} onLayout={onRootLayout} {...rtlDomProps}>
+    <View style={styles.root} onLayout={onRootLayout}>
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -107,10 +115,10 @@ export function SwipeTabs() {
         bounces={false}
         decelerationRate="fast"
         disableIntervalMomentum
+        onScroll={onScroll}
         onMomentumScrollEnd={onScrollEnd}
         onScrollEndDrag={onScrollEnd}
         scrollEventThrottle={16}
-        // pager במתמטיקת LTR; כל עמוד חוזר ל־RTL
         {...ltrDomProps}
         style={styles.pager}
         contentContainerStyle={
