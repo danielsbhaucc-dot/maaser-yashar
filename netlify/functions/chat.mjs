@@ -174,13 +174,20 @@ function sanitizeContext(c) {
 function buildSystemPrompt(context) {
   const hasCtx = context && typeof context === 'object';
   const ctx = hasCtx ? sanitizeContext(context) : null;
-  const rate = ctx ? (Number(ctx.rate) === 0.2 ? 0.2 : 0.1) : 0.1;
-  const ratePct = Math.round(rate * 100);
-  const rateLabel = rate === 0.2 ? 'חומש 20%' : 'מעשר 10%';
+  const rate = ctx ? ctx.rate : 0.1;
+  const ratePct =
+    Math.round(Number(rate) * 1000) / 10;
+  const ratePctLabel = Number.isInteger(ratePct) ? String(ratePct) : ratePct.toFixed(1);
+  const rateLabel =
+    Math.abs(rate - 0.1) < 1e-9
+      ? 'מעשר'
+      : Math.abs(rate - 0.2) < 1e-9
+        ? 'חומש'
+        : `${ratePctLabel}%`;
 
   const totalsBlock = ctx
     ? `הקשר מספרי לחודש (בלי שם ובלי תנועות בודדות):
-שיעור ${rateLabel} (${ratePct}%).
+שיעור ${rateLabel} (${ratePctLabel}%).
 הכנסות ₪${num(ctx.income)} · ניכויים ₪${num(ctx.expenses)}
 חובה ₪${num(ctx.obligation)} · ניתן ₪${num(ctx.tzedaka)} · נותר ₪${num(ctx.remaining)}`
     : `אין סיכום פנקס בבקשה הזו — רק הודעת המשתמש. אל תמציא מספרים מהפנקס; שאל אם חסר.`;

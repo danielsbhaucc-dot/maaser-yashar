@@ -40,6 +40,14 @@
             "android": ["he"]
           }
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#C9A227",
+          "defaultChannel": "maaser-monthly",
+          "enableBackgroundRemoteNotifications": false
+        }
       ]
     ],
     "extra": {

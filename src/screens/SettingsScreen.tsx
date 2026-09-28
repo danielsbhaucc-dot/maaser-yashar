@@ -43,7 +43,20 @@ import { PRIVACY_LINK_LABEL, privacyPageUrl } from '../constants/privacy';
 import { ABOUT_LINK_LABEL, aboutPageUrl } from '../constants/about';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import type { MaaserRate, TaxDeductionMode } from '../types';
-import { defaultAdvancedSettings } from '../utils/totalsAdvanced';
+import {
+  defaultAdvancedSettings,
+  SURPLUS_CARRY_ENGINE_TEXT,
+} from '../utils/totalsAdvanced';
+import {
+  approxRate,
+  formatRatePercent,
+  parseRatePercentInput,
+  rateCaption,
+} from '../utils/rateLabel';
+import {
+  enableMonthlyReminder,
+  reminderSettingsHint,
+} from '../utils/monthlyReminder';
 
 function FieldLabel({ children }: { children: string }) {
   return (
@@ -69,9 +82,43 @@ export default function SettingsScreen() {
   const [saved, setSaved] = React.useState(false);
   const [includeChatBackup, setIncludeChatBackup] = React.useState(false);
   const [backupBusy, setBackupBusy] = React.useState(false);
+  const [reminderBusy, setReminderBusy] = React.useState(false);
+  const isCustomRate =
+    !approxRate(profile.rate, 0.1) && !approxRate(profile.rate, 0.2);
+  const [customRateMode, setCustomRateMode] = React.useState(isCustomRate);
+  const [customRateText, setCustomRateText] = React.useState(
+    isCustomRate ? formatRatePercent(profile.rate) : ''
+  );
+  const [rateError, setRateError] = React.useState<string | null>(null);
   const initial = (profile.displayName?.trim()?.[0] || 'מ').toUpperCase();
-  const ratePct = Math.round(profile.rate * 100);
+  const ratePct = formatRatePercent(profile.rate);
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
+
+  React.useEffect(() => {
+    const custom =
+      !approxRate(profile.rate, 0.1) && !approxRate(profile.rate, 0.2);
+    setCustomRateMode(custom);
+    if (custom) setCustomRateText(formatRatePercent(profile.rate));
+  }, [profile.rate]);
+
+  const applyPresetRate = (rate: MaaserRate) => {
+    setRateError(null);
+    setCustomRateMode(false);
+    setCustomRateText('');
+    patchProfile({ rate });
+  };
+
+  const applyCustomRate = (text: string) => {
+    setCustomRateText(text);
+    const parsed = parseRatePercentInput(text);
+    if (!parsed.ok) {
+      setRateError(parsed.error);
+      return;
+    }
+    setRateError(null);
+    setCustomRateMode(true);
+    patchProfile({ rate: parsed.rate });
+  };
   const insights = React.useMemo(
     () => settingsSmartInsights({ name, gender: profile.gender, profile }),
     [name, profile]
@@ -211,23 +258,60 @@ export default function SettingsScreen() {
       <Glass light gold strong style={styles.ratePanel}>
         <FieldLabel>שיעור נתינה</FieldLabel>
         <Text style={styles.rateHero}>{ratePct}%</Text>
-        <Text style={styles.rateCaption}>
-          {profile.rate === 0.1 ? 'מעשר — אחד מעשרה' : 'חומש — אחד מחמישה'}
-        </Text>
+        <Text style={styles.rateCaption}>{rateCaption(profile.rate)}</Text>
         <SegmentedRow>
           <Chip
             fill
             label="מעשר 10%"
-            selected={profile.rate === 0.1}
-            onPress={() => patchProfile({ rate: 0.1 as MaaserRate })}
+            selected={!customRateMode && approxRate(profile.rate, 0.1)}
+            onPress={() => applyPresetRate(0.1)}
           />
           <Chip
             fill
             label="חומש 20%"
-            selected={profile.rate === 0.2}
-            onPress={() => patchProfile({ rate: 0.2 as MaaserRate })}
+            selected={!customRateMode && approxRate(profile.rate, 0.2)}
+            onPress={() => applyPresetRate(0.2)}
+          />
+          <Chip
+            fill
+            label="אחר"
+            selected={customRateMode}
+            onPress={() => {
+              setCustomRateMode(true);
+              if (!customRateText) {
+                setCustomRateText(
+                  isCustomRate ? formatRatePercent(profile.rate) : '15'
+                );
+              }
+            }}
           />
         </SegmentedRow>
+        {customRateMode ? (
+          <View style={styles.customRateBlock}>
+            <Text style={styles.customRateHint}>אחוז מותאם (1%–50%)</Text>
+            <TextInput
+              style={[styles.input, styles.customRateInput]}
+              value={customRateText}
+              onChangeText={applyCustomRate}
+              keyboardType="decimal-pad"
+              placeholder="לדוגמה 15"
+              placeholderTextColor={colors.inkSoft}
+              textAlign="center"
+              accessibilityLabel="אחוז נתינה מותאם"
+              accessibilityDescribedBy={rateError ? 'rate-error' : undefined}
+            />
+            {rateError ? (
+              <Text
+                nativeID="rate-error"
+                style={styles.rateError}
+                accessibilityRole="alert"
+                accessibilityLiveRegion="polite"
+              >
+                {rateError}
+              </Text>
+            ) : null}
+          </View>
+        ) : null}
         <View style={styles.explainRow}>
           <Accordion
             items={[
@@ -409,6 +493,28 @@ export default function SettingsScreen() {
       </Glass>
 
       <Glass light strong style={styles.panel}>
+        <FieldLabel>העברת עודף לחודש הבא</FieldLabel>
+        <Text style={styles.recurIntro}>{SURPLUS_CARRY_ENGINE_TEXT}</Text>
+        <Text style={styles.advOptHint}>
+          דורש התניה מראש לפי חלק מהפוסקים. שאלו רב לפני הפעלה.
+        </Text>
+        <SegmentedRow>
+          <Chip
+            fill
+            label="כבוי"
+            selected={!profile.carryForwardSurplus}
+            onPress={() => patchProfile({ carryForwardSurplus: false })}
+          />
+          <Chip
+            fill
+            label="פעיל · שאלו רב"
+            selected={!!profile.carryForwardSurplus}
+            onPress={() => patchProfile({ carryForwardSurplus: true })}
+          />
+        </SegmentedRow>
+      </Glass>
+
+      <Glass light strong style={styles.panel}>
         <FieldLabel>שיתוף בצ'אט עם נועם</FieldLabel>
         <Text style={styles.recurIntro}>
           תמיד בלי שם, הערות או תנועות בודדות. אפשר לבחור אם לצרף סיכום סכומי החודש.
@@ -427,6 +533,30 @@ export default function SettingsScreen() {
             onPress={() => patchProfile({ chatShareTotals: false, chatConsentDone: true })}
           />
         </SegmentedRow>
+      </Glass>
+
+      <Glass light strong style={styles.panel}>
+        <FieldLabel>תזכורת חודשית</FieldLabel>
+        <Text style={styles.recurIntro}>{reminderSettingsHint()}</Text>
+        <PrimaryButton
+          label={reminderBusy ? 'מגדיר תזכורת…' : 'הוסף תזכורת חודשית ✦'}
+          disabled={reminderBusy}
+          onPress={async () => {
+            setReminderBusy(true);
+            try {
+              const result = await enableMonthlyReminder();
+              if (result.ics || result.notification === 'scheduled') {
+                toast.success('תזכורת חודשית ✦', result.message);
+              } else {
+                toast.error('לא הוגדרה תזכורת', result.message);
+              }
+            } catch {
+              toast.error('ההגדרה נכשלה', 'נסה שוב');
+            } finally {
+              setReminderBusy(false);
+            }
+          }}
+        />
       </Glass>
 
       <Glass light strong style={styles.panel}>
@@ -781,6 +911,32 @@ const styles = StyleSheet.create({
     color: colors.sheetMuted,
     textAlign: 'center',
     marginBottom: spacing.md,
+  },
+  customRateBlock: {
+    width: '100%',
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+    alignItems: 'center',
+  },
+  customRateHint: {
+    ...type.caption,
+    color: colors.sheetMuted,
+    marginBottom: 8,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  customRateInput: {
+    maxWidth: 160,
+    fontFamily: fonts.numBold,
+    fontSize: 22,
+  },
+  rateError: {
+    ...type.caption,
+    fontFamily: fonts.medium,
+    color: colors.danger,
+    marginTop: 8,
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   explainRow: {
     width: '100%',

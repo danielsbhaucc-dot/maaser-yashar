@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import type { LedgerEntry, LedgerKind } from '../types/ledger';
+import type { LedgerEntry, LedgerKind, Section46Status } from '../types/ledger';
 
 export const SCHEMA_VERSION = 1;
 export const SCHEMA_VERSION_KEY = 'maaser_schema_version';
@@ -40,6 +40,17 @@ export function migrateLedgerEntries(raw: unknown[]): LedgerEntry[] {
 
     if (typeof e.date === 'string' && e.date) entry.date = e.date;
     if (typeof e.ruleId === 'string' && e.ruleId) entry.ruleId = e.ruleId;
+    if (typeof e.org === 'string' && e.org.trim()) entry.org = e.org.trim();
+    if (e.has46 === 'yes' || e.has46 === 'no' || e.has46 === 'unknown') {
+      entry.has46 = e.has46 as Section46Status;
+    } else if (e.section46Approved === true || e.hasSection46 === true) {
+      entry.has46 = 'yes';
+    } else if (e.section46Approved === false || e.hasSection46 === false) {
+      entry.has46 = 'no';
+    }
+    if (typeof e.receiptNo === 'string' && e.receiptNo.trim()) {
+      entry.receiptNo = e.receiptNo.trim();
+    }
     out.push(entry);
   }
   return out;

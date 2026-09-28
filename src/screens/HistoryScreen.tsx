@@ -72,8 +72,12 @@ export default function HistoryScreen() {
 
   const onFillTax = async () => {
     if (!summary || yearMode !== 'civil' || activeYear == null) return;
+    const donations =
+      summary.section46Approved != null
+        ? summary.section46Approved
+        : summary.totals.tzedaka;
     try {
-      const payload = await fillTaxCalculatorFromYear(summary.totals.tzedaka, activeYear);
+      const payload = await fillTaxCalculatorFromYear(donations, activeYear);
       goToTab('Tax');
       toast.success(
         'מולא מחשבון מס ✦',
@@ -159,9 +163,10 @@ export default function HistoryScreen() {
                     strong
                   />
                 </View>
-                {yearMode === 'civil' && summary.section46Approved != null ? (
+                {yearMode === 'civil' ? (
                   <Text style={styles.section46Line}>
-                    תרומות עם אישור סעיף 46: {formatMoney(summary.section46Approved)}
+                    עם אישור סעיף 46:{' '}
+                    {formatMoney(summary.section46Approved ?? 0)}
                   </Text>
                 ) : null}
               </Glass>
@@ -226,6 +231,16 @@ export default function HistoryScreen() {
                         strong
                       />
                     </View>
+                    {m.surplus && m.surplus > 0 ? (
+                      <Text style={styles.surplusLine}>
+                        נתת {formatMoney(m.surplus)} יותר מהחובה החודש
+                      </Text>
+                    ) : null}
+                    {profile.carryForwardSurplus && m.carryIn && m.carryIn > 0 ? (
+                      <Text style={styles.carryLine}>
+                        העברה מחודש קודם: {formatMoney(m.carryIn)}
+                      </Text>
+                    ) : null}
                   </Glass>
                 ))
               )}
@@ -425,6 +440,21 @@ const styles = StyleSheet.create({
   monthCard: {
     marginBottom: spacing.md,
     padding: spacing.md,
+  },
+  surplusLine: {
+    ...type.caption,
+    fontFamily: fonts.semi,
+    color: colors.gold,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginTop: 8,
+  },
+  carryLine: {
+    ...type.caption,
+    color: colors.sheetMuted,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginTop: 4,
   },
   cardTop: {
     alignItems: 'center',

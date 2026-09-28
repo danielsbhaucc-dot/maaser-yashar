@@ -1,5 +1,6 @@
 /**
  * בדיקות T-25 — totalsAdvanced / calculateMaaser
+ * + T-27 — withCarryForward / העברת עודף
  * הרצה: npx --yes tsx src/utils/totalsAdvanced.test.ts
  */
 import type { LedgerEntry } from '../types/ledger';
@@ -7,8 +8,11 @@ import type { MaaserRate } from '../types';
 import { computeTotals } from './ledger';
 import {
   defaultAdvancedSettings,
+  periodSurplus,
+  resolvePeriodTotals,
   resolveTotals,
   totalsAdvanced,
+  withCarryForward,
   type TotalsProfile,
 } from './totalsAdvanced';
 
@@ -24,7 +28,7 @@ function entry(
   partial: Pick<LedgerEntry, 'kind' | 'category' | 'amount'> & Partial<LedgerEntry>
 ): LedgerEntry {
   return {
-    id: `${partial.kind}-${partial.category}-${partial.amount}`,
+    id: `${partial.kind}-${partial.category}-${partial.amount}-${partial.period ?? '2026-09'}`,
     period: '2026-09',
     note: '',
     createdAt: '2026-09-01T12:00:00.000Z',
@@ -123,7 +127,89 @@ function run() {
   assert(archiveInputs.healthTax === 0, 'archive health');
   console.log('OK: archive inputs keep real deduction categories');
 
-  console.log('\nAll T-25 totalsAdvanced tests passed.');
+  // ========== T-27: העברת עודף ==========
+  const augSep = {
+    '2025-08': {
+      income: 10000,
+      expenses: 0,
+      tzedaka: 1300,
+      netBase: 10000,
+      obligation: 1000,
+      remaining: 0,
+    },
+    '2025-09': {
+      income: 12500,
+      expenses: 0,
+      tzedaka: 750,
+      netBase: 12500,
+      obligation: 1250,
+      remaining: 500,
+    },
+  };
+
+  assert(periodSurplus(augSep['2025-08']) === 300, 'Aug surplus should be 300');
+  assert(periodSurplus(augSep['2025-09']) === 0, 'Sep has no local surplus');
+
+  const carried = withCarryForward(['2025-08', '2025-09'], augSep);
+  assert(carried['2025-08']!.carryOut === 300, `Aug carryOut got ${carried['2025-08']!.carryOut}`);
+  assert(carried['2025-08']!.remaining === 0, 'Aug remaining 0');
+  assert(carried['2025-09']!.carryIn === 300, `Sep carryIn got ${carried['2025-09']!.carryIn}`);
+  assert(
+    approx(carried['2025-09']!.remaining, 200),
+    `ON → Sep remaining 200, got ${carried['2025-09']!.remaining}`
+  );
+  console.log('OK: T-27 withCarryForward Aug→Sep remaining 200');
+
+  const ledgerAugSep: LedgerEntry[] = [
+    entry({
+      period: '2025-08',
+      kind: 'income',
+      category: 'משכורת',
+      amount: 10000,
+      createdAt: '2025-08-01T12:00:00.000Z',
+    }),
+    entry({
+      period: '2025-08',
+      kind: 'tzedaka',
+      category: 'צדקה / מעשר',
+      amount: 1300,
+      createdAt: '2025-08-15T12:00:00.000Z',
+    }),
+    entry({
+      period: '2025-09',
+      kind: 'income',
+      category: 'משכורת',
+      amount: 12500,
+      createdAt: '2025-09-01T12:00:00.000Z',
+    }),
+    entry({
+      period: '2025-09',
+      kind: 'tzedaka',
+      category: 'צדקה / מעשר',
+      amount: 750,
+      createdAt: '2025-09-15T12:00:00.000Z',
+    }),
+  ];
+  const profile = baseProfile();
+
+  const sepOff = resolvePeriodTotals(ledgerAugSep, '2025-09', profile, false);
+  assert(approx(sepOff.obligation, 1250), `Sep obl ${sepOff.obligation}`);
+  assert(approx(sepOff.remaining, 500), `OFF → Sep remaining 500, got ${sepOff.remaining}`);
+  assert(sepOff.carryIn === 0, 'OFF carryIn 0');
+
+  const augOff = resolvePeriodTotals(ledgerAugSep, '2025-08', profile, false);
+  assert(approx(augOff.surplus, 300), `OFF Aug surplus 300, got ${augOff.surplus}`);
+
+  const sepOn = resolvePeriodTotals(ledgerAugSep, '2025-09', profile, true);
+  assert(approx(sepOn.remaining, 200), `ON → Sep remaining 200, got ${sepOn.remaining}`);
+  assert(approx(sepOn.carryIn, 300), `ON Sep carryIn 300, got ${sepOn.carryIn}`);
+
+  const augOn = resolvePeriodTotals(ledgerAugSep, '2025-08', profile, true);
+  assert(approx(augOn.surplus, 300), `ON Aug surplus still visible 300, got ${augOn.surplus}`);
+  assert(approx(augOn.carryOut, 300), `ON Aug carryOut 300, got ${augOn.carryOut}`);
+  console.log('OK: T-27 resolvePeriodTotals ON/OFF acceptance');
+
+  console.log('\nAll T-25 + T-27 totalsAdvanced tests passed.');
 }
 
 run();

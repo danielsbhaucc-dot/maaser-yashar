@@ -1,5 +1,6 @@
 import type { Gender } from './copy';
 import { BOT_NAME, t } from './copy';
+import { rateLabel, rateLabelFull } from './rateLabel';
 
 export function pick<T>(arr: T[]): T {
   return arr[Math.floor(Math.random() * arr.length)]!;
@@ -73,27 +74,27 @@ export function afterMarital(g: Gender): string {
 }
 
 export function afterRate(name: string, g: Gender, rate: number): string {
-  const rateLabel = rate === 0.2 ? 'חומש' : 'מעשר';
+  const label = rateLabel(rate);
   return pick([
     t(
       g,
-      `יופי ${name}! ${rateLabel} זה הכיוון ✦\nהפנקס כמעט מוכן — רגע של חגיגה קטנה.`,
-      `יופי ${name}! ${rateLabel} זה הכיוון ✦\nהפנקס כמעט מוכן — רגע של חגיגה קטנה.`
+      `יופי ${name}! ${label} זה הכיוון ✦\nהפנקס כמעט מוכן — רגע של חגיגה קטנה.`,
+      `יופי ${name}! ${label} זה הכיוון ✦\nהפנקס כמעט מוכן — רגע של חגיגה קטנה.`
     ),
     t(
       g,
-      `ננעל: ${rateLabel} ✨\n${name}, עוד לחיצה אחת ומתחילים לספור ברכה.`,
-      `ננעל: ${rateLabel} ✨\n${name}, עוד לחיצה אחת ומתחילות לספור ברכה.`
+      `ננעל: ${label} ✨\n${name}, עוד לחיצה אחת ומתחילים לספור ברכה.`,
+      `ננעל: ${label} ✨\n${name}, עוד לחיצה אחת ומתחילות לספור ברכה.`
     ),
   ]);
 }
 
 export function welcomeDone(name: string, g: Gender, rate: number): string {
-  const rateLabel = rate === 0.2 ? 'חומש 20%' : 'מעשר 10%';
+  const label = rateLabelFull(rate);
   return t(
     g,
-    `ברוך הבא לפנקס, ${name}!\nשיעור: ${rateLabel}.\nמעכשיו זה פשוט — הכנסה, ניכוי, צדקה. יאללה ✦`,
-    `ברוכה הבאה לפנקס, ${name}!\nשיעור: ${rateLabel}.\nמעכשיו זה פשוט — הכנסה, ניכוי, צדקה. יאללה ✦`
+    `ברוך הבא לפנקס, ${name}!\nשיעור: ${label}.\nמעכשיו זה פשוט — הכנסה, ניכוי, צדקה. יאללה ✦`,
+    `ברוכה הבאה לפנקס, ${name}!\nשיעור: ${label}.\nמעכשיו זה פשוט — הכנסה, ניכוי, צדקה. יאללה ✦`
   );
 }
 
@@ -101,6 +102,8 @@ export const EXPLAIN = {
   rate: `מעשר (10%) — הגרסה הקלאסית: עשירית מההכנסה לצדקה. רוב האנשים פה.
 
 חומש (20%) — למי שרוצה להחמיר קצת (מידת חסידות). בגמרא גם אומרים לא לעבור את זה — שלא יהיה יותר מדי נדיב עד שאין מה לאכול 😅
+
+אחר (1%–50%) — שיעור מותאם אישית, אם כך נהגתם.
 
 אצלנו החישוב מהנטו (אחרי מס, ביטוח לאומי ובריאות) — כמו שרוב הפוסקים נוהגים.`,
 

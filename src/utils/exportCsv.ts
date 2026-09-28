@@ -59,7 +59,24 @@ export async function exportHistoryCsv(entries: HistoryEntry[]): Promise<void> {
 
 /** ייצוא פנקס תנועות ל־CSV */
 export async function exportLedgerCsv(entries: LedgerEntry[]): Promise<void> {
-  const headers = ['מזהה', 'חודש', 'סוג', 'קטגוריה', 'סכום', 'הערה', 'תאריך'];
+  const headers = [
+    'מזהה',
+    'חודש',
+    'סוג',
+    'קטגוריה',
+    'סכום',
+    'הערה',
+    'תאריך',
+    'עמותה',
+    'סעיף 46',
+    'מספר קבלה',
+  ];
+  const has46He = (v: LedgerEntry['has46']): string => {
+    if (v === 'yes') return 'כן';
+    if (v === 'no') return 'לא';
+    if (v === 'unknown') return 'לא יודע';
+    return '';
+  };
   const rows = entries.map((e) => [
     e.id,
     e.period,
@@ -68,6 +85,9 @@ export async function exportLedgerCsv(entries: LedgerEntry[]): Promise<void> {
     e.amount,
     e.note ?? '',
     formatCsvDate(e.date ?? e.createdAt),
+    e.org ?? '',
+    has46He(e.has46),
+    e.receiptNo ?? '',
   ]);
   await shareOrDownload('maaser-ledger.csv', toCsv(headers, rows), 'ייצוא פנקס תנועות');
 }

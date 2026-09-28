@@ -195,9 +195,23 @@ function GlobalAddModal() {
     addRecurring,
     corrupt,
     acknowledgeCorrupt,
+    ledger,
   } = useApp();
   const toast = useToast();
   const sheetPeriod = addPeriod ?? currentPeriod();
+
+  const orgSuggestions = React.useMemo(() => {
+    const names: string[] = [];
+    const seen = new Set<string>();
+    for (const e of ledger) {
+      if (e.kind !== 'tzedaka' || !e.org?.trim()) continue;
+      const key = e.org.trim().toLowerCase();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      names.push(e.org.trim());
+    }
+    return names;
+  }, [ledger]);
 
   const ensureWritable = async (): Promise<boolean> => {
     if (!corrupt.ledger && !corrupt.recurring) return true;
@@ -253,6 +267,7 @@ function GlobalAddModal() {
       period={sheetPeriod}
       initialKind={addKind}
       editEntry={editingEntry}
+      orgSuggestions={orgSuggestions}
       onClose={closeAdd}
       onDelete={
         editingEntry
@@ -276,6 +291,14 @@ function GlobalAddModal() {
       onSave={async (data) => {
         const kindLabel = entryKindLabel(data.kind);
         const editing = editingEntry;
+        const receiptFields =
+          data.kind === 'tzedaka'
+            ? {
+                org: data.org,
+                has46: data.has46,
+                receiptNo: data.receiptNo,
+              }
+            : { org: undefined, has46: undefined, receiptNo: undefined };
         if (editing) {
           if (!(await ensureWritable())) return;
           await updateEntry(editing.id, {
@@ -285,6 +308,7 @@ function GlobalAddModal() {
             note: data.note,
             period: data.period,
             date: data.date,
+            ...receiptFields,
           });
           toast.success('התנועה עודכנה ✦', `${kindLabel} · ${data.category}`);
           return;
@@ -343,6 +367,7 @@ function GlobalAddModal() {
           category: data.category,
           amount: data.amount,
           note: data.note,
+          ...receiptFields,
         });
         toast.success('נשמרה תנועה ✦', `${kindLabel} · ${data.category}`);
       }}

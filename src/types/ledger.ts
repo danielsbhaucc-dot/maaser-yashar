@@ -1,5 +1,8 @@
 export type LedgerKind = 'income' | 'expense' | 'tzedaka';
 
+/** סטטוס אישור סעיף 46 לתרומה */
+export type Section46Status = 'yes' | 'no' | 'unknown';
+
 /** expense: מוריד מבסיס המעשר | tzedaka: נספר ככבר ניתן | income: מוסיף לבסיס */
 export interface LedgerEntry {
   id: string;
@@ -13,6 +16,12 @@ export interface LedgerEntry {
   date?: string;
   /** קישור להוראת קבע שיצרה את התנועה (במקום מזהה בהערה) */
   ruleId?: string;
+  /** שם עמותה / מוסד (אופציונלי, לצדקה) */
+  org?: string;
+  /** האם יש אישור סעיף 46 */
+  has46?: Section46Status;
+  /** מספר קבלה */
+  receiptNo?: string;
 }
 
 export const INCOME_CATEGORIES = [

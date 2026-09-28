@@ -7,7 +7,8 @@ export type TaxDeductionMode =
 export type GiftMode = 'include' | 'exclude';
 export type InheritanceMode = 'exclude' | 'include';
 export type AllowanceMode = 'exclude' | 'include'; // קצבאות ילדים וכו'
-export type MaaserRate = 0.1 | 0.2;
+/** שיעור נתינה כשבר (0.01–0.5). 0.1=מעשר, 0.2=חומש, אחר=מותאם */
+export type MaaserRate = number;
 
 export type EmploymentType = 'employee' | 'self_employed' | 'both' | 'other';
 export type MaritalStatus = 'single' | 'married' | 'unknown';

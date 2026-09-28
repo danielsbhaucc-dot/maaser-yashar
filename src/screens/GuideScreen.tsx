@@ -12,8 +12,7 @@ import { BOT_NAME, t } from '../utils/copy';
 import { noamGuideHero } from '../utils/noamCompanion';
 import { NoamNudge } from '../components/NoamNudge';
 import { currentPeriod } from '../utils/history';
-import { entriesForPeriod } from '../utils/ledger';
-import { resolveTotals } from '../utils/totalsAdvanced';
+import { resolvePeriodTotals } from '../utils/totalsAdvanced';
 import { guideSmartInsights } from '../utils/smartInsights';
 
 const STEP_COLORS = [
@@ -29,8 +28,12 @@ export default function GuideScreen() {
   const { profile, ledger } = useApp();
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
   const remaining = useMemo(() => {
-    const month = entriesForPeriod(ledger, currentPeriod());
-    return resolveTotals(month, profile).remaining;
+    return resolvePeriodTotals(
+      ledger,
+      currentPeriod(),
+      profile,
+      !!profile.carryForwardSurplus
+    ).remaining;
   }, [ledger, profile]);
   const insights = useMemo(
     () => guideSmartInsights({ name, gender: profile.gender, profile, remaining }),

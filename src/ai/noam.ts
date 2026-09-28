@@ -2,8 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import type { LedgerEntry, LedgerKind } from '../types/ledger';
 import { t, type Gender } from '../utils/copy';
-import { entriesForPeriod } from '../utils/ledger';
-import { resolveTotals } from '../utils/totalsAdvanced';
+import { resolvePeriodTotals } from '../utils/totalsAdvanced';
 import { currentPeriod } from '../utils/history';
 import type { UserProfile } from '../utils/profile';
 
@@ -59,11 +58,15 @@ export function buildNoamContext(opts: {
   period?: string;
 }): NoamChatContext {
   const period = opts.period || currentPeriod();
-  const month = entriesForPeriod(opts.ledger, period);
-  const totals = resolveTotals(month, opts.profile);
+  const totals = resolvePeriodTotals(
+    opts.ledger,
+    period,
+    opts.profile,
+    !!opts.profile.carryForwardSurplus
+  );
 
   return {
-    rate: opts.profile.rate === 0.2 ? 0.2 : 0.1,
+    rate: Number.isFinite(opts.profile.rate) ? opts.profile.rate : 0.1,
     income: totals.income,
     expenses: totals.expenses,
     tzedaka: totals.tzedaka,

@@ -12,6 +12,7 @@ import {
   monthsCoveredLabel,
   monthsWithBalanceLabel,
 } from './plural';
+import { approxRate, formatRatePercent, isValidMaaserRate, rateLabel } from './rateLabel';
 
 export type SmartTone = 'tip' | 'warn' | 'ok' | 'action';
 
@@ -331,18 +332,25 @@ export function guideSmartInsights(opts: {
     });
   }
 
-  if (profile.rate === 0.2) {
+  if (approxRate(profile.rate, 0.2)) {
     out.push({
       id: 'chumash',
       title: 'אתה על חומש',
       body: '20% זה מידת חסידות. ב־FAQ למטה יש הסבר למה לא עוברים את זה בדרך כלל.',
       tone: 'tip',
     });
-  } else {
+  } else if (approxRate(profile.rate, 0.1)) {
     out.push({
       id: 'maaser',
       title: 'מעשר קלאסי',
       body: '10% מהנטו — הנתיב הנפוץ. אם מתלבטים על מתנות/ירושה, פתחו את שאלות המעשר.',
+      tone: 'tip',
+    });
+  } else {
+    out.push({
+      id: 'custom-rate',
+      title: `שיעור ${rateLabel(profile.rate)}`,
+      body: `החובה מחושבת לפי ${formatRatePercent(profile.rate)}% מהנטו — שיעור מותאם אישית.`,
       tone: 'tip',
     });
   }
@@ -372,7 +380,7 @@ export function settingsSmartInsights(opts: {
   if (profile.displayName?.trim() && !['חבר', 'חברה'].includes(profile.displayName.trim()))
     score += 25;
   if (profile.maritalStatus !== 'unknown') score += 15;
-  if (profile.rate === 0.1 || profile.rate === 0.2) score += 20;
+  if (isValidMaaserRate(profile.rate)) score += 20;
 
   out.push({
     id: 'complete',
@@ -394,11 +402,18 @@ export function settingsSmartInsights(opts: {
     });
   }
 
-  if (profile.rate === 0.2) {
+  if (approxRate(profile.rate, 0.2)) {
     out.push({
       id: 'rate20',
       title: 'חומש פעיל',
       body: 'החובה מחושבת ב־20%. אפשר תמיד לחזור ל־10% אם זה לוחץ על התקציב.',
+      tone: 'tip',
+    });
+  } else if (!approxRate(profile.rate, 0.1)) {
+    out.push({
+      id: 'rate-custom',
+      title: `שיעור ${rateLabel(profile.rate)}`,
+      body: `החובה מחושבת ב־${formatRatePercent(profile.rate)}%. אפשר תמיד לחזור ל־10% או 20%.`,
       tone: 'tip',
     });
   }

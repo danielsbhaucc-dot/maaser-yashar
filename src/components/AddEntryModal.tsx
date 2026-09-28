@@ -13,6 +13,7 @@ import {
   TZEDAKA_CATEGORIES,
   type LedgerEntry,
   type LedgerKind,
+  type Section46Status,
 } from '../types/ledger';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import { parseMoney, PrimaryButton, Chip } from './ui';
@@ -32,6 +33,9 @@ type SaveData = {
   period: string;
   date: string;
   recurring?: { dayOfMonth: number };
+  org?: string;
+  has46?: Section46Status;
+  receiptNo?: string;
 };
 
 type Props = {
@@ -44,6 +48,8 @@ type Props = {
   initialKind?: LedgerKind;
   /** כשמועבר — המודל נפתח במצב עריכה עם שדות ממולאים */
   editEntry?: LedgerEntry | null;
+  /** שמות עמותות קודמות להשלמה אוטומטית */
+  orgSuggestions?: string[];
 };
 
 const KIND_META: Record<
@@ -100,6 +106,7 @@ export default function AddEntryModal({
   onDelete,
   initialKind = 'income',
   editEntry = null,
+  orgSuggestions = [],
 }: Props) {
   const isEdit = !!editEntry;
   const [kind, setKind] = useState<LedgerKind>(initialKind);
@@ -114,6 +121,10 @@ export default function AddEntryModal({
   const [pickerYear, setPickerYear] = useState(() =>
     Number((initialPeriod || currentPeriod()).slice(0, 4))
   );
+  const [receiptOpen, setReceiptOpen] = useState(false);
+  const [org, setOrg] = useState('');
+  const [has46, setHas46] = useState<Section46Status>('unknown');
+  const [receiptNo, setReceiptNo] = useState('');
 
   const selectablePeriods = useMemo(() => lastNPeriods(12), []);
   const years = useMemo(() => {
@@ -141,12 +152,24 @@ export default function AddEntryModal({
       const p = editEntry.period || currentPeriod();
       setSelectedPeriod(p);
       setPickerYear(Number(p.slice(0, 4)));
+      const hasReceipt =
+        !!editEntry.org ||
+        !!editEntry.receiptNo ||
+        editEntry.has46 !== undefined;
+      setReceiptOpen(hasReceipt);
+      setOrg(editEntry.org ?? '');
+      setHas46(editEntry.has46 ?? 'unknown');
+      setReceiptNo(editEntry.receiptNo ?? '');
       return;
     }
 
     setKind(initialKind);
     setAmount('');
     setNote('');
+    setReceiptOpen(false);
+    setOrg('');
+    setHas46('unknown');
+    setReceiptNo('');
     const p = initialPeriod || currentPeriod();
     setSelectedPeriod(p);
     setPickerYear(Number(p.slice(0, 4)));
@@ -158,6 +181,13 @@ export default function AddEntryModal({
           : TZEDAKA_CATEGORIES;
     setCategory(cats[0]);
   }, [visible, initialKind, initialPeriod, editEntry]);
+
+  const filteredOrgs = useMemo(() => {
+    const q = org.trim().toLowerCase();
+    const uniq = [...new Set(orgSuggestions.map((s) => s.trim()).filter(Boolean))];
+    if (!q) return uniq.slice(0, 6);
+    return uniq.filter((s) => s.toLowerCase().includes(q)).slice(0, 6);
+  }, [org, orgSuggestions]);
 
   const categories = useMemo(() => {
     if (kind === 'income') return [...INCOME_CATEGORIES];
@@ -193,7 +223,7 @@ export default function AddEntryModal({
       isEdit && editEntry && period === editEntry.period
         ? editEntry.date ?? defaultDateFor(period)
         : defaultDateFor(period);
-    onSave({
+    const payload: SaveData = {
       kind,
       category,
       amount: parsed.value,
@@ -201,7 +231,15 @@ export default function AddEntryModal({
       period,
       date,
       recurring: !isEdit && recurringOn ? { dayOfMonth } : undefined,
-    });
+    };
+    if (kind === 'tzedaka' && (receiptOpen || org.trim() || receiptNo.trim() || has46 !== 'unknown')) {
+      const orgTrim = org.trim();
+      const receiptTrim = receiptNo.trim();
+      if (orgTrim) payload.org = orgTrim;
+      if (receiptTrim) payload.receiptNo = receiptTrim;
+      payload.has46 = has46;
+    }
+    onSave(payload);
     onClose();
   };
 
@@ -387,6 +425,84 @@ export default function AddEntryModal({
           textAlign="start"
           accessibilityLabel="הערה לתנועה"
         />
+
+        {kind === 'tzedaka' ? (
+          <View style={styles.receiptBlock}>
+            <Pressable
+              onPress={() => setReceiptOpen((v) => !v)}
+              style={[styles.receiptToggle, receiptOpen && styles.receiptToggleOn]}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: receiptOpen }}
+              accessibilityLabel="פרטים לקבלה"
+            >
+              <View style={styles.recurToggleText}>
+                <Text style={styles.recurTitle}>פרטים לקבלה</Text>
+                <Text style={styles.recurHint}>
+                  עמותה · סעיף 46 · מספר קבלה (אופציונלי)
+                </Text>
+              </View>
+              <Text style={styles.receiptChevron}>{receiptOpen ? '▾' : '◂'}</Text>
+            </Pressable>
+
+            {receiptOpen ? (
+              <View style={styles.receiptFields}>
+                <Text style={styles.label}>שם עמותה</Text>
+                <TextInput
+                  style={styles.note}
+                  value={org}
+                  onChangeText={setOrg}
+                  placeholder="לדוגמה: עמותת חסד"
+                  placeholderTextColor={colors.inkSoft}
+                  textAlign="start"
+                  accessibilityLabel="שם עמותה"
+                  autoCorrect={false}
+                />
+                {filteredOrgs.length > 0 ? (
+                  <View style={styles.orgSuggestRow}>
+                    {filteredOrgs.map((name) => (
+                      <Chip
+                        key={name}
+                        label={name}
+                        selected={org.trim() === name}
+                        onPress={() => setOrg(name)}
+                      />
+                    ))}
+                  </View>
+                ) : null}
+
+                <Text style={styles.label}>אישור סעיף 46</Text>
+                <View style={styles.cats} accessibilityRole="radiogroup">
+                  {(
+                    [
+                      { id: 'yes' as const, label: 'כן' },
+                      { id: 'no' as const, label: 'לא' },
+                      { id: 'unknown' as const, label: 'לא יודע/ת' },
+                    ] as const
+                  ).map((opt) => (
+                    <Chip
+                      key={opt.id}
+                      label={opt.label}
+                      selected={has46 === opt.id}
+                      onPress={() => setHas46(opt.id)}
+                    />
+                  ))}
+                </View>
+
+                <Text style={styles.label}>מספר קבלה</Text>
+                <TextInput
+                  style={styles.note}
+                  value={receiptNo}
+                  onChangeText={setReceiptNo}
+                  placeholder="אופציונלי"
+                  placeholderTextColor={colors.inkSoft}
+                  textAlign="start"
+                  accessibilityLabel="מספר קבלה"
+                  autoCorrect={false}
+                />
+              </View>
+            ) : null}
+          </View>
+        ) : null}
 
         {!isEdit ? (
           <Pressable
@@ -588,6 +704,36 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
     writingDirection: 'rtl',
     textAlign: 'start',
+  },
+  receiptBlock: { marginBottom: spacing.md },
+  receiptToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  receiptToggleOn: {
+    borderColor: colors.gold,
+    backgroundColor: colors.goldSoft,
+    marginBottom: spacing.sm,
+  },
+  receiptChevron: {
+    fontFamily: fonts.bold,
+    fontSize: 16,
+    color: colors.gold,
+  },
+  receiptFields: {
+    paddingTop: 4,
+  },
+  orgSuggestRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: spacing.sm,
+    marginTop: -4,
   },
   recurToggle: {
     flexDirection: 'row',

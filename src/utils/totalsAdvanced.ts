@@ -48,6 +48,165 @@ export type ResolvedTotals = LedgerTotals & {
   engine: MaaserResult | null;
 };
 
+/** טקסט מנוע — עודף מול חובה (לשימוש בהגדרות / ממשק) */
+export const SURPLUS_CARRY_ENGINE_TEXT =
+  'כבר נתתם יותר מחובת המעשר/חומש לתקופה זו. העודף יכול (לפי חלק מהפוסקים) להיחשב על תקופה הבאה — שאלו רב.';
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
+export type CarryPeriodTotals = LedgerTotals & {
+  carryIn: number;
+  carryOut: number;
+};
+
+/** העברת עודף בין תקופות (כשההגדרה פעילה) */
+export function withCarryForward(
+  periods: string[],
+  byPeriod: Record<string, LedgerTotals>
+): Record<string, CarryPeriodTotals> {
+  let carry = 0;
+  const out: Record<string, CarryPeriodTotals> = {};
+  for (const p of [...periods].sort()) {
+    const t = byPeriod[p] ?? {
+      income: 0,
+      expenses: 0,
+      tzedaka: 0,
+      netBase: 0,
+      obligation: 0,
+      remaining: 0,
+    };
+    const given = t.tzedaka + carry;
+    out[p] = {
+      ...t,
+      carryIn: carry,
+      remaining: Math.max(0, round2(t.obligation - given)),
+      carryOut: (carry = Math.max(0, round2(given - t.obligation))),
+    };
+  }
+  return out;
+}
+
+/** עודף מקומי בחודש (ניתן − חובה), בלי קשר להעברה */
+export function periodSurplus(t: Pick<LedgerTotals, 'obligation' | 'tzedaka'>): number {
+  return Math.max(0, round2(t.tzedaka - t.obligation));
+}
+
+function fillMonthRange(start: string, end: string): string[] {
+  const out: string[] = [];
+  let y = Number(start.slice(0, 4));
+  let m = Number(start.slice(5, 7));
+  const ey = Number(end.slice(0, 4));
+  const em = Number(end.slice(5, 7));
+  if (![y, m, ey, em].every(Number.isFinite)) return [start, end].filter(Boolean);
+  while (y < ey || (y === ey && m <= em)) {
+    out.push(`${y}-${String(m).padStart(2, '0')}`);
+    m += 1;
+    if (m > 12) {
+      m = 1;
+      y += 1;
+    }
+  }
+  return out;
+}
+
+export type PeriodResolved = ResolvedTotals & {
+  carryIn: number;
+  carryOut: number;
+  /** עודף מקומי לתצוגה — גם כשההעברה כבויה */
+  surplus: number;
+};
+
+function periodChain(periodSet: Set<string>, carryForward: boolean): string[] {
+  const sorted = [...periodSet].filter(Boolean).sort();
+  if (carryForward && sorted.length >= 2) {
+    return fillMonthRange(sorted[0]!, sorted[sorted.length - 1]!);
+  }
+  return sorted;
+}
+
+function toLedgerTotals(t: ResolvedTotals): LedgerTotals {
+  return {
+    income: t.income,
+    expenses: t.expenses,
+    tzedaka: t.tzedaka,
+    netBase: t.netBase,
+    obligation: t.obligation,
+    remaining: t.remaining,
+  };
+}
+
+/**
+ * סיכום לכל התקופות בפנקס; כש־carryForward=true מעביר עודף לחודש הבא.
+ * `extraPeriods` — תקופות ריקות שייכללו בשרשרת (למשל החודש שנצפה בבית).
+ */
+export function resolveAllPeriods(
+  ledger: LedgerEntry[],
+  profile: TotalsProfile,
+  carryForward: boolean,
+  extraPeriods: string[] = []
+): Record<string, PeriodResolved> {
+  const periodSet = new Set(ledger.map((e) => e.period).filter(Boolean));
+  for (const p of extraPeriods) {
+    if (p) periodSet.add(p);
+  }
+  const periods = periodChain(periodSet, carryForward);
+
+  const byPeriod: Record<string, ResolvedTotals> = {};
+  for (const p of periods) {
+    byPeriod[p] = resolveTotals(
+      ledger.filter((e) => e.period === p),
+      profile
+    );
+  }
+
+  if (!carryForward) {
+    const out: Record<string, PeriodResolved> = {};
+    for (const p of periods) {
+      const t = byPeriod[p]!;
+      const surplus = periodSurplus(t);
+      out[p] = { ...t, carryIn: 0, carryOut: surplus, surplus };
+    }
+    return out;
+  }
+
+  const baseOnly: Record<string, LedgerTotals> = {};
+  for (const p of periods) {
+    baseOnly[p] = toLedgerTotals(byPeriod[p]!);
+  }
+  const carried = withCarryForward(periods, baseOnly);
+  const out: Record<string, PeriodResolved> = {};
+  for (const p of periods) {
+    const t = byPeriod[p]!;
+    const c = carried[p]!;
+    out[p] = {
+      ...t,
+      remaining: c.remaining,
+      carryIn: c.carryIn,
+      carryOut: c.carryOut,
+      surplus: periodSurplus(t),
+    };
+  }
+  return out;
+}
+
+/** סיכום לתקופה אחת (עם שרשרת העברה כשפעיל) */
+export function resolvePeriodTotals(
+  ledger: LedgerEntry[],
+  period: string,
+  profile: TotalsProfile,
+  carryForward: boolean
+): PeriodResolved {
+  const all = resolveAllPeriods(ledger, profile, carryForward, [period]);
+  return (
+    all[period] ?? {
+      ...resolveTotals([], profile),
+      carryIn: 0,
+      carryOut: 0,
+      surplus: 0,
+    }
+  );
+}
+
 function normCat(c: string): string {
   return c.trim().replace(/\s+/g, ' ');
 }

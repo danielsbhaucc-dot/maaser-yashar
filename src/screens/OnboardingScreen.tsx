@@ -37,6 +37,10 @@ import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import { RichMessageText } from '../components/RichMessageText';
 import type { MaaserRate } from '../types';
+import {
+  parseRatePercentInput,
+  rateLabelFull,
+} from '../utils/rateLabel';
 
 type Msg = { id: string; from: 'bot' | 'me'; text: string };
 
@@ -240,6 +244,9 @@ export default function OnboardingScreen() {
   const [marital, setMarital] = useState<'single' | 'married'>('single');
   const [includeSpouse, setIncludeSpouse] = useState(false);
   const [rate, setRate] = useState<MaaserRate>(0.1);
+  const [customRateOpen, setCustomRateOpen] = useState(false);
+  const [customRateText, setCustomRateText] = useState('');
+  const [rateError, setRateError] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [thinking, setThinking] = useState(false);
   const [msgs, setMsgs] = useState<Msg[]>(() => [
@@ -384,13 +391,25 @@ export default function OnboardingScreen() {
 
   const pickRate = (r: MaaserRate) => {
     if (thinking) return;
+    setRateError(null);
+    setCustomRateOpen(false);
     setRate(r);
-    push('me', r === 0.1 ? 'מעשר 10%' : 'חומש 20%');
+    push('me', rateLabelFull(r));
     const display = name.trim() || t(gender, 'חבר', 'חברה');
     setTimeout(() => {
       push('bot', afterRate(display, gender, r));
       setTimeout(() => setStep(4), 500);
     }, 280);
+  };
+
+  const confirmCustomRate = () => {
+    if (thinking) return;
+    const parsed = parseRatePercentInput(customRateText);
+    if (!parsed.ok) {
+      setRateError(parsed.error);
+      return;
+    }
+    pickRate(parsed.rate);
   };
 
   /** נכנסים לאפליקציה רק אחרי לחיצה מפורשת */
@@ -410,7 +429,7 @@ export default function OnboardingScreen() {
   };
 
   const displayName = name.trim() || t(gender, 'חבר', 'חברה');
-  const rateLabel = rate === 0.2 ? 'חומש 20%' : 'מעשר 10%';
+  const rateSummary = rateLabelFull(rate);
   const maritalLabel =
     marital === 'single'
       ? t(gender, 'רווק', 'רווקה')
@@ -488,7 +507,7 @@ export default function OnboardingScreen() {
               <View style={styles.summaryRow}>
                 <View style={styles.summaryChip}>
                   <Text style={styles.summaryLbl}>שיעור</Text>
-                  <Text style={styles.summaryVal}>{rateLabel}</Text>
+                  <Text style={styles.summaryVal}>{rateSummary}</Text>
                 </View>
                 <View style={styles.summaryChip}>
                   <Text style={styles.summaryLbl}>מצב</Text>
@@ -617,7 +636,7 @@ export default function OnboardingScreen() {
 
               {step === 3 && !thinking && (
                 <Glass style={styles.panel}>
-                  <Text style={styles.panelTitle}>מעשר או חומש?</Text>
+                  <Text style={styles.panelTitle}>מעשר, חומש או אחר?</Text>
                   <Accordion
                     items={[
                       {
@@ -645,6 +664,46 @@ export default function OnboardingScreen() {
                       <Text style={styles.optText}>חומש</Text>
                     </Pressable>
                   </View>
+                  <Pressable
+                    style={[styles.optWide, customRateOpen && styles.optWideAlt]}
+                    onPress={() => {
+                      setCustomRateOpen(true);
+                      if (!customRateText) setCustomRateText('15');
+                    }}
+                  >
+                    <Text style={styles.optText}>אחר — אחוז מותאם</Text>
+                  </Pressable>
+                  {customRateOpen ? (
+                    <View style={styles.customRateBox}>
+                      <Text style={styles.customRateHint}>בין 1% ל־50% (ספרה אחת)</Text>
+                      <TextInput
+                        style={styles.customRateInput}
+                        value={customRateText}
+                        onChangeText={(t) => {
+                          setCustomRateText(t);
+                          if (rateError) setRateError(null);
+                        }}
+                        keyboardType="decimal-pad"
+                        placeholder="15"
+                        placeholderTextColor="rgba(255,255,255,0.35)"
+                        textAlign="center"
+                        accessibilityLabel="אחוז נתינה מותאם"
+                      />
+                      {rateError ? (
+                        <Text style={styles.rateError} accessibilityRole="alert">
+                          {rateError}
+                        </Text>
+                      ) : null}
+                      <Pressable
+                        style={[styles.optWide, styles.optPrimary]}
+                        onPress={confirmCustomRate}
+                      >
+                        <Text style={styles.optText}>
+                          אשר {customRateText ? `${customRateText}%` : 'שיעור'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  ) : null}
                 </Glass>
               )}
             </ScrollView>
@@ -866,6 +925,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   optWideAlt: { backgroundColor: 'rgba(184,164,255,0.2)' },
+  customRateBox: {
+    marginTop: 12,
+    gap: 8,
+    alignItems: 'center',
+  },
+  customRateHint: {
+    ...type.caption,
+    color: 'rgba(255,255,255,0.55)',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  customRateInput: {
+    width: '100%',
+    backgroundColor: 'rgba(0,0,0,0.28)',
+    borderRadius: radii.lg,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    fontFamily: fonts.numBold,
+    fontSize: 28,
+    color: '#fff',
+    borderWidth: 1,
+    borderColor: 'rgba(255,216,138,0.35)',
+    textAlign: 'center',
+  },
+  rateError: {
+    ...type.caption,
+    fontFamily: fonts.medium,
+    color: colors.danger,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
   optText: { ...type.emphasis, color: '#fff', fontSize: 14, textAlign: 'center' },
   optNum: {
     fontFamily: fonts.numBold,

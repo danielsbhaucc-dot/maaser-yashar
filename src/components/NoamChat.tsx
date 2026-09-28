@@ -43,7 +43,7 @@ import { noamChatWelcome } from '../utils/noamCompanion';
 import { entriesLabel } from '../utils/plural';
 import { formatRelativeTime } from '../utils/relativeTime';
 import { entriesForPeriod } from '../utils/ledger';
-import { resolveTotals } from '../utils/totalsAdvanced';
+import { resolvePeriodTotals } from '../utils/totalsAdvanced';
 import { RichMessageText } from './RichMessageText';
 import { PRIVACY_LINK_LABEL, privacyPageUrl } from '../constants/privacy';
 
@@ -220,7 +220,12 @@ export default function NoamChat() {
     const id = newThreadId();
     const period = currentPeriod();
     const month = entriesForPeriod(ledger, period);
-    const totals = resolveTotals(month, profile);
+    const totals = resolvePeriodTotals(
+      ledger,
+      period,
+      profile,
+      !!profile.carryForwardSurplus
+    );
     const welcome: ChatMessage = {
       id: msgId(),
       role: 'assistant',

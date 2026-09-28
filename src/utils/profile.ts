@@ -9,6 +9,7 @@ import {
   defaultAdvancedSettings,
   type AdvancedCalcSettings,
 } from './totalsAdvanced';
+import { isValidMaaserRate } from './rateLabel';
 
 export const PROFILE_KEY = 'maaser_profile_v2';
 
@@ -32,6 +33,11 @@ export interface UserProfile {
   chatConsentDone: boolean;
   /** חישוב מעשר מתקדם — מופעל כברירת מחדל */
   advanced: AdvancedCalcSettings;
+  /**
+   * העברת עודף לחודש הבא — כבוי כברירת מחדל.
+   * דורש התניה מראש לפי חלק מהפוסקים.
+   */
+  carryForwardSurplus: boolean;
 }
 
 export const defaultProfile = (): UserProfile => ({
@@ -45,6 +51,7 @@ export const defaultProfile = (): UserProfile => ({
   chatShareTotals: true,
   chatConsentDone: false,
   advanced: defaultAdvancedSettings(),
+  carryForwardSurplus: false,
 });
 
 export async function loadProfile(): Promise<SafeLoadResult<UserProfile>> {
@@ -64,6 +71,9 @@ export async function loadProfile(): Promise<SafeLoadResult<UserProfile>> {
       ...(rest as Partial<UserProfile>).advanced,
     },
   };
+  if (!isValidMaaserRate(merged.rate)) {
+    merged.rate = base.rate;
+  }
   return { data: merged, corrupt: false };
 }
 

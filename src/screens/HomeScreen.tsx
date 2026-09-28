@@ -21,7 +21,7 @@ import {
   formatPeriod,
 } from '../utils/history';
 import { entriesForPeriod } from '../utils/ledger';
-import { resolveTotals } from '../utils/totalsAdvanced';
+import { resolvePeriodTotals } from '../utils/totalsAdvanced';
 import { getSmartGreeting } from '../utils/greeting';
 import {
   noamBannerTip,
@@ -38,6 +38,7 @@ import { homeSmartInsights } from '../utils/smartInsights';
 import type { SmartInsight } from '../utils/smartInsights';
 import { EXPLAIN } from '../utils/chatScript';
 import { daysLabel, entriesLabel } from '../utils/plural';
+import { formatRatePercent } from '../utils/rateLabel';
 import { formatRelativeTime } from '../utils/relativeTime';
 import { displayNote } from '../utils/recurring';
 import {
@@ -45,21 +46,43 @@ import {
   shouldShowBackupReminder,
   subscribeBackupReminder,
 } from '../utils/backupExport';
+import {
+  closeMonthBannerText,
+  dismissCloseMonthBanner,
+  loadCloseMonthDismissed,
+  previousPeriod,
+  shouldShowCloseMonthBanner,
+} from '../utils/monthlyReminder';
 
 const BASE_EXPLAIN_SHORT = `בסיס המעשר כאן = הכנסות שרשמת פחות הוצאות מותרות (מס / ביטוח / בריאות / הוצאות עסק).
 לא מנכים הוצאות מחיה (שכירות, אוכל וכו'). צדקה לא מורידה מהבסיס — רק נספרת מול החובה.`;
 
 export default function HomeScreen() {
-  const { profile, ledger, removeEntry, openAdd, openEdit, saveMonth } = useApp();
+  const { profile, ledger, history, removeEntry, openAdd, openEdit, saveMonth } = useApp();
   const toast = useToast();
   const [period, setPeriod] = useState(currentPeriod);
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [showBackupBanner, setShowBackupBanner] = useState(false);
+  const [closeMonthDismissed, setCloseMonthDismissed] = useState<string | null>(null);
+  const [closeMonthReady, setCloseMonthReady] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadCloseMonthDismissed().then((v) => {
+      if (!cancelled) {
+        setCloseMonthDismissed(v);
+        setCloseMonthReady(true);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -93,16 +116,23 @@ export default function HomeScreen() {
     [ledger, period]
   );
   const totals = useMemo(
-    () => resolveTotals(monthEntries, profile),
-    [monthEntries, profile]
+    () =>
+      resolvePeriodTotals(
+        ledger,
+        period,
+        profile,
+        !!profile.carryForwardSurplus
+      ),
+    [ledger, period, profile]
   );
 
   const ring: Ring = useMemo(() => {
     if (monthEntries.length === 0) return { kind: 'empty' };
     if (totals.obligation <= 0) return { kind: 'none' };
+    const given = totals.tzedaka + (totals.carryIn || 0);
     return {
       kind: 'progress',
-      percent: Math.min(100, Math.round((totals.tzedaka / totals.obligation) * 100)),
+      percent: Math.min(100, Math.round((given / totals.obligation) * 100)),
     };
   }, [monthEntries.length, totals]);
 
@@ -116,6 +146,15 @@ export default function HomeScreen() {
     }
     return null;
   }, [ring, totals.tzedaka]);
+
+  const surplusLine =
+    totals.surplus > 0
+      ? `נתת ${formatMoney(totals.surplus)} יותר מהחובה החודש`
+      : null;
+  const carryInLine =
+    profile.carryForwardSurplus && totals.carryIn > 0
+      ? `כולל העברה מחודש קודם: ${formatMoney(totals.carryIn)}`
+      : null;
   const periods = useMemo(() => {
     const set = new Set<string>([currentPeriod()]);
     ledger.forEach((e) => set.add(e.period));
@@ -146,7 +185,7 @@ export default function HomeScreen() {
           obligation: totals.obligation,
           alreadyGiven: totals.tzedaka,
           remaining: totals.remaining,
-          ratePercent: profile.rate * 100,
+          ratePercent: Number(formatRatePercent(profile.rate)),
         },
       });
       toast.success('נשמר בהיסטוריה ✦', noamSaveMonthToast(name, profile.gender, formatPeriod(period)));
@@ -194,6 +233,20 @@ export default function HomeScreen() {
     else if (item.actionKind === 'save') void onSaveMonth();
   };
 
+  const prevClosePeriod = useMemo(() => previousPeriod(now), [now]);
+  const showCloseMonthBanner =
+    closeMonthReady &&
+    shouldShowCloseMonthBanner(
+      history.map((h) => h.period),
+      closeMonthDismissed,
+      now
+    );
+
+  const onDismissCloseMonth = async () => {
+    await dismissCloseMonthBanner(prevClosePeriod);
+    setCloseMonthDismissed(prevClosePeriod);
+  };
+
   const hero = (
     <View style={styles.hero}>
       <View style={styles.brandPill}>
@@ -201,7 +254,7 @@ export default function HomeScreen() {
       </View>
       <Text style={styles.greet}>{greet.line}</Text>
       <Text style={styles.sub}>
-        {formatPeriod(period)} · {profile.rate * 100}%
+        {formatPeriod(period)} · {formatRatePercent(profile.rate)}%
         {journeyDays != null ? ` · ${daysLabel(journeyDays)}` : ''}
       </Text>
     </View>
@@ -210,6 +263,35 @@ export default function HomeScreen() {
   return (
     <Screen sheet hero={hero} scroll>
       <PrivacyNotice />
+      {showCloseMonthBanner ? (
+        <Glass dark gold style={styles.closeMonthCard}>
+          <View style={styles.closeMonthRow}>
+            <Pressable
+              style={styles.closeMonthMain}
+              onPress={() => setPeriod(prevClosePeriod)}
+              accessibilityRole="button"
+              accessibilityLabel={closeMonthBannerText(prevClosePeriod)}
+              accessibilityHint="מעבר לחודש הקודם לשמירת סיכום"
+            >
+              <Text style={styles.closeMonthTitle}>
+                {closeMonthBannerText(prevClosePeriod)}
+              </Text>
+              <Text style={styles.closeMonthHint}>
+                לחצו כדי לעבור ל{formatPeriod(prevClosePeriod)} ולשמור סיכום
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void onDismissCloseMonth()}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="סגור תזכורת סגירת חודש"
+              style={styles.closeMonthDismiss}
+            >
+              <Text style={styles.closeMonthDismissText}>×</Text>
+            </Pressable>
+          </View>
+        </Glass>
+      ) : null}
       {showBackupBanner ? (
         <Pressable
           onPress={async () => {
@@ -280,6 +362,12 @@ export default function HomeScreen() {
                 <Text style={styles.balanceHintEm}>{formatMoney(totals.obligation)}</Text>
               </Text>
             )}
+            {surplusLine ? (
+              <Text style={styles.surplusHint}>{surplusLine}</Text>
+            ) : null}
+            {carryInLine ? (
+              <Text style={styles.carryHint}>{carryInLine}</Text>
+            ) : null}
           </View>
           <ProgressRing ring={ring} color={colors.gold} />
         </View>
@@ -298,7 +386,7 @@ export default function HomeScreen() {
           <Stat label="צדקה (מול חובה)" value={formatMoney(totals.tzedaka)} color={colors.tzedaka} />
         </View>
         <Text style={styles.baseHint}>
-          חובה = {profile.rate * 100}% × בסיס נטו · ניכוי כאן = יורד מהבסיס (לא מחיה)
+          חובה = {formatRatePercent(profile.rate)}% × בסיס נטו · ניכוי כאן = יורד מהבסיס (לא מחיה)
         </Text>
         {(totals.lines.length > 0 || totals.warnings.length > 0) && (
           <View style={styles.howWrap}>
@@ -512,6 +600,48 @@ function LedgerRow({
 
 const styles = StyleSheet.create({
   hero: { alignItems: 'center', width: '100%' },
+  closeMonthCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    width: '100%',
+  },
+  closeMonthRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+  },
+  closeMonthMain: {
+    flex: 1,
+    minWidth: 0,
+  },
+  closeMonthTitle: {
+    ...type.emphasis,
+    fontFamily: fonts.semi,
+    color: colors.gold,
+    textAlign: 'start',
+    writingDirection: 'rtl',
+    lineHeight: 22,
+  },
+  closeMonthHint: {
+    ...type.caption,
+    color: colors.inkSoft,
+    marginTop: 4,
+    textAlign: 'start',
+    writingDirection: 'rtl',
+  },
+  closeMonthDismiss: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  closeMonthDismissText: {
+    fontSize: 20,
+    color: colors.inkSoft,
+    lineHeight: 22,
+  },
   brandPill: {
     borderRadius: radii.pill,
     borderWidth: 1,
@@ -591,6 +721,19 @@ const styles = StyleSheet.create({
   balanceHintEm: {
     fontFamily: fonts.bold,
     color: colors.inkMuted,
+  },
+  surplusHint: {
+    ...type.caption,
+    fontFamily: fonts.semi,
+    color: colors.gold,
+    marginTop: 6,
+    writingDirection: 'rtl',
+  },
+  carryHint: {
+    ...type.caption,
+    color: colors.inkSoft,
+    marginTop: 4,
+    writingDirection: 'rtl',
   },
   baseHint: {
     ...type.caption,

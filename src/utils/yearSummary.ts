@@ -2,7 +2,11 @@ import { HDate, gematriya } from '@hebcal/core';
 import type { LedgerEntry, LedgerTotals } from '../types/ledger';
 import type { UserProfile } from './profile';
 import { formatPeriod } from './history';
-import { resolveTotals, type TotalsProfile } from './totalsAdvanced';
+import {
+  resolveAllPeriods,
+  resolveTotals,
+  type TotalsProfile,
+} from './totalsAdvanced';
 
 export type YearMode = 'civil' | 'hebrew';
 
@@ -10,6 +14,8 @@ export type YearMonthRow = {
   period: string;
   label: string;
   totals: LedgerTotals;
+  surplus?: number;
+  carryIn?: number;
 };
 
 export type YearSummaryResult = {
@@ -72,13 +78,13 @@ function section46Amount(entries: LedgerEntry[]): number | null {
   let sum = 0;
   for (const e of entries) {
     if (e.kind !== 'tzedaka') continue;
-    const rec = e as LedgerEntry & {
-      section46Approved?: boolean;
-      hasSection46?: boolean;
-    };
-    if ('section46Approved' in rec || 'hasSection46' in rec) {
+    const hasFlag =
+      e.has46 !== undefined ||
+      e.org !== undefined ||
+      e.receiptNo !== undefined;
+    if (hasFlag) {
       sawField = true;
-      if (rec.section46Approved === true || rec.hasSection46 === true) {
+      if (e.has46 === 'yes') {
         const amt = Number.isFinite(e.amount) ? Math.max(0, e.amount) : 0;
         sum += amt;
       }
@@ -121,11 +127,21 @@ export function yearSummary(
       ? Array.from({ length: 12 }, (_, i) => `${year}-${String(i + 1).padStart(2, '0')}`)
       : [...byPeriod.keys()].sort();
 
+  const carryOn =
+    'carryForwardSurplus' in profile ? !!profile.carryForwardSurplus : false;
+
+  const resolvedByPeriod = resolveAllPeriods(
+    inYear,
+    totalsProfile,
+    carryOn,
+    periods
+  );
+
   const months: YearMonthRow[] = periods
     .map((period) => {
       const list = byPeriod.get(period) ?? [];
       if (list.length === 0) return null;
-      const m = resolveTotals(list, totalsProfile);
+      const m = resolvedByPeriod[period] ?? resolveTotals(list, totalsProfile);
       return {
         period,
         label: formatPeriod(period),
@@ -137,6 +153,8 @@ export function yearSummary(
           obligation: m.obligation,
           remaining: m.remaining,
         },
+        surplus: 'surplus' in m ? m.surplus : 0,
+        carryIn: 'carryIn' in m ? m.carryIn : 0,
       };
     })
     .filter((r): r is YearMonthRow => r != null);
