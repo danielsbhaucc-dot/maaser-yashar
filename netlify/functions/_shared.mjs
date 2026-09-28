@@ -27,9 +27,24 @@ function allowedOrigins() {
 export function corsHeaders(event) {
   const origin = event?.headers?.origin || event?.headers?.Origin || '';
   const allowed = allowedOrigins();
-  const match = origin && allowed.includes(origin) ? origin : allowed[0];
+  // אף פעם לא * — רק מקור מאושר. מקור זר לא מקבל Allow-Origin.
+  if (origin && allowed.includes(origin)) {
+    return {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      Vary: 'Origin',
+    };
+  }
+  if (!origin) {
+    return {
+      'Access-Control-Allow-Origin': allowed[0],
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      Vary: 'Origin',
+    };
+  }
   return {
-    'Access-Control-Allow-Origin': match,
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
     Vary: 'Origin',

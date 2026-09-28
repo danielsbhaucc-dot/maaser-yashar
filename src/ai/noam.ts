@@ -33,14 +33,14 @@ export type ChatThread = {
 
 const HISTORY_KEY = 'noam_chat_threads_v1';
 
-/** כתובת ה־API — בפריסה ב־Netlify זה עובד יחסית לאתר */
+/** כתובת ה־API — בפריסה ב־Netlify זה עובד יחסית לאתר דרך /api/chat */
 export function chatEndpoint(): string {
   const fromEnv = process.env.EXPO_PUBLIC_CHAT_API_URL?.trim();
   if (fromEnv) return fromEnv.replace(/\/$/, '');
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return `${window.location.origin}/.netlify/functions/chat`;
+    return `${window.location.origin}/api/chat`;
   }
-  return 'https://maaser-yashar.netlify.app/.netlify/functions/chat';
+  return 'https://maaser-yashar.netlify.app/api/chat';
 }
 
 /** הקשר מובנה לשרת — ההנחיה למודל נבנית שם, לא בלקוח */

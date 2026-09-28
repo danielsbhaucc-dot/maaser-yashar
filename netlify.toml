@@ -7,13 +7,11 @@
   node_bundler = "esbuild"
 
 # מפתח AI: Netlify UI → Site settings → Environment variables
-# OPENROUTER_API_KEY = ...   (שרת בלבד, בלי EXPO_PUBLIC_)
+# OPENROUTER_API_KEY = ...          (שרת בלבד, בלי EXPO_PUBLIC_)
+# OPENROUTER_MODEL = meta-llama/... (אופציונלי; ברירת מחדל בשרת)
 # AI_ALLOWED_ORIGINS = https://your-site.netlify.app   (אופציונלי)
 
-[[redirects]]
-  from = "/api/chat"
-  to = "/.netlify/functions/chat"
-  status = 200
+# /api/chat מוגש ישירות מהפונקציה (config.path) — בלי redirect
 
 [[redirects]]
   from = "/api/onboard"

@@ -9,9 +9,19 @@ import {
   optionsResponse,
 } from './_shared.mjs';
 
-const PRIMARY_MODEL = 'meta-llama/llama-4-scout';
 const FALLBACK_MODEL = 'meta-llama/llama-3.1-8b-instruct';
 const UPSTREAM_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const MAX_MESSAGES = 12;
+const MAX_CHARS = 800;
+const MAX_BODY_CHARS = 12_000;
+const MAX_TOKENS = 400;
+const TEMPERATURE = 0.4;
+const UPSTREAM_TIMEOUT_MS = 20_000;
+
+function resolveModel() {
+  const fromEnv = (process.env.OPENROUTER_MODEL || '').trim();
+  return fromEnv || 'meta-llama/llama-4-scout';
+}
 
 const INCOME_CATEGORIES = [
   'משכורת',
@@ -34,13 +44,13 @@ const EXPENSE_CATEGORIES = [
 ];
 const TZEDAKA_CATEGORIES = ['צדקה / מעשר', 'תרומה למוסד', 'מתן לעני', 'אחר'];
 
-/** מגביל שימוש לרמה סבירה למשתמש אנושי */
+/** מגביל שימוש לרמה סבירה למשתמש אנושי — הלקוח קורא ל־/api/chat */
 export const config = {
-  path: '/.netlify/functions/chat',
+  path: ['/api/chat', '/.netlify/functions/chat'],
   rateLimit: {
-    windowLimit: 20,
+    windowLimit: 10,
     windowSize: 60,
-    aggregateBy: ['ip'],
+    aggregateBy: ['ip', 'domain'],
   },
 };
 
@@ -136,9 +146,49 @@ function parseEmbeddedActions(text) {
   }
 }
 
-function num(v) {
+function num(v, max = 1e9) {
   const n = Number(v);
-  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+  if (!Number.isFinite(n) || n < 0) return 0;
+  return Math.min(max, Math.round(n * 100) / 100);
+}
+
+/** מנקה הקשר מהלקוח — רק שדות מותרים ומספרים חסומים */
+function sanitizeContext(c) {
+  const raw = c && typeof c === 'object' ? c : {};
+  const totals =
+    raw.totals && typeof raw.totals === 'object' ? raw.totals : raw;
+  const recentRaw = Array.isArray(raw.recent) ? raw.recent.slice(0, 12) : [];
+  return {
+    displayName:
+      typeof raw.displayName === 'string' ? raw.displayName.trim().slice(0, 40) : '',
+    gender: raw.gender === 'female' ? 'female' : 'male',
+    rate:
+      typeof raw.rate === 'number' && raw.rate >= 0.01 && raw.rate <= 0.5
+        ? raw.rate
+        : 0.1,
+    period: typeof raw.period === 'string' ? raw.period.slice(0, 7) : '',
+    totals: {
+      income: num(totals.income),
+      expenses: num(totals.expenses),
+      netBase: num(totals.netBase),
+      obligation: num(totals.obligation),
+      tzedaka: num(totals.tzedaka),
+      remaining: num(totals.remaining),
+    },
+    recent: recentRaw
+      .map((e) => {
+        if (!e || typeof e !== 'object') return null;
+        if (!['income', 'expense', 'tzedaka'].includes(e.kind)) return null;
+        const amount = num(e.amount);
+        if (amount <= 0) return null;
+        return {
+          kind: e.kind,
+          category: String(e.category || 'אחר').slice(0, 40),
+          amount,
+        };
+      })
+      .filter(Boolean),
+  };
 }
 
 function formatPeriod(period) {
@@ -164,34 +214,21 @@ function formatPeriod(period) {
 
 /** בונה את ההנחיה בשרת בלבד — מתעלם מכל system שהלקוח ישלח */
 function buildSystemPrompt(context) {
-  const ctx = context && typeof context === 'object' ? context : {};
-  const gender = ctx.gender === 'female' ? 'female' : 'male';
-  const name =
-    typeof ctx.displayName === 'string' && ctx.displayName.trim()
-      ? ctx.displayName.trim().slice(0, 40)
-      : gender === 'female'
-        ? 'חברה'
-        : 'חבר';
+  const ctx = sanitizeContext(context);
+  const gender = ctx.gender;
+  const name = ctx.displayName || (gender === 'female' ? 'חברה' : 'חבר');
   const rate = Number(ctx.rate) === 0.2 ? 0.2 : 0.1;
   const ratePct = Math.round(rate * 100);
   const rateLabel = rate === 0.2 ? 'חומש 20%' : 'מעשר 10%';
-  const period = typeof ctx.period === 'string' ? ctx.period.slice(0, 7) : '';
-  const totals = ctx.totals && typeof ctx.totals === 'object' ? ctx.totals : {};
+  const period = ctx.period;
+  const totals = ctx.totals;
 
-  const recentRaw = Array.isArray(ctx.recent) ? ctx.recent.slice(0, 12) : [];
-  const recent = recentRaw
+  const recent = ctx.recent
     .map((e) => {
-      if (!e || typeof e !== 'object') return null;
-      if (!['income', 'expense', 'tzedaka'].includes(e.kind)) return null;
-      const amount = num(e.amount);
-      if (amount <= 0) return null;
       const kindLabel =
         e.kind === 'income' ? 'הכנסה' : e.kind === 'expense' ? 'הוצאה' : 'צדקה';
-      const category = String(e.category || 'אחר').slice(0, 40);
-      // בלי הערות חופשיות — מצמצם חשיפת פרטים מזהים
-      return `- ${kindLabel} · ${category} · ₪${amount}`;
+      return `- ${kindLabel} · ${e.category} · ₪${e.amount}`;
     })
-    .filter(Boolean)
     .join('\n');
 
   return `אתה נועם, עוזר AI של האפליקציה "מעשר ישר". יש לך אישיות חמה, ישירה ועם הומור יבש.
@@ -237,8 +274,8 @@ async function callUpstream({ apiKey, model, messages, useTools, preferGroq }) {
   const body = {
     model,
     messages,
-    temperature: 0.75,
-    max_tokens: 800,
+    temperature: TEMPERATURE,
+    max_tokens: MAX_TOKENS,
     provider: preferGroq
       ? { order: ['Groq'], allow_fallbacks: true }
       : { allow_fallbacks: true },
@@ -260,6 +297,7 @@ async function callUpstream({ apiKey, model, messages, useTools, preferGroq }) {
       'X-Title': 'Maaser Yashar - Noam',
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   });
 
   const data = await res.json().catch(() => ({}));
@@ -286,20 +324,22 @@ export async function handler(event) {
     });
   }
 
+  const rawBody = typeof event.body === 'string' ? event.body : '';
+  if (rawBody.length > MAX_BODY_CHARS) {
+    return json(event, 413, { error: 'הודעה ארוכה מדי' });
+  }
+
   let payload;
   try {
-    payload = JSON.parse(event.body || '{}');
+    payload = JSON.parse(rawBody || '{}');
   } catch {
     return json(event, 400, { error: 'JSON לא תקין' });
   }
 
-  // מתעלמים מ־system מהלקוח במכוון — מונע שימוש כפרוקסי AI כללי
+  // מתעלמים מ־system / model מהלקוח במכוון — מונע שימוש כפרוקסי AI כללי
   const { messages, context } = payload;
   if (!Array.isArray(messages) || messages.length === 0) {
     return json(event, 400, { error: 'חסרות הודעות' });
-  }
-  if (messages.length > 40) {
-    return json(event, 400, { error: 'שיחה ארוכה מדי' });
   }
   if (!context || typeof context !== 'object') {
     return json(event, 400, { error: 'חסר הקשר פנקס' });
@@ -312,23 +352,24 @@ export async function handler(event) {
         (m.role === 'user' || m.role === 'assistant') &&
         typeof m.content === 'string'
     )
-    .slice(-20)
+    .slice(-MAX_MESSAGES)
     .map((m) => ({
       role: m.role,
-      content: String(m.content).slice(0, 3000),
+      content: String(m.content).slice(0, MAX_CHARS),
     }));
 
   if (!cleaned.length) {
     return json(event, 400, { error: 'אין הודעות תקינות' });
   }
 
+  const primaryModel = resolveModel();
   const systemPrompt = buildSystemPrompt(context);
   const apiMessages = [{ role: 'system', content: systemPrompt }, ...cleaned];
 
   try {
     let { res, data } = await callUpstream({
       apiKey,
-      model: PRIMARY_MODEL,
+      model: primaryModel,
       messages: apiMessages,
       useTools: true,
       preferGroq: true,
@@ -338,7 +379,7 @@ export async function handler(event) {
       console.error('scout+tools fail', res.status, data?.error?.message || data?.error);
       ({ res, data } = await callUpstream({
         apiKey,
-        model: PRIMARY_MODEL,
+        model: primaryModel,
         messages: apiMessages,
         useTools: false,
         preferGroq: true,
@@ -386,7 +427,7 @@ export async function handler(event) {
     return json(event, 200, {
       reply,
       actions,
-      model: data?.model || PRIMARY_MODEL,
+      model: data?.model || primaryModel,
     });
   } catch (err) {
     console.error('chat function error', err);
@@ -394,7 +435,7 @@ export async function handler(event) {
     return json(event, 502, {
       error: hint
         ? `תקלה בחיבור למודל: ${hint}`
-        : 'השרת לא הצליח לדבר עם המודל',
+        : 'נועם לא זמין כרגע',
     });
   }
 }
