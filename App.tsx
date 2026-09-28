@@ -46,6 +46,7 @@ import { LoadingScreen } from './src/components/LoadingScreen';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
 import { colors, fonts, shadow } from './src/theme';
 import { DIR, rtlDomProps } from './src/rtl';
+import { isNativeRtlActive } from './src/rtlBootstrap';
 import { currentPeriod } from './src/utils/history';
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
@@ -69,7 +70,6 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     root.setAttribute('lang', 'he');
     root.setAttribute('dir', 'rtl');
   }
-  // מובייל־פירסט: viewport צפוף
   let meta = document.querySelector('meta[name="viewport"]');
   if (!meta) {
     meta = document.createElement('meta');
@@ -81,35 +81,30 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     'width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover'
   );
 }
+
 /**
- * Native בלבד: I18nManager.forceRTL — בווב זה mock ולא הופך לייאאוט
- * (ב־RN-web 0.21 חייבים dir="rtl" על View שורש).
+ * Native: forceRTL כבר ב־rtlBootstrap (לפני הרינדור).
+ * אם עדיין לא isRTL — reload חד־פעמי (Android/iOS דורשים restart אחרי forceRTL).
  */
-const RTL_RELOAD_KEY = '__maaser_rtl_reload_v2';
-try {
-  I18nManager.allowRTL(true);
-  if (Platform.OS !== 'web') {
-    I18nManager.forceRTL(true);
-    if (typeof I18nManager.swapLeftAndRightInRTL === 'function') {
-      I18nManager.swapLeftAndRightInRTL(true);
+const RTL_RELOAD_KEY = '__maaser_rtl_reload_v3';
+if (Platform.OS !== 'web' && !isNativeRtlActive()) {
+  void (async () => {
+    try {
+      I18nManager.allowRTL(true);
+      I18nManager.forceRTL(true);
+      if (typeof I18nManager.swapLeftAndRightInRTL === 'function') {
+        I18nManager.swapLeftAndRightInRTL(true);
+      }
+      const attempted = await AsyncStorage.getItem(RTL_RELOAD_KEY);
+      if (attempted === '1') return;
+      await AsyncStorage.setItem(RTL_RELOAD_KEY, '1');
+      await reloadAppAsync('force-hebrew-rtl');
+    } catch {
+      // ignore
     }
-    if (!I18nManager.isRTL) {
-      void (async () => {
-        try {
-          const attempted = await AsyncStorage.getItem(RTL_RELOAD_KEY);
-          if (attempted === '1') return;
-          await AsyncStorage.setItem(RTL_RELOAD_KEY, '1');
-          await reloadAppAsync('force-hebrew-rtl');
-        } catch {
-          // ignore
-        }
-      })();
-    } else {
-      void AsyncStorage.removeItem(RTL_RELOAD_KEY);
-    }
-  }
-} catch {
-  // Expo Go / סביבות בלי native RTL prefs
+  })();
+} else if (Platform.OS !== 'web') {
+  void AsyncStorage.removeItem(RTL_RELOAD_KEY);
 }
 
 const navTheme = {
@@ -196,7 +191,7 @@ function Root() {
   if (!profile.onboardingDone) {
     return (
       <AccessibilityRoot>
-        <View style={styles.mainShell} {...rtlDomProps}>
+        <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
           <OnboardingScreen />
           <AccessibilityWidget />
         </View>
@@ -205,7 +200,7 @@ function Root() {
   }
   return (
     <AccessibilityRoot>
-      <View style={styles.mainShell} {...rtlDomProps}>
+      <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
         <SwipeTabs />
         <FloatingFab />
         <NoamChat />
@@ -241,10 +236,10 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <GestureHandlerRootView style={styles.flex} {...rtlDomProps}>
+      <GestureHandlerRootView style={[styles.flex, DIR]} {...rtlDomProps}>
         <SafeAreaProvider>
           <View style={[styles.appRoot, DIR]} {...rtlDomProps}>
-            <View style={styles.phoneFrame} {...rtlDomProps}>
+            <View style={[styles.phoneFrame, DIR]} {...rtlDomProps}>
               <AppProvider>
                 <ToastProvider>
                   <AccessibilityProvider>

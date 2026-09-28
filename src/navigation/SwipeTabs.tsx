@@ -49,7 +49,7 @@ export function SwipeTabs() {
   }, []);
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, DIR]}>
       <PagerView
         ref={pagerRef}
         style={styles.pager}
