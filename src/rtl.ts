@@ -1,34 +1,45 @@
 import { FlexStyle, Platform, TextStyle, ViewStyle } from 'react-native';
 
 /**
- * RTL אחיד ב־Native וב־Web — בלי היפוך כפול.
+ * RTL — אסטרטגיה לפי פלטפורמה (Expo 57 / RN-web 0.21)
  *
- * Native: I18nManager.isRTL=true → textAlign:'left' = start (ימין),
- *         flex-start מימין. DIR מוסיף direction לקונטיינרים.
+ * Web (react-native-web):
+ *   I18nManager הוא mock — לא הופך left/right.
+ *   חובה: dir="rtl" על View שורש (או lang), ואז textAlign:'start' / marginStart.
+ *   אסור style.direction ב־StyleSheet (נזרק / לא תקף).
  *
- * Web: I18nManager.forceRTL כבר הופך left/start ו־flex.
- *      אסור גם לשים style.direction:'rtl' / body.direction — זה היפוך כפול
- *      (מסכים נראים LTR). נשענים על I18nManager + document.documentElement.dir.
+ * Native:
+ *   I18nManager.forceRTL(true) + textAlign:'start'/'left'.
+ *   direction:'rtl' על קונטיינר עוזר לירושה.
  */
-export const DIR: ViewStyle =
-  Platform.OS === 'web' ? {} : { direction: 'rtl' };
+
+export const isWeb = Platform.OS === 'web';
+
+/** props ל־View שורש / מסכים — מפעילים RTL בווב */
+export const rtlDomProps: { dir?: 'rtl'; lang?: string } = isWeb
+  ? { dir: 'rtl', lang: 'he' }
+  : {};
+
+/** רק ל־pager אופקי שצריך מתמטיקת LTR */
+export const ltrDomProps: { dir?: 'ltr' } = isWeb ? { dir: 'ltr' } : {};
 
 /**
- * שורות אופקיות: עם RTL מספיק 'row' (start מימין).
- * row-reverse גורם להיפוך כפול.
+ * סגנון כיוון ל־native בלבד.
+ * בווב: ריק — משתמשים ב־rtlDomProps.
  */
-export const rowDir = 'row' as const;
+export const DIR: ViewStyle = isWeb ? {} : { direction: 'rtl' };
 
-/** יישור לתחילת השורה בעברית (ימין כש־RTL פעיל) */
+export const rowDir = 'row' as const;
 export const alignStart = 'flex-start' as const;
 export const alignEnd = 'flex-end' as const;
 
+/** טקסט עברי — start עובד גם ב־web (עם dir=rtl) וגם ב־native (עם I18nManager) */
 export const rtlText: TextStyle = {
   writingDirection: 'rtl',
-  textAlign: 'left',
+  textAlign: 'start',
 };
 
 export const rtlRow: FlexStyle = {
   flexDirection: rowDir,
-  ...(Platform.OS === 'web' ? {} : { direction: 'rtl' as const }),
+  ...(isWeb ? {} : { direction: 'rtl' as const }),
 };

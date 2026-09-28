@@ -13,7 +13,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../components/Icon';
 import { colors, fonts } from '../theme';
-import { DIR } from '../rtl';
+import { DIR, ltrDomProps, rtlDomProps } from '../rtl';
 import HomeScreen from '../screens/HomeScreen';
 import HistoryScreen from '../screens/HistoryScreen';
 import TaxScreen from '../screens/TaxScreen';
@@ -96,7 +96,7 @@ export function SwipeTabs() {
   );
 
   return (
-    <View style={styles.root} onLayout={onRootLayout}>
+    <View style={styles.root} onLayout={onRootLayout} {...rtlDomProps}>
       <ScrollView
         ref={scrollRef}
         horizontal
@@ -110,8 +110,8 @@ export function SwipeTabs() {
         onMomentumScrollEnd={onScrollEnd}
         onScrollEndDrag={onScrollEnd}
         scrollEventThrottle={16}
-        // קריטי ל־web: pager במתמטיקת LTR; בלי זה RTL שובר scrollTo
-        {...({ dir: 'ltr' } as object)}
+        // pager במתמטיקת LTR; כל עמוד חוזר ל־RTL
+        {...ltrDomProps}
         style={styles.pager}
         contentContainerStyle={
           pageWidth > 0
@@ -124,6 +124,7 @@ export function SwipeTabs() {
             key={key}
             style={[styles.page, pageWidth > 0 ? { width: pageWidth } : styles.pageFlex, DIR]}
             collapsable={false}
+            {...rtlDomProps}
           >
             <Screen />
           </View>
@@ -134,6 +135,7 @@ export function SwipeTabs() {
         style={[styles.tabBar, DIR, { bottom, left: 12, right: 12 }]}
         accessibilityRole="tablist"
         pointerEvents="box-none"
+        {...rtlDomProps}
       >
         <View style={styles.tabBg} pointerEvents="none">
           <View style={styles.tabTint} />

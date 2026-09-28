@@ -194,6 +194,7 @@ export default function HomeScreen() {
           showsHorizontalScrollIndicator={false}
           bounces={false}
           contentContainerStyle={styles.periodRow}
+          {...({ dir: 'rtl' } as object)}
         >
           {periods.map((p) => (
             <Pressable
@@ -661,14 +662,14 @@ const styles = StyleSheet.create({
     ...type.emphasis,
     fontSize: 14,
     color: colors.sheetInk,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
   rowNote: {
     ...type.caption,
     color: colors.sheetMuted,
     marginTop: 2,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
   rowDate: {
@@ -676,7 +677,7 @@ const styles = StyleSheet.create({
     color: colors.sheetMuted,
     marginTop: 2,
     fontFamily: fonts.regular,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
   rowAmountCol: {
@@ -688,7 +689,7 @@ const styles = StyleSheet.create({
   rowAmount: {
     ...type.money,
     fontSize: 14,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'ltr',
   },
   rowDeleteCol: {

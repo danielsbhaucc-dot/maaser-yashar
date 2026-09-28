@@ -22,10 +22,10 @@ export const fonts = {
   numRegular: 'Rubik_400Regular',
 };
 
-/** עם I18nManager RTL, left = start (ימין בעברית) */
+/** עם dir=rtl / I18nManager RTL — start = ימין בעברית (עובד בווב ובנייד) */
 const rtl: TextStyle = {
   writingDirection: 'rtl',
-  textAlign: 'left',
+  textAlign: 'start',
 };
 
 export const type = {
@@ -112,7 +112,7 @@ export const type = {
     lineHeight: 46,
     letterSpacing: -0.8,
     writingDirection: 'rtl',
-    textAlign: 'left',
+    textAlign: 'start',
   } satisfies TextStyle,
 
   money: {
@@ -120,7 +120,7 @@ export const type = {
     fontSize: 15,
     lineHeight: 20,
     writingDirection: 'rtl',
-    textAlign: 'left',
+    textAlign: 'start',
   } satisfies TextStyle,
 
   button: {

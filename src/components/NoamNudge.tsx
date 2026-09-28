@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
   text: {
     ...type.bodySm,
     color: colors.inkMuted,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
     lineHeight: 20,
   },

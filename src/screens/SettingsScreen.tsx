@@ -492,14 +492,14 @@ const styles = StyleSheet.create({
   recurIntro: {
     ...type.bodySm,
     color: colors.sheetMuted,
-    textAlign: 'center',
+    textAlign: 'start',
     marginBottom: spacing.md,
     writingDirection: 'rtl',
   },
   recurEmpty: {
     ...type.caption,
     color: colors.sheetMuted,
-    textAlign: 'center',
+    textAlign: 'start',
     marginBottom: spacing.md,
   },
   recurRow: {
@@ -517,14 +517,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.sheetInk,
     writingDirection: 'rtl',
-    textAlign: 'left',
+    textAlign: 'start',
   },
   recurMeta: {
     ...type.caption,
     color: colors.sheetMuted,
     marginTop: 2,
     writingDirection: 'rtl',
-    textAlign: 'left',
+    textAlign: 'start',
   },
   recurBtn: {
     paddingHorizontal: 10,

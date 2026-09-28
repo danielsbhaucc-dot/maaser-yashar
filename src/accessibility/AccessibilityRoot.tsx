@@ -2,6 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useA11y } from './AccessibilityContext';
 import { rootA11yStyle } from './effects';
+import { rtlDomProps } from '../rtl';
 
 /**
  * עוטף את תוכן האפליקציה ומחיל התאמות נגישות ברמת השורש.
@@ -21,7 +22,7 @@ export function AccessibilityRoot({ children }: { children: React.ReactNode }) {
       : null;
 
   return (
-    <View style={[styles.flex, rootA11yStyle(settings), satStyle]}>
+    <View style={[styles.flex, rootA11yStyle(settings), satStyle]} {...rtlDomProps}>
       {children}
     </View>
   );

@@ -45,12 +45,11 @@ import NoamChat from './src/components/NoamChat';
 import { LoadingScreen } from './src/components/LoadingScreen';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
 import { colors, fonts, shadow } from './src/theme';
-import { DIR } from './src/rtl';
+import { DIR, rtlDomProps } from './src/rtl';
 import { currentPeriod } from './src/utils/history';
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
-  // dir על ה־html בלבד (נגישות / דפדפן). לא על body.style.direction —
-  // אחרת יחד עם I18nManager.forceRTL מתקבל היפוך כפול בלייאאוט.
+  // html: נגישות. ה־RTL האמיתי של RN-web מגיע מ־dir על View (ראה rtlDomProps).
   document.documentElement.lang = 'he';
   document.documentElement.dir = 'rtl';
   document.documentElement.style.overflowX = 'hidden';
@@ -68,6 +67,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     root.style.maxWidth = '100%';
     root.style.margin = '0 auto';
     root.setAttribute('lang', 'he');
+    root.setAttribute('dir', 'rtl');
   }
   // מובייל־פירסט: viewport צפוף
   let meta = document.querySelector('meta[name="viewport"]');
@@ -82,30 +82,31 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   );
 }
 /**
- * RTL חייב להיות פעיל ב־I18nManager — אחרת textAlign:'left' נשאר שמאל פיזי
- * (ההיפוך מול Web, שבו forceRTL נכנס לתוקף מיד).
- * ב־native השינוי נשמר רק אחרי reload. פעם אחת בלבד (בלי לולאה).
+ * Native בלבד: I18nManager.forceRTL — בווב זה mock ולא הופך לייאאוט
+ * (ב־RN-web 0.21 חייבים dir="rtl" על View שורש).
  */
-const RTL_RELOAD_KEY = '__maaser_rtl_reload_v1';
+const RTL_RELOAD_KEY = '__maaser_rtl_reload_v2';
 try {
   I18nManager.allowRTL(true);
-  I18nManager.forceRTL(true);
-  if (typeof I18nManager.swapLeftAndRightInRTL === 'function') {
-    I18nManager.swapLeftAndRightInRTL(true);
-  }
-  if (Platform.OS !== 'web' && !I18nManager.isRTL) {
-    void (async () => {
-      try {
-        const attempted = await AsyncStorage.getItem(RTL_RELOAD_KEY);
-        if (attempted === '1') return;
-        await AsyncStorage.setItem(RTL_RELOAD_KEY, '1');
-        await reloadAppAsync('force-hebrew-rtl');
-      } catch {
-        // ignore
-      }
-    })();
-  } else if (I18nManager.isRTL) {
-    void AsyncStorage.removeItem(RTL_RELOAD_KEY);
+  if (Platform.OS !== 'web') {
+    I18nManager.forceRTL(true);
+    if (typeof I18nManager.swapLeftAndRightInRTL === 'function') {
+      I18nManager.swapLeftAndRightInRTL(true);
+    }
+    if (!I18nManager.isRTL) {
+      void (async () => {
+        try {
+          const attempted = await AsyncStorage.getItem(RTL_RELOAD_KEY);
+          if (attempted === '1') return;
+          await AsyncStorage.setItem(RTL_RELOAD_KEY, '1');
+          await reloadAppAsync('force-hebrew-rtl');
+        } catch {
+          // ignore
+        }
+      })();
+    } else {
+      void AsyncStorage.removeItem(RTL_RELOAD_KEY);
+    }
   }
 } catch {
   // Expo Go / סביבות בלי native RTL prefs
@@ -195,14 +196,16 @@ function Root() {
   if (!profile.onboardingDone) {
     return (
       <AccessibilityRoot>
-        <OnboardingScreen />
-        <AccessibilityWidget />
+        <View style={styles.mainShell} {...rtlDomProps}>
+          <OnboardingScreen />
+          <AccessibilityWidget />
+        </View>
       </AccessibilityRoot>
     );
   }
   return (
     <AccessibilityRoot>
-      <View style={styles.mainShell}>
+      <View style={styles.mainShell} {...rtlDomProps}>
         <SwipeTabs />
         <FloatingFab />
         <NoamChat />
@@ -238,10 +241,10 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <GestureHandlerRootView style={styles.flex}>
+      <GestureHandlerRootView style={styles.flex} {...rtlDomProps}>
         <SafeAreaProvider>
-          <View style={[styles.appRoot, DIR]}>
-            <View style={styles.phoneFrame}>
+          <View style={[styles.appRoot, DIR]} {...rtlDomProps}>
+            <View style={styles.phoneFrame} {...rtlDomProps}>
               <AppProvider>
                 <ToastProvider>
                   <AccessibilityProvider>

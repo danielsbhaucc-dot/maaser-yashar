@@ -211,7 +211,7 @@ const styles = StyleSheet.create({
   para: {},
   base: {
     ...type.chat,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
   list: {

@@ -10,6 +10,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { colors, fonts, radii, spacing, type } from '../theme';
+import { rtlDomProps } from '../rtl';
 
 export type ToastTone = 'success' | 'error' | 'warn' | 'info';
 
@@ -68,6 +69,7 @@ function ToastCard({
 
   return (
     <Animated.View
+      {...rtlDomProps}
       style={[
         styles.card,
         {
@@ -228,14 +230,14 @@ const styles = StyleSheet.create({
     ...type.emphasis,
     fontSize: 15,
     color: colors.ink,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
   message: {
     ...type.bodySm,
     color: colors.inkMuted,
     marginTop: 3,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
     lineHeight: 20,
   },

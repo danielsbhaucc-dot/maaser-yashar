@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated, Easing, Platform } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radii, spacing } from '../theme';
-import { DIR } from '../rtl';
+import { DIR, rtlDomProps } from '../rtl';
 import { useMotionEnabled } from '../hooks/useMotionEnabled';
 
 type Variant = 'boot' | 'app' | 'overlay';
@@ -210,6 +210,7 @@ export function LoadingScreen({
   return (
     <View
       style={[rootStyle, DIR]}
+      {...rtlDomProps}
       accessibilityRole="progressbar"
       accessibilityLabel={message}
       accessibilityLiveRegion="polite"

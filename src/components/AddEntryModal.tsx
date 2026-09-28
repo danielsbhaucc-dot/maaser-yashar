@@ -169,7 +169,7 @@ export default function AddEntryModal({
           onChangeText={setAmount}
           placeholder="0"
           placeholderTextColor={colors.inkSoft}
-          textAlign="left"
+          textAlign="start"
           autoFocus
           accessibilityLabel="סכום התנועה"
         />
@@ -188,7 +188,7 @@ export default function AddEntryModal({
           onChangeText={setNote}
           placeholder="אופציונלי"
           placeholderTextColor={colors.inkSoft}
-          textAlign="left"
+          textAlign="start"
           accessibilityLabel="הערה לתנועה"
         />
 
@@ -288,7 +288,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     marginBottom: spacing.lg,
     borderWidth: 1.5,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
   cats: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: spacing.md },
@@ -304,7 +304,7 @@ const styles = StyleSheet.create({
     borderColor: colors.glassBorder,
     marginBottom: spacing.md,
     writingDirection: 'rtl',
-    textAlign: 'left',
+    textAlign: 'start',
   },
   recurToggle: {
     flexDirection: 'row',
@@ -327,14 +327,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#fff',
     writingDirection: 'rtl',
-    textAlign: 'left',
+    textAlign: 'start',
   },
   recurHint: {
     ...type.caption,
     color: colors.inkSoft,
     marginTop: 4,
     writingDirection: 'rtl',
-    textAlign: 'left',
+    textAlign: 'start',
   },
   switchTrack: {
     width: 44,
@@ -360,6 +360,6 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     marginTop: 4,
     writingDirection: 'rtl',
-    textAlign: 'left',
+    textAlign: 'start',
   },
 });

@@ -10,7 +10,6 @@ import {
   Platform,
   Animated,
   Easing,
-  I18nManager,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -34,14 +33,11 @@ import {
 } from '../utils/chatScript';
 import { askOnboardAi, skipNameContinue } from '../ai/onboardApi';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
-import { DIR } from '../rtl';
+import { DIR, rtlDomProps } from '../rtl';
 import { RichMessageText } from '../components/RichMessageText';
 import type { MaaserRate } from '../types';
 
 type Msg = { id: string; from: 'bot' | 'me'; text: string };
-
-/** יישור עברית יציב גם לפני/אחרי forceRTL */
-const heInputAlign = I18nManager.isRTL ? 'left' : 'right';
 
 /** 0 שם · 1 מגדר · 2 משפחה · 3 שיעור · 4 סיום חגיגי (דורש לחיצה) */
 const STORY_COUNT = 5;
@@ -435,7 +431,7 @@ export default function OnboardingScreen() {
   const showComposer = step < 4;
 
   return (
-    <View style={[styles.root, DIR]}>
+    <View style={[styles.root, DIR]} {...rtlDomProps}>
       <View style={styles.bgLayer} pointerEvents="none">
         <LinearGradient
           colors={[...colors.gradient]}
@@ -676,7 +672,7 @@ export default function OnboardingScreen() {
                       : 'שאלה לנועם…'
                   }
                   placeholderTextColor="rgba(255,255,255,0.35)"
-                  textAlign={heInputAlign}
+                  textAlign="start"
                   onSubmitEditing={() => void handleFreeText()}
                   returnKeyType="send"
                   autoCorrect={false}
@@ -789,13 +785,13 @@ const styles = StyleSheet.create({
     borderColor: colors.bg,
   },
   headerText: { flex: 1, alignItems: 'flex-start', minWidth: 0 },
-  botName: { ...type.h3, color: '#fff', writingDirection: 'rtl', textAlign: 'left' },
+  botName: { ...type.h3, color: '#fff', writingDirection: 'rtl', textAlign: 'start' },
   botMeta: {
     ...type.caption,
     color: 'rgba(255,255,255,0.55)',
     marginTop: 2,
     writingDirection: 'rtl',
-    textAlign: 'left',
+    textAlign: 'start',
   },
   brandMini: {
     fontFamily: fonts.semi,
@@ -810,7 +806,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   row: { width: '100%' },
-  // I18nManager RTL: flex-start = ימין (נועם), flex-end = שמאל (אני)
+  // start = ימין בעברית (נועם), end = שמאל (אני)
   rowBot: { alignItems: 'flex-start' },
   rowMe: { alignItems: 'flex-end' },
   bubble: {
@@ -833,8 +829,8 @@ const styles = StyleSheet.create({
     ...shadow.soft,
   },
   msg: { ...type.chat },
-  msgBot: { color: '#F8FAFC', writingDirection: 'rtl', textAlign: 'left' },
-  msgMe: { ...type.chatMe, color: colors.ink, writingDirection: 'rtl', textAlign: 'left' },
+  msgBot: { color: '#F8FAFC', writingDirection: 'rtl', textAlign: 'start' },
+  msgMe: { ...type.chatMe, color: colors.ink, writingDirection: 'rtl', textAlign: 'start' },
   typingRow: { alignSelf: 'flex-start' },
   typingBubble: {
     flexDirection: 'row',
@@ -911,7 +907,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.glassGoldBorder,
     writingDirection: 'rtl',
-    textAlign: heInputAlign,
+    textAlign: 'start',
   },
   send: {
     backgroundColor: 'rgba(139, 155, 255, 0.82)',

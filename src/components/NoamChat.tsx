@@ -23,7 +23,7 @@ import { useToast } from '../context/ToastContext';
 import { BOT_NAME, t } from '../utils/copy';
 import { currentPeriod } from '../utils/history';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
-import { DIR } from '../rtl';
+import { DIR, rtlDomProps } from '../rtl';
 import {
   QUICK_STARTS,
   buildNoamContext,
@@ -434,7 +434,7 @@ export default function NoamChat() {
         onRequestClose={closeMessenger}
         statusBarTranslucent
       >
-        <View style={[styles.modalRoot, DIR]}>
+        <View style={[styles.modalRoot, DIR]} {...rtlDomProps}>
           <Pressable style={styles.backdrop} onPress={closeMessenger} />
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -1165,13 +1165,13 @@ const styles = StyleSheet.create({
   bubbleTxt: {
     ...type.chat,
     color: colors.ink,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
   bubbleTxtMe: {
     ...type.chatMe,
     color: colors.chatMeText,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
 
@@ -1299,7 +1299,7 @@ const styles = StyleSheet.create({
     color: colors.ink,
     fontFamily: fonts.regular,
     fontSize: 15,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
   sendBtn: {
@@ -1351,12 +1351,12 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semi,
     fontSize: 15,
     color: colors.ink,
-    textAlign: 'left',
+    textAlign: 'start',
   },
   histDate: {
     ...type.caption,
     color: colors.inkSoft,
-    textAlign: 'left',
+    textAlign: 'start',
     marginTop: 2,
   },
 });

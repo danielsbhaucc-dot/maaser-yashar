@@ -3,7 +3,7 @@ import { View, StyleSheet, ScrollView, ViewStyle, StyleProp } from 'react-native
 import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, layout, radii, spacing } from '../theme';
-import { DIR } from '../rtl';
+import { DIR, rtlDomProps } from '../rtl';
 
 type Props = {
   children: React.ReactNode;
@@ -41,7 +41,7 @@ export function Screen({
   );
 
   return (
-    <View style={[styles.root, DIR]}>
+    <View style={[styles.root, DIR]} {...rtlDomProps}>
       <View style={styles.bgLayer} pointerEvents="none">
         <LinearGradient
           colors={[...colors.gradient]}

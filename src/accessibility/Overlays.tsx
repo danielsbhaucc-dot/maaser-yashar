@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.semi,
     fontSize: 12,
     color: colors.ink,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
   structBackdrop: {
@@ -376,7 +376,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     fontSize: 15,
     color: colors.inkMuted,
-    textAlign: 'left',
+    textAlign: 'start',
     writingDirection: 'rtl',
   },
 });
