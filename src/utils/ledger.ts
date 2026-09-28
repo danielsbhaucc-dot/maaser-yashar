@@ -1,28 +1,41 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { LedgerEntry, LedgerTotals } from '../types/ledger';
 import type { MaaserRate } from '../types';
+import { migrateLedgerEntries } from './schemaMigrate';
+import {
+  isSaveBlocked,
+  safeLoadJsonArray,
+  safeSetJson,
+  type SafeLoadResult,
+} from './safeStorage';
 
-const KEY = 'maaser_ledger_v1';
+export const LEDGER_KEY = 'maaser_ledger_v1';
 
-export async function loadLedger(): Promise<LedgerEntry[]> {
-  try {
-    const raw = await AsyncStorage.getItem(KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as LedgerEntry[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+export async function loadLedger(): Promise<SafeLoadResult<LedgerEntry[]>> {
+  const result = await safeLoadJsonArray<LedgerEntry>(LEDGER_KEY);
+  if (result.corrupt) return { ...result, data: [] };
+  return { data: migrateLedgerEntries(result.data), corrupt: false };
 }
 
-export async function saveLedger(entries: LedgerEntry[]): Promise<void> {
-  await AsyncStorage.setItem(KEY, JSON.stringify(entries));
+export async function isLedgerSaveBlocked(): Promise<boolean> {
+  return isSaveBlocked(LEDGER_KEY);
+}
+
+/** @returns false אם נחסם בגלל נתון פגום (בלי force) */
+export async function saveLedger(
+  entries: LedgerEntry[],
+  opts?: { force?: boolean }
+): Promise<boolean> {
+  return safeSetJson(LEDGER_KEY, entries, opts);
+}
+
+function entryTimeKey(e: LedgerEntry): string {
+  return e.date ?? e.createdAt;
 }
 
 export function entriesForPeriod(entries: LedgerEntry[], period: string): LedgerEntry[] {
   return entries
     .filter((e) => e.period === period)
-    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    .sort((a, b) => (entryTimeKey(a) < entryTimeKey(b) ? 1 : -1));
 }
 
 export function computeTotals(

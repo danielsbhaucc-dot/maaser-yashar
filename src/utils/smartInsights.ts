@@ -6,6 +6,7 @@ import type { UserProfile } from './profile';
 import { formatPeriod } from './history';
 import { getMinDonation } from './taxCalc';
 import {
+  daysLabel,
   daysLeftInMonthLabel,
   endsInDaysLabel,
   monthsCoveredLabel,
@@ -28,13 +29,32 @@ function money(n: number) {
   return `₪${Math.round(n).toLocaleString('he-IL')}`;
 }
 
-function daysLeftInMonth(now = new Date()) {
+export function daysLeftInMonth(now = new Date()) {
   const end = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
   return Math.max(0, end - now.getDate());
 }
 
 function dayOfMonth(now = new Date()) {
   return now.getDate();
+}
+
+/**
+ * ניסוח קצב נתינה — מתחת ל־7 ימים מדברים בימים (בלי «לשבוע»).
+ * מיוצא לבדיקות עם תאריך קבוע.
+ */
+export function buildPaceInsightBody(remaining: number, daysLeft: number): string {
+  if (daysLeft < 7) {
+    const daysPart =
+      daysLeft <= 0
+        ? 'היום סוף החודש'
+        : `נשארו ${daysLabel(daysLeft)} עד סוף החודש`;
+    return `${daysPart}, ונשארו ${money(remaining)}.`;
+  }
+  const weekly =
+    daysLeft > 0
+      ? Math.ceil(remaining / Math.max(1, Math.ceil(daysLeft / 7)))
+      : remaining;
+  return `נשאר ${money(remaining)}. ${daysLeftInMonthLabel(daysLeft)} — בערך ${money(weekly)} לשבוע וזה נסגר ברכות.`;
 }
 
 /** תובנות חכמות למסך הבית */
@@ -46,11 +66,14 @@ export function homeSmartInsights(opts: {
   rate: MaaserRate;
   period: string;
   isCurrentPeriod: boolean;
+  /** לתצוגה/בדיקות — ברירת מחדל: עכשיו */
+  now?: Date;
 }): SmartInsight[] {
   const { name, gender: g, totals, entries, rate, period, isCurrentPeriod } = opts;
+  const now = opts.now ?? new Date();
   const out: SmartInsight[] = [];
-  const left = daysLeftInMonth();
-  const day = dayOfMonth();
+  const left = daysLeftInMonth(now);
+  const day = dayOfMonth(now);
   const hasIncome = entries.some((e) => e.kind === 'income');
   const hasExpense = entries.some((e) => e.kind === 'expense');
   const hasTzedaka = entries.some((e) => e.kind === 'tzedaka');
@@ -87,16 +110,11 @@ export function homeSmartInsights(opts: {
   }
 
   if (totals.obligation > 0 && !hasTzedaka) {
-    const weekly =
-      left > 0 ? Math.ceil(totals.remaining / Math.max(1, Math.ceil(left / 7))) : totals.remaining;
+    const paceBody = buildPaceInsightBody(totals.remaining, left);
     out.push({
       id: 'pace',
       title: 'קצב נתינה מומלץ',
-      body: t(
-        g,
-        `נשאר ${money(totals.remaining)}. ${daysLeftInMonthLabel(left)} — בערך ${money(weekly)} לשבוע וזה נסגר ברכות.`,
-        `נשאר ${money(totals.remaining)}. ${daysLeftInMonthLabel(left)} — בערך ${money(weekly)} לשבוע וזה נסגר ברכות.`
-      ),
+      body: t(g, paceBody, paceBody),
       tone: 'action',
       actionLabel: 'רשום צדקה',
       actionKind: 'tzedaka',

@@ -20,10 +20,19 @@ export function formatMoney(value: number): string {
   })} ₪`;
 }
 
-export function parseMoney(text: string): number {
-  const cleaned = text.replace(/[^\d.]/g, '');
-  const n = parseFloat(cleaned);
-  return Number.isFinite(n) ? n : 0;
+export type MoneyResult = { ok: true; value: number } | { ok: false; error: string };
+
+export function parseMoney(raw: string): MoneyResult {
+  // "1,250" -> "1250" (comma as thousands separator only)
+  const s = raw.trim().replace(/[\u00A0\s]/g, '').replace(/,(?=\d{3}(?:\D|$))/g, '');
+  if (!s) return { ok: false, error: 'צריך להזין סכום' };
+  if (s.startsWith('-')) return { ok: false, error: 'סכום לא יכול להיות שלילי' };
+  if (!/^\d+(\.\d{1,2})?$/.test(s))
+    return { ok: false, error: 'סכום לא תקין: רק ספרות, ועד שתי ספרות אחרי הנקודה' };
+  const value = Number(s);
+  if (value <= 0) return { ok: false, error: 'צריך סכום גדול מאפס' };
+  if (value > 100_000_000) return { ok: false, error: 'הסכום גדול מדי' };
+  return { ok: true, value };
 }
 
 export function Card({
@@ -74,21 +83,55 @@ export function MoneyField({
   onChange: (v: number) => void;
   hint?: string;
 }) {
+  const errorId = React.useId().replace(/:/g, '');
+  const [text, setText] = React.useState(value === 0 ? '' : String(value));
+  const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setText(value === 0 ? '' : String(value));
+  }, [value]);
+
   return (
     <View style={styles.field}>
       <Text style={styles.label}>{label}</Text>
       {hint ? <Text style={styles.hint}>{hint}</Text> : null}
       <TextInput
-        style={styles.input}
+        style={[styles.input, error ? styles.inputError : null]}
         keyboardType="decimal-pad"
-        value={value === 0 ? '' : String(value)}
-        onChangeText={(t) => onChange(parseMoney(t))}
+        value={text}
+        onChangeText={(t) => {
+          setText(t);
+          if (!t.trim()) {
+            setError(null);
+            onChange(0);
+            return;
+          }
+          const parsed = parseMoney(t);
+          if (parsed.ok) {
+            setError(null);
+            onChange(parsed.value);
+          } else {
+            setError(parsed.error);
+          }
+        }}
         placeholder="0"
         placeholderTextColor={colors.inkSoft}
         textAlign="center"
         accessibilityLabel={label}
         accessibilityHint={hint}
+        accessibilityDescribedBy={error ? errorId : undefined}
+        {...(error ? ({ 'aria-describedby': errorId } as object) : null)}
       />
+      {error ? (
+        <Text
+          nativeID={errorId}
+          style={styles.fieldError}
+          accessibilityRole="alert"
+          accessibilityLiveRegion="polite"
+        >
+          {error}
+        </Text>
+      ) : null}
     </View>
   );
 }
@@ -268,6 +311,18 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     textAlign: 'center',
     width: '100%',
+  },
+  inputError: {
+    borderColor: colors.danger,
+  },
+  fieldError: {
+    ...type.caption,
+    fontFamily: fonts.medium,
+    color: colors.danger,
+    marginTop: 8,
+    textAlign: 'center',
+    width: '100%',
+    writingDirection: 'rtl',
   },
   chip: {
     paddingHorizontal: 14,

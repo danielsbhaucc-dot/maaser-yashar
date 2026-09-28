@@ -9,6 +9,10 @@ export interface LedgerEntry {
   amount: number;
   note: string;
   createdAt: string;
+  /** YYYY-MM-DD — רשומות ישנות בלי date נופלות ל־createdAt */
+  date?: string;
+  /** קישור להוראת קבע שיצרה את התנועה (במקום מזהה בהערה) */
+  ruleId?: string;
 }
 
 export const INCOME_CATEGORIES = [

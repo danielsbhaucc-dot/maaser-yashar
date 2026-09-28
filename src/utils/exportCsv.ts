@@ -1,16 +1,12 @@
 import { Platform, Share } from 'react-native';
 import type { HistoryEntry } from './history';
 import type { LedgerEntry } from '../types/ledger';
-
-function csvEscape(v: string | number): string {
-  const s = String(v ?? '');
-  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
-  return s;
-}
+import { formatCsvDate, ledgerKindHe, toCsv } from './csvFormat';
 
 function downloadWeb(filename: string, content: string) {
   if (typeof document === 'undefined') return false;
-  const blob = new Blob(['\uFEFF' + content], { type: 'text/csv;charset=utf-8' });
+  // toCsv כבר כולל BOM — לא מוסיפים שוב
+  const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -36,42 +32,42 @@ async function shareOrDownload(filename: string, content: string, title: string)
 
 /** ייצוא ארכיון חודשים ל־CSV (לרו״ח / גיבוי מקומי) */
 export async function exportHistoryCsv(entries: HistoryEntry[]): Promise<void> {
-  const header = [
-    'period',
-    'label',
-    'netBase',
-    'obligation',
-    'alreadyGiven',
-    'remaining',
-    'ratePercent',
-    'savedAt',
-  ].join(',');
-  const rows = entries.map((e) =>
-    [
-      e.period,
-      e.label,
-      e.result.netBase,
-      e.result.obligation,
-      e.result.alreadyGiven,
-      e.result.remaining,
-      e.result.ratePercent,
-      e.savedAt,
-    ]
-      .map(csvEscape)
-      .join(',')
-  );
-  const csv = [header, ...rows].join('\n');
-  await shareOrDownload('maaser-history.csv', csv, 'ייצוא היסטוריית מעשר');
+  const headers = [
+    'חודש',
+    'תווית',
+    'בסיס נטו',
+    'חובה',
+    'כבר ניתן',
+    'יתרה',
+    'אחוז',
+    'תאריך',
+  ];
+  const rows = entries.map((e) => [
+    e.period,
+    e.label,
+    e.result.netBase,
+    e.result.obligation,
+    e.result.alreadyGiven,
+    e.result.remaining,
+    e.result.ratePercent,
+    formatCsvDate(e.savedAt),
+  ]);
+  await shareOrDownload('maaser-history.csv', toCsv(headers, rows), 'ייצוא היסטוריית מעשר');
 }
 
 /** ייצוא פנקס תנועות ל־CSV */
 export async function exportLedgerCsv(entries: LedgerEntry[]): Promise<void> {
-  const header = ['id', 'period', 'kind', 'category', 'amount', 'note', 'createdAt'].join(',');
-  const rows = entries.map((e) =>
-    [e.id, e.period, e.kind, e.category, e.amount, e.note ?? '', e.createdAt]
-      .map(csvEscape)
-      .join(',')
-  );
-  const csv = [header, ...rows].join('\n');
-  await shareOrDownload('maaser-ledger.csv', csv, 'ייצוא פנקס תנועות');
+  const headers = ['מזהה', 'חודש', 'סוג', 'קטגוריה', 'סכום', 'הערה', 'תאריך'];
+  const rows = entries.map((e) => [
+    e.id,
+    e.period,
+    ledgerKindHe(e.kind),
+    e.category,
+    e.amount,
+    e.note ?? '',
+    formatCsvDate(e.date ?? e.createdAt),
+  ]);
+  await shareOrDownload('maaser-ledger.csv', toCsv(headers, rows), 'ייצוא פנקס תנועות');
 }
+
+export { toCsv } from './csvFormat';

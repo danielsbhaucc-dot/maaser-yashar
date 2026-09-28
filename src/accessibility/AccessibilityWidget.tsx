@@ -27,6 +27,7 @@ import {
 import type { ContrastMode, SaturationMode } from './types';
 import { colors, fonts, radii, shadow } from '../theme';
 import { DIR } from '../rtl';
+import { NATIVE_DRIVER } from '../utils/motion';
 import { fontScale, listActiveChips, smartTips } from './effects';
 import {
   PageStructureModal,
@@ -216,7 +217,7 @@ function AccordionSection({
       toValue: open ? 1 : 0,
       duration: 260,
       easing: Easing.out(Easing.cubic),
-      useNativeDriver: true,
+      useNativeDriver: NATIVE_DRIVER,
     }).start();
   }, [open, rot, motionOk]);
 

@@ -17,6 +17,7 @@ import { Glass, GlassPill } from '../components/Glass';
 import { InlineLoader } from '../components/LoadingScreen';
 import { Accordion } from '../components/Accordion';
 import { useMotionEnabled } from '../hooks/useMotionEnabled';
+import { NATIVE_DRIVER } from '../utils/motion';
 import { useApp } from '../context/AppContext';
 import { BOT_NAME, type Gender, t } from '../utils/copy';
 import {
@@ -109,13 +110,13 @@ function TypingRow() {
           Animated.timing(v, {
             toValue: 1,
             duration: 260,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             easing: Easing.out(Easing.quad),
           }),
           Animated.timing(v, {
             toValue: 0,
             duration: 260,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             easing: Easing.in(Easing.quad),
           }),
           Animated.delay(180),
@@ -174,7 +175,7 @@ function ConfettiBurst() {
         toValue: 1,
         duration: 1400,
         delay: bit.delay,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
         easing: Easing.out(Easing.cubic),
       }).start();
     });
@@ -258,8 +259,8 @@ export default function OnboardingScreen() {
     }
     const loop = Animated.loop(
       Animated.sequence([
-        Animated.timing(pulse, { toValue: 1.06, duration: 1200, useNativeDriver: true }),
-        Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1.06, duration: 1200, useNativeDriver: NATIVE_DRIVER }),
+        Animated.timing(pulse, { toValue: 1, duration: 1200, useNativeDriver: NATIVE_DRIVER }),
       ])
     );
     loop.start();
@@ -284,8 +285,8 @@ export default function OnboardingScreen() {
     celebrateScale.setValue(0.86);
     celebrateOpacity.setValue(0);
     Animated.parallel([
-      Animated.spring(celebrateScale, { toValue: 1, friction: 7, useNativeDriver: true }),
-      Animated.timing(celebrateOpacity, { toValue: 1, duration: 420, useNativeDriver: true }),
+      Animated.spring(celebrateScale, { toValue: 1, friction: 7, useNativeDriver: NATIVE_DRIVER }),
+      Animated.timing(celebrateOpacity, { toValue: 1, duration: 420, useNativeDriver: NATIVE_DRIVER }),
     ]).start();
   }, [step, celebrateScale, celebrateOpacity, motionOk]);
 
@@ -404,8 +405,6 @@ export default function OnboardingScreen() {
       maritalStatus: marital,
       includeSpouse: marital === 'married' ? includeSpouse : false,
       rate,
-      hasSalary: true,
-      hasBusiness: true,
       joinedAt: new Date().toISOString(),
     });
   };

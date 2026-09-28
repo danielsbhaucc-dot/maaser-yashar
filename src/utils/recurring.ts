@@ -1,28 +1,30 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { LedgerEntry, LedgerKind } from '../types/ledger';
 import type { RecurringRule } from '../types/recurring';
 import { currentPeriod } from './history';
+import {
+  safeLoadJsonArray,
+  safeSetJson,
+  type SafeLoadResult,
+} from './safeStorage';
 
-const KEY = 'maaser_recurring_v1';
+export const RECURRING_KEY = 'maaser_recurring_v1';
 
-export async function loadRecurring(): Promise<RecurringRule[]> {
-  try {
-    const raw = await AsyncStorage.getItem(KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as RecurringRule[];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
-  }
+export async function loadRecurring(): Promise<SafeLoadResult<RecurringRule[]>> {
+  return safeLoadJsonArray<RecurringRule>(RECURRING_KEY);
 }
 
-export async function saveRecurring(rules: RecurringRule[]): Promise<void> {
-  await AsyncStorage.setItem(KEY, JSON.stringify(rules));
+/** @returns false אם נחסם בגלל נתון פגום */
+export async function saveRecurring(
+  rules: RecurringRule[],
+  opts?: { force?: boolean }
+): Promise<boolean> {
+  return safeSetJson(RECURRING_KEY, rules, opts);
 }
 
 export function createRecurringRule(
-  data: Omit<RecurringRule, 'id' | 'createdAt' | 'enabled' | 'lastAppliedPeriod'> & {
+  data: Omit<RecurringRule, 'id' | 'createdAt' | 'enabled'> & {
     enabled?: boolean;
+    lastAppliedPeriod?: string;
   }
 ): RecurringRule {
   const day = Math.max(1, Math.min(28, Math.round(data.dayOfMonth) || 1));
@@ -35,7 +37,19 @@ export function createRecurringRule(
     enabled: data.enabled !== false,
     id: `r-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     createdAt: new Date().toISOString(),
+    ...(data.lastAppliedPeriod ? { lastAppliedPeriod: data.lastAppliedPeriod } : {}),
   };
+}
+
+/** מסתיר מזהי הוראת קבע ישנים שהוטמעו בהערות (#r-...) */
+export function displayNote(note: string | undefined | null): string {
+  if (!note) return '';
+  return note
+    .replace(/#r-[\w-]+/gi, '')
+    .replace(/\s*·\s*·\s*/g, ' · ')
+    .replace(/^\s*·\s*|\s*·\s*$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
 }
 
 function periodKey(y: number, m0: number): string {
@@ -98,7 +112,6 @@ function makeEntry(rule: RecurringRule, period: string): LedgerEntry {
   const noteParts = [
     rule.note.trim(),
     `הוראת קבע · כל ${rule.dayOfMonth} בחודש`,
-    `#${rule.id}`,
   ].filter(Boolean);
   return {
     id: `${rule.id}-${period}`,
@@ -108,6 +121,7 @@ function makeEntry(rule: RecurringRule, period: string): LedgerEntry {
     amount: rule.amount,
     note: noteParts.join(' · '),
     createdAt: entryDateISO(period, rule.dayOfMonth),
+    ruleId: rule.id,
   };
 }
 
@@ -139,7 +153,11 @@ export function applyRecurringRules(
     for (const period of monthsInclusive(start, cur)) {
       if (!shouldApplyInPeriod(rule, period, now)) continue;
 
-      const exists = nextLedger.some((e) => e.id === `${rule.id}-${period}`);
+      const exists = nextLedger.some(
+        (e) =>
+          e.id === `${rule.id}-${period}` ||
+          (e.ruleId === rule.id && e.period === period)
+      );
       if (!exists) {
         nextLedger.unshift(makeEntry(rule, period));
         added += 1;

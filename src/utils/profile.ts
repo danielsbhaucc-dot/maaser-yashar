@@ -1,8 +1,12 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { MaaserRate, MaritalStatus } from '../types';
 import type { Gender } from './copy';
+import {
+  safeLoadJsonObject,
+  safeSetJson,
+  type SafeLoadResult,
+} from './safeStorage';
 
-const PROFILE_KEY = 'maaser_profile_v2';
+export const PROFILE_KEY = 'maaser_profile_v2';
 
 export interface UserProfile {
   onboardingDone: boolean;
@@ -11,8 +15,6 @@ export interface UserProfile {
   maritalStatus: MaritalStatus;
   includeSpouse: boolean;
   rate: MaaserRate;
-  hasSalary: boolean;
-  hasBusiness: boolean;
   /** ISO — לתצוגת ימי מסע */
   joinedAt?: string;
   /**
@@ -31,23 +33,26 @@ export const defaultProfile = (): UserProfile => ({
   maritalStatus: 'single',
   includeSpouse: false,
   rate: 0.1,
-  hasSalary: true,
-  hasBusiness: false,
   joinedAt: undefined,
   chatShareTotals: true,
   chatConsentDone: false,
 });
 
-export async function loadProfile(): Promise<UserProfile> {
-  try {
-    const raw = await AsyncStorage.getItem(PROFILE_KEY);
-    if (!raw) return defaultProfile();
-    return { ...defaultProfile(), ...JSON.parse(raw) };
-  } catch {
-    return defaultProfile();
-  }
+export async function loadProfile(): Promise<SafeLoadResult<UserProfile>> {
+  const result = await safeLoadJsonObject<UserProfile>(PROFILE_KEY, defaultProfile());
+  if (result.corrupt) return result;
+  // מסירים שדות ישנים (hasSalary/hasBusiness) אם נשמרו בעבר
+  const { hasSalary: _s, hasBusiness: _b, ...rest } = result.data as UserProfile & {
+    hasSalary?: boolean;
+    hasBusiness?: boolean;
+  };
+  return { data: { ...defaultProfile(), ...rest }, corrupt: false };
 }
 
-export async function saveProfile(profile: UserProfile): Promise<void> {
-  await AsyncStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+/** @returns false אם נחסם בגלל נתון פגום */
+export async function saveProfile(
+  profile: UserProfile,
+  opts?: { force?: boolean }
+): Promise<boolean> {
+  return safeSetJson(PROFILE_KEY, profile, opts);
 }

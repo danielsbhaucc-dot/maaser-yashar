@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassCloseButton } from './Glass';
 import { InlineLoader } from './LoadingScreen';
 import { useMotionEnabled } from '../hooks/useMotionEnabled';
+import { NATIVE_DRIVER } from '../utils/motion';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { BOT_NAME, t } from '../utils/copy';
@@ -81,8 +82,8 @@ function TypingDots() {
       Animated.loop(
         Animated.sequence([
           Animated.delay(delay),
-          Animated.timing(v, { toValue: 1, duration: 280, useNativeDriver: true, easing: Easing.out(Easing.quad) }),
-          Animated.timing(v, { toValue: 0, duration: 280, useNativeDriver: true, easing: Easing.in(Easing.quad) }),
+          Animated.timing(v, { toValue: 1, duration: 280, useNativeDriver: NATIVE_DRIVER, easing: Easing.out(Easing.quad) }),
+          Animated.timing(v, { toValue: 0, duration: 280, useNativeDriver: NATIVE_DRIVER, easing: Easing.in(Easing.quad) }),
           Animated.delay(200),
         ])
       );
@@ -172,13 +173,13 @@ export default function NoamChat() {
         Animated.timing(launcherPulse, {
           toValue: 1.06,
           duration: 1400,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
           easing: Easing.inOut(Easing.sin),
         }),
         Animated.timing(launcherPulse, {
           toValue: 1,
           duration: 1400,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
           easing: Easing.inOut(Easing.sin),
         }),
       ])

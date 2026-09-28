@@ -9,7 +9,7 @@ import {
 import Icon from '../components/Icon';
 import { Glass } from '../components/Glass';
 import { DeleteButton } from '../components/DeleteButton';
-import { ProgressRing } from '../components/ProgressRing';
+import { ProgressRing, type Ring } from '../components/ProgressRing';
 import { Screen } from '../components/Screen';
 import { Banner, formatMoney, PrimaryButton } from '../components/ui';
 import { PrivacyNotice } from '../components/PrivacyNotice';
@@ -19,7 +19,6 @@ import { BOT_NAME, t } from '../utils/copy';
 import {
   currentPeriod,
   formatPeriod,
-  saveHistoryEntry,
 } from '../utils/history';
 import { computeTotals, entriesForPeriod } from '../utils/ledger';
 import { getSmartGreeting } from '../utils/greeting';
@@ -40,12 +39,13 @@ import type { SmartInsight } from '../utils/smartInsights';
 import { EXPLAIN } from '../utils/chatScript';
 import { daysLabel, entriesLabel } from '../utils/plural';
 import { formatRelativeTime } from '../utils/relativeTime';
+import { displayNote } from '../utils/recurring';
 
 const BASE_EXPLAIN_SHORT = `בסיס המעשר כאן = הכנסות שרשמת פחות הוצאות מותרות (מס / ביטוח / בריאות / הוצאות עסק).
 לא מנכים הוצאות מחיה (שכירות, אוכל וכו'). צדקה לא מורידה מהבסיס — רק נספרת מול החובה.`;
 
 export default function HomeScreen() {
-  const { profile, ledger, removeEntry, openAdd } = useApp();
+  const { profile, ledger, removeEntry, openAdd, saveMonth } = useApp();
   const toast = useToast();
   const [period, setPeriod] = useState(currentPeriod);
   const [saving, setSaving] = useState(false);
@@ -76,11 +76,25 @@ export default function HomeScreen() {
     [monthEntries, profile.rate]
   );
 
-  const progressPct = useMemo(() => {
-    if (totals.obligation <= 0) return totals.tzedaka > 0 ? 100 : 0;
-    return Math.min(100, Math.round((totals.tzedaka / totals.obligation) * 100));
-  }, [totals]);
+  const ring: Ring = useMemo(() => {
+    if (monthEntries.length === 0) return { kind: 'empty' };
+    if (totals.obligation <= 0) return { kind: 'none' };
+    return {
+      kind: 'progress',
+      percent: Math.min(100, Math.round((totals.tzedaka / totals.obligation) * 100)),
+    };
+  }, [monthEntries.length, totals]);
 
+  const ringStatusLine = useMemo(() => {
+    if (ring.kind === 'empty') return 'עדיין אין תנועות החודש';
+    if (ring.kind === 'none') {
+      if (totals.tzedaka > 0) {
+        return `אין חובה החודש · נתת ${formatMoney(totals.tzedaka)}`;
+      }
+      return 'אין חובה החודש';
+    }
+    return null;
+  }, [ring, totals.tzedaka]);
   const periods = useMemo(() => {
     const set = new Set<string>([currentPeriod()]);
     ledger.forEach((e) => set.add(e.period));
@@ -102,7 +116,7 @@ export default function HomeScreen() {
     }
     setSaving(true);
     try {
-      await saveHistoryEntry({
+      await saveMonth({
         period,
         label: formatPeriod(period),
         inputs: {
@@ -160,9 +174,9 @@ export default function HomeScreen() {
   );
 
   const onInsightAction = (item: SmartInsight) => {
-    if (item.actionKind === 'income') openAdd('income');
-    else if (item.actionKind === 'expense') openAdd('expense');
-    else if (item.actionKind === 'tzedaka') openAdd('tzedaka');
+    if (item.actionKind === 'income') openAdd('income', period);
+    else if (item.actionKind === 'expense') openAdd('expense', period);
+    else if (item.actionKind === 'tzedaka') openAdd('tzedaka', period);
     else if (item.actionKind === 'save') void onSaveMonth();
   };
 
@@ -221,12 +235,18 @@ export default function HomeScreen() {
           <View style={styles.balanceText}>
             <Text style={styles.balanceLabel}>יתרה לתת</Text>
             <Text style={styles.balanceValue}>{formatMoney(totals.remaining)}</Text>
-            <Text style={styles.balanceHint}>
-              מתוך חובה של{' '}
-              <Text style={styles.balanceHintEm}>{formatMoney(totals.obligation)}</Text>
-            </Text>
+            {ringStatusLine ? (
+              <Text style={styles.balanceHint}>
+                <Text style={styles.balanceHintEm}>{ringStatusLine}</Text>
+              </Text>
+            ) : (
+              <Text style={styles.balanceHint}>
+                מתוך חובה של{' '}
+                <Text style={styles.balanceHintEm}>{formatMoney(totals.obligation)}</Text>
+              </Text>
+            )}
           </View>
-          <ProgressRing percent={progressPct} color={colors.gold} />
+          <ProgressRing ring={ring} color={colors.gold} />
         </View>
         <View style={styles.balanceGrid}>
           <Stat
@@ -266,9 +286,9 @@ export default function HomeScreen() {
       />
 
       <View style={styles.actions}>
-        <Action label="הכנסה" color={colors.income} onPress={() => openAdd('income')} />
-        <Action label="ניכוי" color={colors.expense} onPress={() => openAdd('expense')} />
-        <Action label="צדקה" color={colors.tzedaka} onPress={() => openAdd('tzedaka')} primary />
+        <Action label="הכנסה" color={colors.income} onPress={() => openAdd('income', period)} />
+        <Action label="ניכוי" color={colors.expense} onPress={() => openAdd('expense', period)} />
+        <Action label="צדקה" color={colors.tzedaka} onPress={() => openAdd('tzedaka', period)} primary />
       </View>
 
       <View style={styles.listHead}>
@@ -284,7 +304,7 @@ export default function HomeScreen() {
           <Text style={styles.emptyTitle}>{emptyCopy.title}</Text>
           <Text style={styles.emptySub}>{emptyCopy.body}</Text>
           <View style={styles.emptyActions}>
-            <PrimaryButton label="הוסף תנועה ✦" onPress={() => openAdd('income')} />
+            <PrimaryButton label="הוסף תנועה ✦" onPress={() => openAdd('income', period)} />
           </View>
         </Glass>
       ) : (
@@ -382,14 +402,15 @@ function LedgerRow({
       : 'rgba(240, 168, 184, 0.12)';
   const kindLabel = isIn ? 'הכנסה' : isTz ? 'צדקה' : 'ניכוי';
   const sign = isIn ? '+' : '−';
-  const time = formatRelativeTime(entry.createdAt);
+  const time = formatRelativeTime(entry.date ?? entry.createdAt);
+  const note = displayNote(entry.note);
 
   return (
     <Pressable
       onLongPress={onDelete}
       style={[styles.row, { backgroundColor: softBg }, !isLast && styles.rowBorder]}
       accessibilityRole="button"
-      accessibilityLabel={`${kindLabel}, ${entry.category}, ${sign}${formatMoney(entry.amount)}${entry.note ? `, ${entry.note}` : ''}`}
+      accessibilityLabel={`${kindLabel}, ${entry.category}, ${sign}${formatMoney(entry.amount)}${note ? `, ${note}` : ''}`}
       accessibilityHint="לחיצה ארוכה למחיקה"
     >
       <View style={[styles.rowAccent, { backgroundColor: color }]} />
@@ -400,7 +421,7 @@ function LedgerRow({
           </View>
           <Text style={styles.rowCat}>{entry.category}</Text>
         </View>
-        {entry.note ? <Text style={styles.rowNote}>{entry.note}</Text> : null}
+        {note ? <Text style={styles.rowNote}>{note}</Text> : null}
         <Text style={styles.rowDate}>{time}</Text>
       </View>
       <View style={styles.rowAmountCol}>

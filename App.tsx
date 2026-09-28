@@ -146,34 +146,158 @@ function FloatingFab() {
   );
 }
 
-function GlobalAddModal() {
-  const { addOpen, addKind, closeAdd, addEntry, addRecurring } = useApp();
+function StorageAlertBridge() {
+  const { ready, corrupt, acknowledgeCorrupt } = useApp();
   const toast = useToast();
+  const shown = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!ready || shown.current) return;
+    const keys = (Object.keys(corrupt) as (keyof typeof corrupt)[]).filter((k) => corrupt[k]);
+    if (!keys.length) return;
+    shown.current = true;
+    const labels: Record<string, string> = {
+      ledger: 'פנקס התנועות',
+      profile: 'הפרופיל',
+      recurring: 'הוראות קבע',
+      history: 'היסטוריית החודשים',
+    };
+    const list = keys.map((k) => labels[k] ?? k).join(', ');
+    toast.confirm({
+      title: 'נתונים פגומים זוהו',
+      message: `${list} נשמרו בצד כגיבוי חירום. מומלץ לשחזר מגיבוי בהגדרות. שמירה אוטומטית חסומה עד אישור.`,
+      confirmLabel: 'התחל מחדש',
+      cancelLabel: 'הבנתי',
+      destructive: true,
+      onConfirm: () => void acknowledgeCorrupt(),
+    });
+  }, [ready, corrupt, toast, acknowledgeCorrupt]);
+
+  return null;
+}
+
+function GlobalAddModal() {
+  const {
+    addOpen,
+    addKind,
+    addPeriod,
+    closeAdd,
+    addEntry,
+    addRecurring,
+    corrupt,
+    acknowledgeCorrupt,
+  } = useApp();
+  const toast = useToast();
+  const sheetPeriod = addPeriod ?? currentPeriod();
+
+  const ensureWritable = async (): Promise<boolean> => {
+    if (!corrupt.ledger && !corrupt.recurring) return true;
+    return new Promise((resolve) => {
+      toast.confirm({
+        title: 'שמירה על נתונים פגומים',
+        message:
+          'נמצא גיבוי חירום של נתונים פגומים. שמירה תדרוס את הקובץ הפגום (העותק נשמר בצד). להמשיך?',
+        confirmLabel: 'כן, שמור',
+        cancelLabel: 'ביטול',
+        destructive: true,
+        onConfirm: async () => {
+          if (corrupt.ledger) await acknowledgeCorrupt('ledger');
+          if (corrupt.recurring) await acknowledgeCorrupt('recurring');
+          resolve(true);
+        },
+        onCancel: () => resolve(false),
+      });
+    });
+  };
+
+  const saveRecurringRule = async (
+    data: {
+      kind: 'income' | 'expense' | 'tzedaka';
+      category: string;
+      amount: number;
+      note: string;
+      dayOfMonth: number;
+    },
+    skipThisMonth: boolean
+  ) => {
+    if (!(await ensureWritable())) return;
+    const kindLabel =
+      data.kind === 'income' ? 'הכנסה' : data.kind === 'expense' ? 'הוצאה' : 'צדקה';
+    await addRecurring({
+      kind: data.kind,
+      category: data.category,
+      amount: data.amount,
+      note: data.note,
+      dayOfMonth: data.dayOfMonth,
+      ...(skipThisMonth ? { lastAppliedPeriod: currentPeriod() } : {}),
+    });
+    toast.success(
+      'הוראת קבע נשמרה ✦',
+      skipThisMonth
+        ? `${kindLabel} · כל ${data.dayOfMonth} בחודש · מהחודש הבא`
+        : `${kindLabel} · כל ${data.dayOfMonth} בחודש`
+    );
+  };
+
   return (
     <AddEntryModal
       visible={addOpen}
-      period={currentPeriod()}
+      period={sheetPeriod}
       initialKind={addKind}
       onClose={closeAdd}
       onSave={async (data) => {
         const kindLabel =
           data.kind === 'income' ? 'הכנסה' : data.kind === 'expense' ? 'הוצאה' : 'צדקה';
         if (data.recurring) {
-          await addRecurring({
-            kind: data.kind,
-            category: data.category,
-            amount: data.amount,
-            note: data.note,
-            dayOfMonth: data.recurring.dayOfMonth,
-          });
-          toast.success(
-            'הוראת קבע נשמרה ✦',
-            `${kindLabel} · כל ${data.recurring.dayOfMonth} בחודש`
+          const day = data.recurring.dayOfMonth;
+          const dayAlreadyPassed = new Date().getDate() > day;
+          if (dayAlreadyPassed) {
+            toast.confirm({
+              title: 'לרשום גם לחודש הזה?',
+              message: `היום כבר עבר ה־${day} בחודש. לרשום את ההוראה גם לחודש הנוכחי?`,
+              confirmLabel: 'כן, לרשום',
+              cancelLabel: 'לא',
+              onConfirm: () =>
+                void saveRecurringRule(
+                  {
+                    kind: data.kind,
+                    category: data.category,
+                    amount: data.amount,
+                    note: data.note,
+                    dayOfMonth: day,
+                  },
+                  false
+                ),
+              onCancel: () =>
+                void saveRecurringRule(
+                  {
+                    kind: data.kind,
+                    category: data.category,
+                    amount: data.amount,
+                    note: data.note,
+                    dayOfMonth: day,
+                  },
+                  true
+                ),
+            });
+            return;
+          }
+          await saveRecurringRule(
+            {
+              kind: data.kind,
+              category: data.category,
+              amount: data.amount,
+              note: data.note,
+              dayOfMonth: day,
+            },
+            false
           );
           return;
         }
+        if (!(await ensureWritable())) return;
         await addEntry({
-          period: currentPeriod(),
+          period: data.period,
+          date: data.date,
           kind: data.kind,
           category: data.category,
           amount: data.amount,
@@ -181,7 +305,7 @@ function GlobalAddModal() {
         });
         toast.success('נשמרה תנועה ✦', `${kindLabel} · ${data.category}`);
       }}
-      onInvalid={() => toast.warn('רגע', 'צריך סכום גדול מאפס')}
+      onInvalid={(message) => toast.warn('רגע', message)}
     />
   );
 }
@@ -198,6 +322,7 @@ function Root() {
         <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
           <PinLockScreen />
           <AccessibilityWidget />
+          <StorageAlertBridge />
         </View>
       </AccessibilityRoot>
     );
@@ -208,6 +333,7 @@ function Root() {
         <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
           <OnboardingScreen />
           <AccessibilityWidget />
+          <StorageAlertBridge />
         </View>
       </AccessibilityRoot>
     );
@@ -220,6 +346,7 @@ function Root() {
         <NoamChat />
         <GlobalAddModal />
         <AccessibilityWidget />
+        <StorageAlertBridge />
       </View>
     </AccessibilityRoot>
   );

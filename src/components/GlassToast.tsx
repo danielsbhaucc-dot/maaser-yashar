@@ -11,6 +11,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BlurView } from 'expo-blur';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import { rtlDomProps } from '../rtl';
+import { NATIVE_DRIVER } from '../utils/motion';
 
 export type ToastTone = 'success' | 'error' | 'warn' | 'info';
 
@@ -64,7 +65,7 @@ function ToastCard({
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.spring(anim, { toValue: 1, friction: 7, tension: 80, useNativeDriver: true }).start();
+    Animated.spring(anim, { toValue: 1, friction: 7, tension: 80, useNativeDriver: NATIVE_DRIVER }).start();
   }, [anim]);
 
   return (

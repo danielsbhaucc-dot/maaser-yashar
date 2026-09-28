@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassCloseButton } from './Glass';
 import { colors, fonts, spacing, type } from '../theme';
 import { DIR } from '../rtl';
+import { NATIVE_DRIVER } from '../utils/motion';
 
 const SCREEN_H = Dimensions.get('window').height;
 const DISMISS_Y = 110;
@@ -41,14 +42,14 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
       Animated.parallel([
         Animated.spring(translateY, {
           toValue: 0,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
           bounciness: 4,
           speed: 14,
         }),
         Animated.timing(backdrop, {
           toValue: 1,
           duration: 220,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
         }),
       ]).start();
     }
@@ -59,12 +60,12 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
       Animated.timing(translateY, {
         toValue: SCREEN_H * 0.55,
         duration: 220,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
       }),
       Animated.timing(backdrop, {
         toValue: 0,
         duration: 200,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
       }),
     ]).start(({ finished }) => {
       if (finished) onClose();
@@ -83,7 +84,7 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
         } else {
           Animated.spring(translateY, {
             toValue: 0,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             bounciness: 3,
           }).start();
         }

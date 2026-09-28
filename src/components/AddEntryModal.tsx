@@ -16,12 +16,20 @@ import {
 import { colors, fonts, radii, spacing, type } from '../theme';
 import { parseMoney, PrimaryButton, Chip } from './ui';
 import { BottomSheet } from './BottomSheet';
+import {
+  currentPeriod,
+  defaultDateFor,
+  formatPeriod,
+  lastNPeriods,
+} from '../utils/history';
 
 type SaveData = {
   kind: LedgerKind;
   category: string;
   amount: number;
   note: string;
+  period: string;
+  date: string;
   recurring?: { dayOfMonth: number };
 };
 
@@ -30,7 +38,7 @@ type Props = {
   period: string;
   onClose: () => void;
   onSave: (data: SaveData) => void;
-  onInvalid?: () => void;
+  onInvalid?: (message: string) => void;
   initialKind?: LedgerKind;
 };
 
@@ -59,9 +67,11 @@ const KIND_META: Record<
 };
 
 const DAY_PRESETS = [1, 2, 5, 10, 15, 20, 25, 28];
+const AMOUNT_ERROR_ID = 'add-entry-amount-error';
 
 export default function AddEntryModal({
   visible,
+  period: initialPeriod,
   onClose,
   onSave,
   onInvalid,
@@ -70,17 +80,39 @@ export default function AddEntryModal({
   const [kind, setKind] = useState<LedgerKind>(initialKind);
   const [category, setCategory] = useState<string>(INCOME_CATEGORIES[0]);
   const [amount, setAmount] = useState('');
+  const [amountError, setAmountError] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [recurringOn, setRecurringOn] = useState(false);
   const [dayOfMonth, setDayOfMonth] = useState(10);
+  const [selectedPeriod, setSelectedPeriod] = useState(initialPeriod || currentPeriod());
+  const [periodPickerOpen, setPeriodPickerOpen] = useState(false);
+  const [pickerYear, setPickerYear] = useState(() =>
+    Number((initialPeriod || currentPeriod()).slice(0, 4))
+  );
+
+  const selectablePeriods = useMemo(() => lastNPeriods(12), []);
+  const years = useMemo(() => {
+    const set = new Set(selectablePeriods.map((p) => Number(p.slice(0, 4))));
+    return [...set].sort((a, b) => b - a);
+  }, [selectablePeriods]);
+
+  const monthsForYear = useMemo(
+    () => selectablePeriods.filter((p) => Number(p.slice(0, 4)) === pickerYear),
+    [selectablePeriods, pickerYear]
+  );
 
   useEffect(() => {
     if (visible) {
       setKind(initialKind);
       setAmount('');
+      setAmountError(null);
       setNote('');
       setRecurringOn(false);
       setDayOfMonth(10);
+      setPeriodPickerOpen(false);
+      const p = initialPeriod || currentPeriod();
+      setSelectedPeriod(p);
+      setPickerYear(Number(p.slice(0, 4)));
       const cats =
         initialKind === 'income'
           ? INCOME_CATEGORIES
@@ -89,7 +121,7 @@ export default function AddEntryModal({
             : TZEDAKA_CATEGORIES;
       setCategory(cats[0]);
     }
-  }, [visible, initialKind]);
+  }, [visible, initialKind, initialPeriod]);
 
   const categories = useMemo(() => {
     if (kind === 'income') return [...INCOME_CATEGORIES];
@@ -111,16 +143,21 @@ export default function AddEntryModal({
   };
 
   const submit = () => {
-    const n = parseMoney(amount);
-    if (n <= 0) {
-      onInvalid?.();
+    const parsed = parseMoney(amount);
+    if (!parsed.ok) {
+      setAmountError(parsed.error);
+      onInvalid?.(parsed.error);
       return;
     }
+    setAmountError(null);
+    const period = selectedPeriod || currentPeriod();
     onSave({
       kind,
       category,
-      amount: n,
+      amount: parsed.value,
       note: note.trim(),
+      period,
+      date: defaultDateFor(period),
       recurring: recurringOn ? { dayOfMonth } : undefined,
     });
     onClose();
@@ -133,6 +170,56 @@ export default function AddEntryModal({
         showsVerticalScrollIndicator={false}
         bounces={false}
       >
+        <Pressable
+          onPress={() => setPeriodPickerOpen((v) => !v)}
+          style={styles.periodBanner}
+          accessibilityRole="button"
+          accessibilityLabel={`נרשם ל ${formatPeriod(selectedPeriod)}. לחצו לבחירת חודש`}
+          accessibilityState={{ expanded: periodPickerOpen }}
+        >
+          <Text style={styles.periodBannerText}>
+            נרשם ל: {formatPeriod(selectedPeriod)}
+          </Text>
+          <Text style={styles.periodBannerHint}>
+            {periodPickerOpen ? 'סגור בחירה' : 'החלפת חודש / שנה'}
+          </Text>
+        </Pressable>
+
+        {periodPickerOpen ? (
+          <View style={styles.periodPicker}>
+            <View style={styles.yearRow}>
+              {years.map((y) => (
+                <Chip
+                  key={y}
+                  label={String(y)}
+                  selected={pickerYear === y}
+                  onPress={() => setPickerYear(y)}
+                />
+              ))}
+            </View>
+            <View style={styles.monthRow}>
+              {monthsForYear.map((p) => {
+                const monthIdx = Number(p.slice(5, 7)) - 1;
+                const label =
+                  ['ינו׳', 'פבר׳', 'מרץ', 'אפר׳', 'מאי', 'יונ׳', 'יול׳', 'אוג׳', 'ספט׳', 'אוק׳', 'נוב׳', 'דצמ׳'][
+                    monthIdx
+                  ] ?? p.slice(5);
+                return (
+                  <Chip
+                    key={p}
+                    label={label}
+                    selected={selectedPeriod === p}
+                    onPress={() => {
+                      setSelectedPeriod(p);
+                      setPeriodPickerOpen(false);
+                    }}
+                  />
+                );
+              })}
+            </View>
+          </View>
+        ) : null}
+
         <View style={styles.kindRow}>
           {(Object.keys(KIND_META) as LedgerKind[]).map((k) => {
             const meta = KIND_META[k];
@@ -163,16 +250,36 @@ export default function AddEntryModal({
 
         <Text style={[styles.label, { color: active.color }]}>סכום</Text>
         <TextInput
-          style={[styles.amount, { borderColor: `${active.color}88` }]}
+          style={[
+            styles.amount,
+            { borderColor: amountError ? colors.danger : `${active.color}88` },
+          ]}
           keyboardType="decimal-pad"
           value={amount}
-          onChangeText={setAmount}
+          onChangeText={(t) => {
+            setAmount(t);
+            if (amountError) setAmountError(null);
+          }}
           placeholder="0"
           placeholderTextColor={colors.inkSoft}
           textAlign="start"
           autoFocus
           accessibilityLabel="סכום התנועה"
+          accessibilityDescribedBy={amountError ? AMOUNT_ERROR_ID : undefined}
+          {...(amountError
+            ? ({ 'aria-describedby': AMOUNT_ERROR_ID } as object)
+            : null)}
         />
+        {amountError ? (
+          <Text
+            nativeID={AMOUNT_ERROR_ID}
+            style={styles.amountError}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            {amountError}
+          </Text>
+        ) : null}
 
         <Text style={styles.label}>קטגוריה</Text>
         <View style={styles.cats} accessibilityRole="radiogroup">
@@ -252,6 +359,48 @@ export default function AddEntryModal({
 }
 
 const styles = StyleSheet.create({
+  periodBanner: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: 'rgba(255,216,138,0.35)',
+    backgroundColor: 'rgba(255,216,138,0.10)',
+  },
+  periodBannerText: {
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.gold,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  periodBannerHint: {
+    ...type.caption,
+    color: colors.inkSoft,
+    marginTop: 4,
+    textAlign: 'center',
+  },
+  periodPicker: {
+    marginBottom: spacing.md,
+    padding: 10,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    backgroundColor: 'rgba(0,0,0,0.22)',
+  },
+  yearRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  monthRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+  },
   kindRow: { flexDirection: 'row', gap: 8, marginBottom: spacing.lg },
   kindBtn: {
     flex: 1,
@@ -286,8 +435,16 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     paddingVertical: 14,
     paddingHorizontal: 14,
-    marginBottom: spacing.lg,
+    marginBottom: spacing.sm,
     borderWidth: 1.5,
+    textAlign: 'start',
+    writingDirection: 'rtl',
+  },
+  amountError: {
+    ...type.caption,
+    fontFamily: fonts.medium,
+    color: colors.danger,
+    marginBottom: spacing.md,
     textAlign: 'start',
     writingDirection: 'rtl',
   },

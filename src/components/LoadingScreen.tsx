@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { colors, fonts, radii, spacing } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import { useMotionEnabled } from '../hooks/useMotionEnabled';
+import { NATIVE_DRIVER } from '../utils/motion';
 
 type Variant = 'boot' | 'app' | 'overlay';
 
@@ -52,7 +53,7 @@ export function LoadingScreen({
     Animated.timing(fadeIn, {
       toValue: 1,
       duration: 520,
-      useNativeDriver: true,
+      useNativeDriver: NATIVE_DRIVER,
       easing: Easing.out(Easing.cubic),
     }).start();
 
@@ -63,13 +64,13 @@ export function LoadingScreen({
           Animated.timing(v, {
             toValue: 1,
             duration,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             easing: Easing.inOut(Easing.sin),
           }),
           Animated.timing(v, {
             toValue: 0,
             duration,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             easing: Easing.inOut(Easing.sin),
           }),
         ])
@@ -81,13 +82,13 @@ export function LoadingScreen({
           Animated.timing(starScale, {
             toValue: 1.08,
             duration: 1100,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             easing: Easing.inOut(Easing.quad),
           }),
           Animated.timing(starGlow, {
             toValue: 1,
             duration: 1100,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             easing: Easing.inOut(Easing.quad),
           }),
         ]),
@@ -95,13 +96,13 @@ export function LoadingScreen({
           Animated.timing(starScale, {
             toValue: 0.94,
             duration: 1100,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             easing: Easing.inOut(Easing.quad),
           }),
           Animated.timing(starGlow, {
             toValue: 0.4,
             duration: 1100,
-            useNativeDriver: true,
+            useNativeDriver: NATIVE_DRIVER,
             easing: Easing.inOut(Easing.quad),
           }),
         ]),
@@ -112,7 +113,7 @@ export function LoadingScreen({
       Animated.timing(ring, {
         toValue: 1,
         duration: 2400,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
         easing: Easing.linear,
       })
     );
@@ -138,7 +139,7 @@ export function LoadingScreen({
       Animated.timing(shimmer, {
         toValue: 1,
         duration: 1800,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
         easing: Easing.inOut(Easing.quad),
       })
     );
@@ -333,13 +334,13 @@ function PulseDot({ delay, run }: { delay: number; run: boolean }) {
         Animated.timing(v, {
           toValue: 1,
           duration: 420,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
           easing: Easing.out(Easing.quad),
         }),
         Animated.timing(v, {
           toValue: 0.25,
           duration: 420,
-          useNativeDriver: true,
+          useNativeDriver: NATIVE_DRIVER,
           easing: Easing.in(Easing.quad),
         }),
       ])
@@ -390,7 +391,7 @@ export function InlineLoader({
       Animated.timing(spin, {
         toValue: 1,
         duration: 900,
-        useNativeDriver: true,
+        useNativeDriver: NATIVE_DRIVER,
         easing: Easing.linear,
       })
     );

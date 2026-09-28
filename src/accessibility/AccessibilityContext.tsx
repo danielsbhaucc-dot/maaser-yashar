@@ -60,8 +60,12 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
       try {
         let raw = await AsyncStorage.getItem(A11Y_STORAGE_KEY);
         if (!raw) {
-          // מיגרציה מגרסה קודמת
-          raw = await AsyncStorage.getItem('@maaser/a11y-v1');
+          // מיגרציה חד־פעמית מגרסה ישנה — אחרי קריאה מוחקים את המפתח הישן
+          const legacy = await AsyncStorage.getItem('@maaser/a11y-v1');
+          if (legacy) {
+            raw = legacy;
+            await AsyncStorage.removeItem('@maaser/a11y-v1');
+          }
         }
         if (raw && !cancelled) {
           const parsed = JSON.parse(raw) as Partial<A11ySettings>;

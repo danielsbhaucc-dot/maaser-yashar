@@ -1,4 +1,11 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import type { LedgerEntry, LedgerKind } from '../types/ledger';
 import type { RecurringRule } from '../types/recurring';
 import {
@@ -18,12 +25,29 @@ import {
   loadRecurring,
   saveRecurring,
 } from '../utils/recurring';
+import {
+  clearHistory as clearHistoryStorage,
+  deleteHistoryEntry,
+  loadHistory,
+  saveHistoryEntry,
+  type HistoryEntry,
+} from '../utils/history';
+import { runSchemaMigrations } from '../utils/schemaMigrate';
+
+type NewHistoryEntry = Omit<HistoryEntry, 'id' | 'savedAt'>;
+
+export type CorruptStore = 'ledger' | 'profile' | 'recurring' | 'history';
 
 type AppCtx = {
   ready: boolean;
   profile: UserProfile;
   ledger: LedgerEntry[];
   recurring: RecurringRule[];
+  history: HistoryEntry[];
+  /** מאגרי אחסון שזוהו כפגומים בטעינה */
+  corrupt: Partial<Record<CorruptStore, boolean>>;
+  /** מאשר דריסה מפורשת אחרי נתון פגום */
+  acknowledgeCorrupt: (store?: CorruptStore) => Promise<void>;
   setProfile: (p: UserProfile) => Promise<void>;
   patchProfile: (partial: Partial<UserProfile>) => Promise<void>;
   addEntry: (data: Omit<LedgerEntry, 'id' | 'createdAt'>) => Promise<void>;
@@ -31,15 +55,20 @@ type AppCtx = {
   removeEntry: (id: string) => Promise<void>;
   updateEntry: (id: string, patch: Partial<LedgerEntry>) => Promise<void>;
   addRecurring: (
-    data: Omit<RecurringRule, 'id' | 'createdAt' | 'enabled' | 'lastAppliedPeriod'> & {
+    data: Omit<RecurringRule, 'id' | 'createdAt' | 'enabled'> & {
       enabled?: boolean;
+      lastAppliedPeriod?: string;
     }
   ) => Promise<RecurringRule>;
   removeRecurring: (id: string) => Promise<void>;
   toggleRecurring: (id: string, enabled: boolean) => Promise<void>;
+  saveMonth: (entry: NewHistoryEntry) => Promise<void>;
+  deleteMonth: (id: string) => Promise<void>;
+  clearHistory: () => Promise<void>;
   addOpen: boolean;
   addKind: LedgerKind;
-  openAdd: (kind?: LedgerKind) => void;
+  addPeriod: string | null;
+  openAdd: (kind?: LedgerKind, period?: string) => void;
   closeAdd: () => void;
 };
 
@@ -50,45 +79,111 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfileState] = useState<UserProfile>(defaultProfile());
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [recurring, setRecurring] = useState<RecurringRule[]>([]);
+  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [corrupt, setCorrupt] = useState<Partial<Record<CorruptStore, boolean>>>({});
   const [addOpen, setAddOpen] = useState(false);
   const [addKind, setAddKind] = useState<LedgerKind>('tzedaka');
+  const [addPeriod, setAddPeriod] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
-      const [p, entries, rules] = await Promise.all([
+      await runSchemaMigrations();
+
+      const [pRes, ledgerRes, rulesRes, histRes] = await Promise.all([
         loadProfile(),
         loadLedger(),
         loadRecurring(),
+        loadHistory(),
       ]);
-      const applied = applyRecurringRules(rules, entries);
-      setProfileState(p);
-      setLedger(applied.ledger);
-      setRecurring(applied.rules);
-      if (
-        applied.added > 0 ||
-        applied.rules.some((r, i) => r.lastAppliedPeriod !== rules[i]?.lastAppliedPeriod)
-      ) {
-        await Promise.all([
-          saveLedger(applied.ledger),
-          saveRecurring(applied.rules),
-        ]);
+
+      const nextCorrupt: Partial<Record<CorruptStore, boolean>> = {};
+      if (pRes.corrupt) nextCorrupt.profile = true;
+      if (ledgerRes.corrupt) nextCorrupt.ledger = true;
+      if (rulesRes.corrupt) nextCorrupt.recurring = true;
+      if (histRes.corrupt) nextCorrupt.history = true;
+      setCorrupt(nextCorrupt);
+
+      setProfileState(pRes.data);
+      setHistory(histRes.data);
+
+      const canMutateDisk = !ledgerRes.corrupt && !rulesRes.corrupt;
+      if (canMutateDisk) {
+        const applied = applyRecurringRules(rulesRes.data, ledgerRes.data);
+        setLedger(applied.ledger);
+        setRecurring(applied.rules);
+        if (
+          applied.added > 0 ||
+          applied.rules.some(
+            (r, i) => r.lastAppliedPeriod !== rulesRes.data[i]?.lastAppliedPeriod
+          )
+        ) {
+          await Promise.all([
+            saveLedger(applied.ledger),
+            saveRecurring(applied.rules),
+          ]);
+        }
+      } else {
+        setLedger(ledgerRes.data);
+        setRecurring(rulesRes.data);
       }
+
       setReady(true);
     })();
   }, []);
 
-  const setProfile = useCallback(async (p: UserProfile) => {
-    setProfileState(p);
-    await saveProfile(p);
-  }, []);
+  const acknowledgeCorrupt = useCallback(
+    async (store?: CorruptStore) => {
+      const targets: CorruptStore[] = store
+        ? [store]
+        : (Object.keys(corrupt).filter((k) => corrupt[k as CorruptStore]) as CorruptStore[]);
+
+      for (const t of targets) {
+        if (t === 'ledger') await saveLedger(ledger, { force: true });
+        if (t === 'recurring') await saveRecurring(recurring, { force: true });
+        if (t === 'profile') await saveProfile(profile, { force: true });
+        if (t === 'history') await clearHistoryStorage({ force: true });
+      }
+
+      setCorrupt((prev) => {
+        const next = { ...prev };
+        for (const t of targets) delete next[t];
+        return next;
+      });
+    },
+    [corrupt, ledger, recurring, profile]
+  );
+
+  const setProfile = useCallback(
+    async (p: UserProfile) => {
+      setProfileState(p);
+      const force = !!corrupt.profile;
+      await saveProfile(p, force ? { force: true } : undefined);
+      if (force) {
+        setCorrupt((prev) => {
+          const next = { ...prev };
+          delete next.profile;
+          return next;
+        });
+      }
+    },
+    [corrupt.profile]
+  );
 
   const patchProfile = useCallback(
     async (partial: Partial<UserProfile>) => {
       const next = { ...profile, ...partial };
       setProfileState(next);
-      await saveProfile(next);
+      const force = !!corrupt.profile;
+      await saveProfile(next, force ? { force: true } : undefined);
+      if (force) {
+        setCorrupt((prev) => {
+          const n = { ...prev };
+          delete n.profile;
+          return n;
+        });
+      }
     },
-    [profile]
+    [profile, corrupt.profile]
   );
 
   const persistLedger = useCallback(async (next: LedgerEntry[]) => {
@@ -134,8 +229,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addRecurring = useCallback(
     async (
-      data: Omit<RecurringRule, 'id' | 'createdAt' | 'enabled' | 'lastAppliedPeriod'> & {
+      data: Omit<RecurringRule, 'id' | 'createdAt' | 'enabled'> & {
         enabled?: boolean;
+        lastAppliedPeriod?: string;
       }
     ) => {
       const rule = createRecurringRule(data);
@@ -177,12 +273,28 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [recurring, ledger, persistRecurring]
   );
 
-  const openAdd = useCallback((kind: LedgerKind = 'tzedaka') => {
+  const saveMonth = useCallback(async (entry: NewHistoryEntry) => {
+    setHistory(await saveHistoryEntry(entry));
+  }, []);
+
+  const deleteMonth = useCallback(async (id: string) => {
+    setHistory(await deleteHistoryEntry(id));
+  }, []);
+
+  const clearHistory = useCallback(async () => {
+    setHistory(await clearHistoryStorage());
+  }, []);
+
+  const openAdd = useCallback((kind: LedgerKind = 'tzedaka', period?: string) => {
     setAddKind(kind);
+    setAddPeriod(period ?? null);
     setAddOpen(true);
   }, []);
 
-  const closeAdd = useCallback(() => setAddOpen(false), []);
+  const closeAdd = useCallback(() => {
+    setAddOpen(false);
+    setAddPeriod(null);
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -190,6 +302,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       profile,
       ledger,
       recurring,
+      history,
+      corrupt,
+      acknowledgeCorrupt,
       setProfile,
       patchProfile,
       addEntry,
@@ -199,8 +314,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addRecurring,
       removeRecurring,
       toggleRecurring,
+      saveMonth,
+      deleteMonth,
+      clearHistory,
       addOpen,
       addKind,
+      addPeriod,
       openAdd,
       closeAdd,
     }),
@@ -209,6 +328,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       profile,
       ledger,
       recurring,
+      history,
+      corrupt,
+      acknowledgeCorrupt,
       setProfile,
       patchProfile,
       addEntry,
@@ -218,8 +340,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addRecurring,
       removeRecurring,
       toggleRecurring,
+      saveMonth,
+      deleteMonth,
+      clearHistory,
       addOpen,
       addKind,
+      addPeriod,
       openAdd,
       closeAdd,
     ]

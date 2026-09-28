@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { Screen } from '../components/Screen';
 import {
@@ -30,6 +30,7 @@ import {
 } from '../utils/smartInsights';
 import type { SmartInsight } from '../utils/smartInsights';
 import { useToast } from '../context/ToastContext';
+import { loadTaxForm, saveTaxForm } from '../utils/taxForm';
 
 const YEARS = [2026, 2025, 2024, 2023, 2022];
 const TIP_COLORS = [colors.primary, colors.gold, colors.accent, colors.success];
@@ -39,16 +40,49 @@ const TAX_EXPLAIN_SHORT = `יחיד: זיכוי 35% מתרומה למוסד עם
 const TAX_EXPLAIN_DETAIL = `שמרו קבלות תקינות. מ־2026 חשוב דיווח דיגיטלי של העמותה (תרומות ישראל).
 אומדן בלבד — לא ייעוץ מס.`;
 
+const UNSURE_INCOME_NOTE =
+  'אומדן בלי בדיקת תקרת 30% מההכנסה החייבת. אם התרומות גבוהות — כדאי לבדוק את המספר בתלוש או בדוח השנתי.';
+
 export default function TaxScreen() {
   const { profile, ledger } = useApp();
   const toast = useToast();
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
+  const [hydrated, setHydrated] = useState(false);
   const [donationsTotal, setDonations] = useState(0);
   const [taxableIncome, setTaxable] = useState(0);
   const [taxPaid, setTaxPaid] = useState(0);
   const [isCompany, setIsCompany] = useState(false);
   const [taxYear, setYear] = useState(2026);
   const [knowsIncome, setKnowsIncome] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadTaxForm().then((s) => {
+      if (cancelled) return;
+      setDonations(s.donationsTotal);
+      setTaxable(s.taxableIncome);
+      setTaxPaid(s.taxPaid);
+      setIsCompany(s.isCompany);
+      setYear(s.taxYear);
+      setKnowsIncome(s.knowsIncome);
+      setHydrated(true);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!hydrated) return;
+    void saveTaxForm({
+      donationsTotal,
+      taxableIncome,
+      taxPaid,
+      isCompany,
+      taxYear,
+      knowsIncome,
+    });
+  }, [hydrated, donationsTotal, taxableIncome, taxPaid, isCompany, taxYear, knowsIncome]);
 
   const hasDonations = donationsTotal > 0;
   const missingIncome = knowsIncome && taxableIncome <= 0;
@@ -162,6 +196,11 @@ export default function TaxScreen() {
                 </Text>
               </Glass>
             ) : null}
+            {!knowsIncome ? (
+              <Glass light style={styles.noteGlass}>
+                <Text style={styles.noteText}>{UNSURE_INCOME_NOTE}</Text>
+              </Glass>
+            ) : null}
             <StatHero
               label="זיכוי משוער"
               value={formatMoney(effectiveCredit)}
@@ -176,6 +215,9 @@ export default function TaxScreen() {
               נדרשות לפחות{' '}
               <Text style={styles.infoEm}>{result.minDonation} ₪</Text> תרומות למוסד עם אישור 46.
             </Text>
+            {!knowsIncome ? (
+              <Text style={[styles.noteText, { marginTop: spacing.md }]}>{UNSURE_INCOME_NOTE}</Text>
+            ) : null}
           </Glass>
         )}
       </View>
@@ -220,7 +262,9 @@ export default function TaxScreen() {
               <Text style={styles.fieldWarn}>חסר נתון — בלי הכנסה חייבת האומדן מוסתר</Text>
             ) : null}
           </View>
-        ) : null}
+        ) : (
+          <Text style={styles.unsureHint}>{UNSURE_INCOME_NOTE}</Text>
+        )}
         <View style={{ marginTop: spacing.md }}>
           <MoneyField
             label="מס ששולם (מומלץ)"
@@ -294,6 +338,26 @@ const styles = StyleSheet.create({
     color: colors.sheetMuted,
     textAlign: 'center',
     lineHeight: 22,
+    writingDirection: 'rtl',
+  },
+  noteGlass: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderColor: colors.glassGoldBorder,
+  },
+  noteText: {
+    ...type.caption,
+    color: colors.sheetMuted,
+    textAlign: 'center',
+    lineHeight: 20,
+    writingDirection: 'rtl',
+  },
+  unsureHint: {
+    ...type.caption,
+    color: colors.sheetMuted,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    lineHeight: 20,
     writingDirection: 'rtl',
   },
   fieldWarn: {

@@ -1,19 +1,12 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { Screen } from '../components/Screen';
 import { StatHero, formatMoney, PrimaryButton } from '../components/ui';
 import { Glass, GlassPill } from '../components/Glass';
 import { DeleteButton } from '../components/DeleteButton';
 import { SmartInsights } from '../components/SmartInsights';
 import { colors, fonts, radii, spacing, type } from '../theme';
-import {
-  clearHistory,
-  deleteHistoryEntry,
-  formatPeriod,
-  loadHistory,
-  type HistoryEntry,
-} from '../utils/history';
+import { formatPeriod } from '../utils/history';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { BOT_NAME, t } from '../utils/copy';
@@ -25,15 +18,8 @@ import { formatRelativeTime } from '../utils/relativeTime';
 import { exportHistoryCsv } from '../utils/exportCsv';
 
 export default function HistoryScreen() {
-  const { openAdd, profile } = useApp();
+  const { openAdd, profile, history: entries, deleteMonth, clearHistory } = useApp();
   const toast = useToast();
-  const [entries, setEntries] = useState<HistoryEntry[]>([]);
-
-  useFocusEffect(
-    useCallback(() => {
-      loadHistory().then(setEntries);
-    }, [])
-  );
 
   const totalRemaining = entries.reduce((s, e) => s + e.result.remaining, 0);
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
@@ -103,7 +89,7 @@ export default function HistoryScreen() {
                     destructive: true,
                     confirmLabel: 'מחק',
                     onConfirm: async () => {
-                      setEntries(await deleteHistoryEntry(e.id));
+                      await deleteMonth(e.id);
                       toast.success('החודש נמחק');
                     },
                   })
@@ -137,7 +123,6 @@ export default function HistoryScreen() {
               confirmLabel: 'נקה הכול',
               onConfirm: async () => {
                 await clearHistory();
-                setEntries([]);
                 toast.success('ההיסטוריה נוקתה');
               },
             })
