@@ -5,8 +5,14 @@ import {
   safeSetJson,
   type SafeLoadResult,
 } from './safeStorage';
+import {
+  defaultAdvancedSettings,
+  type AdvancedCalcSettings,
+} from './totalsAdvanced';
 
 export const PROFILE_KEY = 'maaser_profile_v2';
+
+export type { AdvancedCalcSettings };
 
 export interface UserProfile {
   onboardingDone: boolean;
@@ -24,6 +30,8 @@ export interface UserProfile {
   chatShareTotals: boolean;
   /** האם המשתמש כבר אישר את מסך הסכמת הצ'אט */
   chatConsentDone: boolean;
+  /** חישוב מעשר מתקדם — מופעל כברירת מחדל */
+  advanced: AdvancedCalcSettings;
 }
 
 export const defaultProfile = (): UserProfile => ({
@@ -36,6 +44,7 @@ export const defaultProfile = (): UserProfile => ({
   joinedAt: undefined,
   chatShareTotals: true,
   chatConsentDone: false,
+  advanced: defaultAdvancedSettings(),
 });
 
 export async function loadProfile(): Promise<SafeLoadResult<UserProfile>> {
@@ -46,7 +55,16 @@ export async function loadProfile(): Promise<SafeLoadResult<UserProfile>> {
     hasSalary?: boolean;
     hasBusiness?: boolean;
   };
-  return { data: { ...defaultProfile(), ...rest }, corrupt: false };
+  const base = defaultProfile();
+  const merged: UserProfile = {
+    ...base,
+    ...rest,
+    advanced: {
+      ...base.advanced,
+      ...(rest as Partial<UserProfile>).advanced,
+    },
+  };
+  return { data: merged, corrupt: false };
 }
 
 /** @returns false אם נחסם בגלל נתון פגום */

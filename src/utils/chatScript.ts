@@ -92,8 +92,8 @@ export function welcomeDone(name: string, g: Gender, rate: number): string {
   const rateLabel = rate === 0.2 ? 'חומש 20%' : 'מעשר 10%';
   return t(
     g,
-    `ברוך הבא לפנקס, ${name}!\nשיעור: ${rateLabel}.\nמעכשיו זה פשוט — הכנסה, הוצאה, צדקה. יאללה ✦`,
-    `ברוכה הבאה לפנקס, ${name}!\nשיעור: ${rateLabel}.\nמעכשיו זה פשוט — הכנסה, הוצאה, צדקה. יאללה ✦`
+    `ברוך הבא לפנקס, ${name}!\nשיעור: ${rateLabel}.\nמעכשיו זה פשוט — הכנסה, ניכוי, צדקה. יאללה ✦`,
+    `ברוכה הבאה לפנקס, ${name}!\nשיעור: ${rateLabel}.\nמעכשיו זה פשוט — הכנסה, ניכוי, צדקה. יאללה ✦`
   );
 }
 

@@ -42,9 +42,9 @@ import {
 import { noamChatWelcome } from '../utils/noamCompanion';
 import { entriesLabel } from '../utils/plural';
 import { formatRelativeTime } from '../utils/relativeTime';
-import { computeTotals, entriesForPeriod } from '../utils/ledger';
+import { entriesForPeriod } from '../utils/ledger';
+import { resolveTotals } from '../utils/totalsAdvanced';
 import { RichMessageText } from './RichMessageText';
-import type { MaaserRate } from '../types';
 import { PRIVACY_LINK_LABEL, privacyPageUrl } from '../constants/privacy';
 
 type ViewMode = 'home' | 'chat' | 'history';
@@ -220,7 +220,7 @@ export default function NoamChat() {
     const id = newThreadId();
     const period = currentPeriod();
     const month = entriesForPeriod(ledger, period);
-    const totals = computeTotals(month, profile.rate as MaaserRate);
+    const totals = resolveTotals(month, profile);
     const welcome: ChatMessage = {
       id: msgId(),
       role: 'assistant',

@@ -176,13 +176,22 @@ function StorageAlertBridge() {
   return null;
 }
 
+function entryKindLabel(kind: 'income' | 'expense' | 'tzedaka'): string {
+  if (kind === 'income') return 'הכנסה';
+  if (kind === 'expense') return 'ניכוי';
+  return 'צדקה';
+}
+
 function GlobalAddModal() {
   const {
     addOpen,
     addKind,
     addPeriod,
+    editingEntry,
     closeAdd,
     addEntry,
+    updateEntry,
+    removeEntry,
     addRecurring,
     corrupt,
     acknowledgeCorrupt,
@@ -221,8 +230,7 @@ function GlobalAddModal() {
     skipThisMonth: boolean
   ) => {
     if (!(await ensureWritable())) return;
-    const kindLabel =
-      data.kind === 'income' ? 'הכנסה' : data.kind === 'expense' ? 'הוצאה' : 'צדקה';
+    const kindLabel = entryKindLabel(data.kind);
     await addRecurring({
       kind: data.kind,
       category: data.category,
@@ -244,10 +252,43 @@ function GlobalAddModal() {
       visible={addOpen}
       period={sheetPeriod}
       initialKind={addKind}
+      editEntry={editingEntry}
       onClose={closeAdd}
+      onDelete={
+        editingEntry
+          ? () => {
+              const id = editingEntry.id;
+              toast.confirm({
+                title: 'למחוק את התנועה?',
+                message: 'לא ניתן לשחזר אחר כך',
+                destructive: true,
+                confirmLabel: 'מחק',
+                onConfirm: async () => {
+                  if (!(await ensureWritable())) return;
+                  closeAdd();
+                  await removeEntry(id);
+                  toast.success('התנועה נמחקה');
+                },
+              });
+            }
+          : undefined
+      }
       onSave={async (data) => {
-        const kindLabel =
-          data.kind === 'income' ? 'הכנסה' : data.kind === 'expense' ? 'הוצאה' : 'צדקה';
+        const kindLabel = entryKindLabel(data.kind);
+        const editing = editingEntry;
+        if (editing) {
+          if (!(await ensureWritable())) return;
+          await updateEntry(editing.id, {
+            kind: data.kind,
+            category: data.category,
+            amount: data.amount,
+            note: data.note,
+            period: data.period,
+            date: data.date,
+          });
+          toast.success('התנועה עודכנה ✦', `${kindLabel} · ${data.category}`);
+          return;
+        }
         if (data.recurring) {
           const day = data.recurring.dayOfMonth;
           const dayAlreadyPassed = new Date().getDate() > day;

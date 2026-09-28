@@ -18,6 +18,8 @@ export const APP_STORAGE_KEYS = [
   PIN_STORAGE_KEY,
   A11Y_STORAGE_KEY,
   '@maaser/a11y-v1',
+  'maaser_last_backup',
+  'maaser_pre_restore',
   '__maaser_rtl_reload_v3',
 ] as const;
 

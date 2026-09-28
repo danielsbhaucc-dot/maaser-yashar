@@ -2,10 +2,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import type { LedgerEntry, LedgerKind } from '../types/ledger';
 import { t, type Gender } from '../utils/copy';
-import { computeTotals, entriesForPeriod } from '../utils/ledger';
+import { entriesForPeriod } from '../utils/ledger';
+import { resolveTotals } from '../utils/totalsAdvanced';
 import { currentPeriod } from '../utils/history';
 import type { UserProfile } from '../utils/profile';
-import type { MaaserRate } from '../types';
 
 export type ChatRole = 'user' | 'assistant';
 
@@ -60,7 +60,7 @@ export function buildNoamContext(opts: {
 }): NoamChatContext {
   const period = opts.period || currentPeriod();
   const month = entriesForPeriod(opts.ledger, period);
-  const totals = computeTotals(month, opts.profile.rate as MaaserRate);
+  const totals = resolveTotals(month, opts.profile);
 
   return {
     rate: opts.profile.rate === 0.2 ? 0.2 : 0.1,
@@ -117,7 +117,7 @@ export async function sendToNoam(params: {
 
 export function kindLabel(kind: LedgerKind, gender?: Gender): string {
   if (kind === 'income') return 'הכנסה';
-  if (kind === 'expense') return 'הוצאה';
+  if (kind === 'expense') return 'ניכוי';
   return t(gender, 'צדקה שניתנה', 'צדקה שניתנה');
 }
 

@@ -22,6 +22,7 @@ export const INCOME_CATEGORIES = [
   'רווחי הון',
   'מתנה',
   'קצבה',
+  'ירושה',
   'בן/בת זוג',
   'אחר',
 ] as const;

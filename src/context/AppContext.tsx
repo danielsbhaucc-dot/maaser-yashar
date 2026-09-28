@@ -14,6 +14,7 @@ import {
   saveProfile,
   type UserProfile,
 } from '../utils/profile';
+import { defaultAdvancedSettings } from '../utils/totalsAdvanced';
 import {
   createEntry,
   loadLedger,
@@ -68,7 +69,9 @@ type AppCtx = {
   addOpen: boolean;
   addKind: LedgerKind;
   addPeriod: string | null;
+  editingEntry: LedgerEntry | null;
   openAdd: (kind?: LedgerKind, period?: string) => void;
+  openEdit: (entry: LedgerEntry) => void;
   closeAdd: () => void;
 };
 
@@ -84,6 +87,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [addOpen, setAddOpen] = useState(false);
   const [addKind, setAddKind] = useState<LedgerKind>('tzedaka');
   const [addPeriod, setAddPeriod] = useState<string | null>(null);
+  const [editingEntry, setEditingEntry] = useState<LedgerEntry | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -171,7 +175,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const patchProfile = useCallback(
     async (partial: Partial<UserProfile>) => {
-      const next = { ...profile, ...partial };
+      const next: UserProfile = {
+        ...profile,
+        ...partial,
+        advanced: {
+          ...defaultAdvancedSettings(),
+          ...(profile.advanced ?? {}),
+          ...(partial.advanced ?? {}),
+        },
+      };
       setProfileState(next);
       const force = !!corrupt.profile;
       await saveProfile(next, force ? { force: true } : undefined);
@@ -286,14 +298,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const openAdd = useCallback((kind: LedgerKind = 'tzedaka', period?: string) => {
+    setEditingEntry(null);
     setAddKind(kind);
     setAddPeriod(period ?? null);
+    setAddOpen(true);
+  }, []);
+
+  const openEdit = useCallback((entry: LedgerEntry) => {
+    setEditingEntry(entry);
+    setAddKind(entry.kind);
+    setAddPeriod(entry.period);
     setAddOpen(true);
   }, []);
 
   const closeAdd = useCallback(() => {
     setAddOpen(false);
     setAddPeriod(null);
+    setEditingEntry(null);
   }, []);
 
   const value = useMemo(
@@ -320,7 +341,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addOpen,
       addKind,
       addPeriod,
+      editingEntry,
       openAdd,
+      openEdit,
       closeAdd,
     }),
     [
@@ -346,7 +369,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addOpen,
       addKind,
       addPeriod,
+      editingEntry,
       openAdd,
+      openEdit,
       closeAdd,
     ]
   );

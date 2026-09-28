@@ -1,7 +1,7 @@
-import React, { useMemo } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo, useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Platform, ScrollView } from 'react-native';
 import { Screen } from '../components/Screen';
-import { StatHero, formatMoney, PrimaryButton } from '../components/ui';
+import { StatHero, formatMoney, PrimaryButton, Chip, SegmentedRow, Banner } from '../components/ui';
 import { Glass, GlassPill } from '../components/Glass';
 import { DeleteButton } from '../components/DeleteButton';
 import { SmartInsights } from '../components/SmartInsights';
@@ -15,11 +15,31 @@ import { NoamNudge } from '../components/NoamNudge';
 import { historySmartInsights } from '../utils/smartInsights';
 import { monthsClosedTogetherLabel, monthsLabel } from '../utils/plural';
 import { formatRelativeTime } from '../utils/relativeTime';
-import { exportHistoryCsv } from '../utils/exportCsv';
+import {
+  exportHistoryCsv,
+  exportYearSummaryCsv,
+  printYearSummary,
+} from '../utils/exportCsv';
+import {
+  availableYears,
+  hebrewYearLabel,
+  yearLabel,
+  yearSummary,
+  type YearMode,
+} from '../utils/yearSummary';
+import { fillTaxCalculatorFromYear } from '../utils/taxFillBridge';
+import { useTabNav } from '../navigation/TabNavContext';
+
+type ViewMode = 'months' | 'year';
 
 export default function HistoryScreen() {
-  const { openAdd, profile, history: entries, deleteMonth, clearHistory } = useApp();
+  const { openAdd, profile, history: entries, ledger, deleteMonth, clearHistory } = useApp();
   const toast = useToast();
+  const { goToTab } = useTabNav();
+
+  const [viewMode, setViewMode] = useState<ViewMode>('months');
+  const [yearMode, setYearMode] = useState<YearMode>('hebrew');
+  const [selectedYear, setSelectedYear] = useState<number | null>(null);
 
   const totalRemaining = entries.reduce((s, e) => s + e.result.remaining, 0);
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
@@ -28,6 +48,17 @@ export default function HistoryScreen() {
     () => historySmartInsights({ name, gender: profile.gender, entries }),
     [name, profile.gender, entries]
   );
+
+  const years = useMemo(
+    () => availableYears(ledger, yearMode),
+    [ledger, yearMode]
+  );
+  const activeYear = selectedYear != null && years.includes(selectedYear) ? selectedYear : years[0];
+
+  const summary = useMemo(() => {
+    if (activeYear == null) return null;
+    return yearSummary(ledger, profile, yearMode, activeYear);
+  }, [ledger, profile, yearMode, activeYear]);
 
   const hero = (
     <View style={styles.hero}>
@@ -39,100 +70,268 @@ export default function HistoryScreen() {
     </View>
   );
 
+  const onFillTax = async () => {
+    if (!summary || yearMode !== 'civil' || activeYear == null) return;
+    try {
+      const payload = await fillTaxCalculatorFromYear(summary.totals.tzedaka, activeYear);
+      goToTab('Tax');
+      toast.success(
+        'מולא מחשבון מס ✦',
+        `תרומות ${payload.donationsTotal.toLocaleString('he-IL')} ₪ · שנת ${payload.taxYear}`
+      );
+    } catch {
+      toast.error('המילוי נכשל', 'נסה שוב');
+    }
+  };
+
   return (
     <Screen sheet hero={hero} scroll>
-      {entries.length > 0 ? (
+      <SegmentedRow>
+        <Chip
+          fill
+          label="חודשים"
+          selected={viewMode === 'months'}
+          onPress={() => setViewMode('months')}
+        />
+        <Chip
+          fill
+          label="שנה"
+          selected={viewMode === 'year'}
+          onPress={() => setViewMode('year')}
+        />
+      </SegmentedRow>
+      <View style={{ height: spacing.md }} />
+
+      {viewMode === 'year' ? (
         <>
-          <NoamNudge
-            text={t(
-              profile.gender,
-              `${name}, יש כאן ${monthsClosedTogetherLabel(entries.length)}. יתרות פתוחות: ${formatMoney(totalRemaining)}.`,
-              `${name}, יש כאן ${monthsClosedTogetherLabel(entries.length)}. יתרות פתוחות: ${formatMoney(totalRemaining)}.`
-            )}
-          />
-          <SmartInsights items={insights} />
-          <StatHero
-            label="סה״כ יתרות לתת"
-            value={formatMoney(totalRemaining)}
-            hint={monthsLabel(entries.length)}
-          />
-          <PrimaryButton
-            label="ייצוא CSV לרו״ח ✦"
-            onPress={async () => {
-              try {
-                await exportHistoryCsv(entries);
-                toast.success('הקובץ מוכן ✦', 'נשמר / שותף מהמכשיר');
-              } catch {
-                toast.error('הייצוא נכשל', 'נסה שוב');
-              }
-            }}
-          />
+          <SegmentedRow>
+            <Chip
+              fill
+              label="עברית"
+              selected={yearMode === 'hebrew'}
+              onPress={() => {
+                setYearMode('hebrew');
+                setSelectedYear(null);
+              }}
+            />
+            <Chip
+              fill
+              label="אזרחית"
+              selected={yearMode === 'civil'}
+              onPress={() => {
+                setYearMode('civil');
+                setSelectedYear(null);
+              }}
+            />
+          </SegmentedRow>
+          <View style={{ height: spacing.sm }} />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.yearChips}
+          >
+            {years.map((y) => (
+              <Chip
+                key={y}
+                label={yearMode === 'hebrew' ? hebrewYearLabel(y) : String(y)}
+                selected={y === activeYear}
+                onPress={() => setSelectedYear(y)}
+              />
+            ))}
+          </ScrollView>
           <View style={{ height: spacing.md }} />
+
+          {summary ? (
+            <>
+              <Glass dark gold style={styles.summaryCard}>
+                <Text style={styles.summaryTitle}>
+                  סיכום {yearLabel(yearMode, activeYear!)}
+                </Text>
+                <View style={styles.grid}>
+                  <Cell label="הכנסות" value={formatMoney(summary.totals.income)} />
+                  <Cell label="ניכויים" value={formatMoney(summary.totals.expenses)} />
+                  <Cell label="בסיס" value={formatMoney(summary.totals.netBase)} />
+                  <Cell label="חובה" value={formatMoney(summary.totals.obligation)} />
+                  <Cell label="ניתן" value={formatMoney(summary.totals.tzedaka)} />
+                  <Cell
+                    label="פער / נותר"
+                    value={formatMoney(summary.totals.remaining)}
+                    strong
+                  />
+                </View>
+                {yearMode === 'civil' && summary.section46Approved != null ? (
+                  <Text style={styles.section46Line}>
+                    תרומות עם אישור סעיף 46: {formatMoney(summary.section46Approved)}
+                  </Text>
+                ) : null}
+              </Glass>
+
+              <Banner
+                text="חובת השנה שמחושבת על סכום השנה כולה עלולה להיבדל מסכום החובות החודשיות — בגלל עודפים או חוסרים שנסגרים בחודש."
+                tone="info"
+              />
+              <View style={{ height: spacing.sm }} />
+
+              <PrimaryButton
+                label="ייצוא CSV שנתי ✦"
+                onPress={async () => {
+                  try {
+                    await exportYearSummaryCsv(summary, {
+                      mode: yearMode,
+                      year: activeYear!,
+                    });
+                    toast.success('הקובץ מוכן ✦', 'נשמר / שותף מהמכשיר');
+                  } catch {
+                    toast.error('הייצוא נכשל', 'נסה שוב');
+                  }
+                }}
+              />
+              <View style={{ height: spacing.sm }} />
+              <PrimaryButton
+                label={Platform.OS === 'web' ? 'הדפסה ✦' : 'שתף להדפסה ✦'}
+                onPress={async () => {
+                  try {
+                    await printYearSummary(summary, {
+                      mode: yearMode,
+                      year: activeYear!,
+                    });
+                  } catch {
+                    toast.error('ההדפסה נכשלה', 'נסה שוב');
+                  }
+                }}
+              />
+              {yearMode === 'civil' ? (
+                <>
+                  <View style={{ height: spacing.sm }} />
+                  <PrimaryButton label="מלא מחשבון מס ✦" onPress={() => void onFillTax()} />
+                </>
+              ) : null}
+
+              <Text style={styles.monthsHeading}>חודשים בשנה</Text>
+              {summary.months.length === 0 ? (
+                <Glass dark style={styles.emptyCard}>
+                  <Text style={styles.emptySub}>אין תנועות בשנה שנבחרה</Text>
+                </Glass>
+              ) : (
+                summary.months.map((m) => (
+                  <Glass dark key={m.period} style={styles.monthCard}>
+                    <Text style={styles.cardTitle}>{m.label}</Text>
+                    <View style={styles.grid}>
+                      <Cell label="בסיס" value={formatMoney(m.totals.netBase)} />
+                      <Cell label="חובה" value={formatMoney(m.totals.obligation)} />
+                      <Cell label="ניתן" value={formatMoney(m.totals.tzedaka)} />
+                      <Cell
+                        label="נותר"
+                        value={formatMoney(m.totals.remaining)}
+                        strong
+                      />
+                    </View>
+                  </Glass>
+                ))
+              )}
+            </>
+          ) : (
+            <Glass dark style={styles.emptyCard}>
+              <Text style={styles.emptySub}>אין נתונים לשנה</Text>
+            </Glass>
+          )}
         </>
       ) : (
-        <Glass dark style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>{empty.title}</Text>
-          <Text style={styles.emptySub}>{empty.body}</Text>
-          <PrimaryButton label="הוסף תנועה ✦" onPress={() => openAdd('tzedaka')} />
-        </Glass>
-      )}
-
-      {entries.map((e) => (
-        <Glass dark gold key={e.id} style={styles.monthCard}>
-          <View style={styles.cardTop}>
-            <View style={styles.deleteAbs}>
-              <DeleteButton
-                onPress={() =>
-                  toast.confirm({
-                    title: 'למחוק את החודש?',
-                    message: e.label || formatPeriod(e.period),
-                    destructive: true,
-                    confirmLabel: 'מחק',
-                    onConfirm: async () => {
-                      await deleteMonth(e.id);
-                      toast.success('החודש נמחק');
-                    },
-                  })
-                }
+        <>
+          {entries.length > 0 ? (
+            <>
+              <NoamNudge
+                text={t(
+                  profile.gender,
+                  `${name}, יש כאן ${monthsClosedTogetherLabel(entries.length)}. יתרות פתוחות: ${formatMoney(totalRemaining)}.`,
+                  `${name}, יש כאן ${monthsClosedTogetherLabel(entries.length)}. יתרות פתוחות: ${formatMoney(totalRemaining)}.`
+                )}
               />
-            </View>
-            <View style={styles.cardHeadText}>
-              <Text style={styles.cardTitle}>{e.label || formatPeriod(e.period)}</Text>
-              <Text style={styles.cardMeta}>
-                {formatRelativeTime(e.savedAt)} · {e.result.ratePercent}%
-              </Text>
-            </View>
-          </View>
-          <View style={styles.grid}>
-            <Cell label="בסיס" value={formatMoney(e.result.netBase)} />
-            <Cell label="חובה" value={formatMoney(e.result.obligation)} />
-            <Cell label="ניתן" value={formatMoney(e.result.alreadyGiven)} />
-            <Cell label="נותר" value={formatMoney(e.result.remaining)} strong />
-          </View>
-        </Glass>
-      ))}
+              <SmartInsights items={insights} />
+              <StatHero
+                label="סה״כ יתרות לתת"
+                value={formatMoney(totalRemaining)}
+                hint={monthsLabel(entries.length)}
+              />
+              <PrimaryButton
+                label="ייצוא CSV לרו״ח ✦"
+                onPress={async () => {
+                  try {
+                    await exportHistoryCsv(entries);
+                    toast.success('הקובץ מוכן ✦', 'נשמר / שותף מהמכשיר');
+                  } catch {
+                    toast.error('הייצוא נכשל', 'נסה שוב');
+                  }
+                }}
+              />
+              <View style={{ height: spacing.md }} />
+            </>
+          ) : (
+            <Glass dark style={styles.emptyCard}>
+              <Text style={styles.emptyTitle}>{empty.title}</Text>
+              <Text style={styles.emptySub}>{empty.body}</Text>
+              <PrimaryButton label="הוסף תנועה ✦" onPress={() => openAdd('tzedaka')} />
+            </Glass>
+          )}
 
-      {entries.length > 0 ? (
-        <Pressable
-          style={styles.clear}
-          onPress={() =>
-            toast.confirm({
-              title: 'לנקות את כל ההיסטוריה?',
-              message: 'הפעולה לא ניתנת לביטול',
-              destructive: true,
-              confirmLabel: 'נקה הכול',
-              onConfirm: async () => {
-                await clearHistory();
-                toast.success('ההיסטוריה נוקתה');
-              },
-            })
-          }
-          accessibilityRole="button"
-          accessibilityLabel="נקה את כל ההיסטוריה"
-        >
-          <Text style={styles.clearText}>נקה הכול</Text>
-        </Pressable>
-      ) : null}
+          {entries.map((e) => (
+            <Glass dark gold key={e.id} style={styles.monthCard}>
+              <View style={styles.cardTop}>
+                <View style={styles.deleteAbs}>
+                  <DeleteButton
+                    onPress={() =>
+                      toast.confirm({
+                        title: 'למחוק את החודש?',
+                        message: e.label || formatPeriod(e.period),
+                        destructive: true,
+                        confirmLabel: 'מחק',
+                        onConfirm: async () => {
+                          await deleteMonth(e.id);
+                          toast.success('החודש נמחק');
+                        },
+                      })
+                    }
+                  />
+                </View>
+                <View style={styles.cardHeadText}>
+                  <Text style={styles.cardTitle}>{e.label || formatPeriod(e.period)}</Text>
+                  <Text style={styles.cardMeta}>
+                    {formatRelativeTime(e.savedAt)} · {e.result.ratePercent}%
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.grid}>
+                <Cell label="בסיס" value={formatMoney(e.result.netBase)} />
+                <Cell label="חובה" value={formatMoney(e.result.obligation)} />
+                <Cell label="ניתן" value={formatMoney(e.result.alreadyGiven)} />
+                <Cell label="נותר" value={formatMoney(e.result.remaining)} strong />
+              </View>
+            </Glass>
+          ))}
+
+          {entries.length > 0 ? (
+            <Pressable
+              style={styles.clear}
+              onPress={() =>
+                toast.confirm({
+                  title: 'לנקות את כל ההיסטוריה?',
+                  message: 'הפעולה לא ניתנת לביטול',
+                  destructive: true,
+                  confirmLabel: 'נקה הכול',
+                  onConfirm: async () => {
+                    await clearHistory();
+                    toast.success('ההיסטוריה נוקתה');
+                  },
+                })
+              }
+              accessibilityRole="button"
+              accessibilityLabel="נקה את כל ההיסטוריה"
+            >
+              <Text style={styles.clearText}>נקה הכול</Text>
+            </Pressable>
+          ) : null}
+        </>
+      )}
     </Screen>
   );
 }
@@ -174,6 +373,39 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     marginTop: 4,
     textAlign: 'center',
+  },
+  yearChips: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 2,
+  },
+  summaryCard: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+  },
+  summaryTitle: {
+    ...type.emphasis,
+    fontSize: 17,
+    color: colors.sheetInk,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginBottom: 12,
+  },
+  section46Line: {
+    ...type.bodySm,
+    color: colors.gold,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginTop: 12,
+  },
+  monthsHeading: {
+    ...type.emphasis,
+    color: colors.sheetInk,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginTop: spacing.lg,
+    marginBottom: spacing.sm,
   },
   emptyCard: { padding: spacing.xl, marginBottom: spacing.md },
   emptyTitle: {

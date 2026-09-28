@@ -104,7 +104,7 @@ export function homeSmartInsights(opts: {
         'יש הכנסה בלי מס/ביטוח. אם כבר ירד מהתלוש — כדאי לרשום, כדי שהמעשר יהיה מהנטו.'
       ),
       tone: 'tip',
-      actionLabel: 'הוסף הוצאה',
+      actionLabel: 'הוסף ניכוי',
       actionKind: 'expense',
     });
   }

@@ -23,7 +23,8 @@ import { noamTaxHero } from '../utils/noamCompanion';
 import {
   currentPeriod,
 } from '../utils/history';
-import { computeTotals, entriesForPeriod } from '../utils/ledger';
+import { entriesForPeriod } from '../utils/ledger';
+import { resolveTotals } from '../utils/totalsAdvanced';
 import {
   suggestTaxDonationsFromLedger,
   taxSmartInsights,
@@ -31,6 +32,7 @@ import {
 import type { SmartInsight } from '../utils/smartInsights';
 import { useToast } from '../context/ToastContext';
 import { loadTaxForm, saveTaxForm } from '../utils/taxForm';
+import { subscribeTaxFill } from '../utils/taxFillBridge';
 
 const YEARS = [2026, 2025, 2024, 2023, 2022];
 const TIP_COLORS = [colors.primary, colors.gold, colors.accent, colors.success];
@@ -73,6 +75,13 @@ export default function TaxScreen() {
   }, []);
 
   useEffect(() => {
+    return subscribeTaxFill(({ donationsTotal, taxYear: y }) => {
+      setDonations(donationsTotal);
+      setYear(y);
+    });
+  }, []);
+
+  useEffect(() => {
     if (!hydrated) return;
     void saveTaxForm({
       donationsTotal,
@@ -90,8 +99,8 @@ export default function TaxScreen() {
 
   const ledgerTzedaka = useMemo(() => {
     const month = entriesForPeriod(ledger, currentPeriod());
-    return computeTotals(month, profile.rate).tzedaka;
-  }, [ledger, profile.rate]);
+    return resolveTotals(month, profile).tzedaka;
+  }, [ledger, profile]);
 
   const result = useMemo(
     () =>

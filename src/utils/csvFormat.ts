@@ -29,7 +29,7 @@ export function formatCsvDate(isoOrDate: string): string {
 
 const KIND_HE: Record<string, string> = {
   income: 'הכנסה',
-  expense: 'הוצאה',
+  expense: 'ניכוי',
   tzedaka: 'צדקה',
 };
 

@@ -20,7 +20,8 @@ import {
   currentPeriod,
   formatPeriod,
 } from '../utils/history';
-import { computeTotals, entriesForPeriod } from '../utils/ledger';
+import { entriesForPeriod } from '../utils/ledger';
+import { resolveTotals } from '../utils/totalsAdvanced';
 import { getSmartGreeting } from '../utils/greeting';
 import {
   noamBannerTip,
@@ -33,28 +34,48 @@ import { SmartInsights } from '../components/SmartInsights';
 import { Accordion } from '../components/Accordion';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import type { LedgerEntry } from '../types/ledger';
-import { defaultMaaserInputs } from '../utils/maaserCalc';
 import { homeSmartInsights } from '../utils/smartInsights';
 import type { SmartInsight } from '../utils/smartInsights';
 import { EXPLAIN } from '../utils/chatScript';
 import { daysLabel, entriesLabel } from '../utils/plural';
 import { formatRelativeTime } from '../utils/relativeTime';
 import { displayNote } from '../utils/recurring';
+import {
+  exportBackup,
+  shouldShowBackupReminder,
+  subscribeBackupReminder,
+} from '../utils/backupExport';
 
 const BASE_EXPLAIN_SHORT = `בסיס המעשר כאן = הכנסות שרשמת פחות הוצאות מותרות (מס / ביטוח / בריאות / הוצאות עסק).
 לא מנכים הוצאות מחיה (שכירות, אוכל וכו'). צדקה לא מורידה מהבסיס — רק נספרת מול החובה.`;
 
 export default function HomeScreen() {
-  const { profile, ledger, removeEntry, openAdd, saveMonth } = useApp();
+  const { profile, ledger, removeEntry, openAdd, openEdit, saveMonth } = useApp();
   const toast = useToast();
   const [period, setPeriod] = useState(currentPeriod);
   const [saving, setSaving] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  const [showBackupBanner, setShowBackupBanner] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const refresh = () => {
+      void shouldShowBackupReminder(ledger.length).then((show) => {
+        if (!cancelled) setShowBackupBanner(show);
+      });
+    };
+    refresh();
+    const unsub = subscribeBackupReminder(refresh);
+    return () => {
+      cancelled = true;
+      unsub();
+    };
+  }, [ledger.length]);
 
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
   const greet = useMemo(
@@ -72,8 +93,8 @@ export default function HomeScreen() {
     [ledger, period]
   );
   const totals = useMemo(
-    () => computeTotals(monthEntries, profile.rate),
-    [monthEntries, profile.rate]
+    () => resolveTotals(monthEntries, profile),
+    [monthEntries, profile]
   );
 
   const ring: Ring = useMemo(() => {
@@ -119,14 +140,7 @@ export default function HomeScreen() {
       await saveMonth({
         period,
         label: formatPeriod(period),
-        inputs: {
-          ...defaultMaaserInputs(),
-          rate: profile.rate,
-          otherIncome: totals.income,
-          incomeTax: totals.expenses,
-          alreadyGivenTzedaka: totals.tzedaka,
-          taxDeductionMode: 'after_mandatory',
-        },
+        inputs: totals.inputs,
         result: {
           netBase: totals.netBase,
           obligation: totals.obligation,
@@ -196,6 +210,27 @@ export default function HomeScreen() {
   return (
     <Screen sheet hero={hero} scroll>
       <PrivacyNotice />
+      {showBackupBanner ? (
+        <Pressable
+          onPress={async () => {
+            try {
+              await exportBackup({ includeChat: false });
+              setShowBackupBanner(false);
+              toast.success('הגיבוי מוכן ✦', 'הקובץ הורד / שותף מהמכשיר');
+            } catch {
+              toast.error('הגיבוי נכשל', 'אפשר גם מההגדרות');
+            }
+          }}
+          accessibilityRole="button"
+          accessibilityLabel="תזכורת גיבוי — לחץ לגיבוי עכשיו"
+          style={{ marginBottom: spacing.md }}
+        >
+          <Banner
+            text="עבר יותר מחודש בלי גיבוי — מומלץ לגבות את הנתונים (לחיצה כאן)"
+            tone="warn"
+          />
+        </Pressable>
+      ) : null}
       <NoamNudge text={companionLine} />
       <SmartInsights items={insights} onAction={onInsightAction} />
 
@@ -263,8 +298,42 @@ export default function HomeScreen() {
           <Stat label="צדקה (מול חובה)" value={formatMoney(totals.tzedaka)} color={colors.tzedaka} />
         </View>
         <Text style={styles.baseHint}>
-          חובה = {profile.rate * 100}% × בסיס נטו · הוצאה כאן = ניכוי מהבסיס (לא מחיה)
+          חובה = {profile.rate * 100}% × בסיס נטו · ניכוי כאן = יורד מהבסיס (לא מחיה)
         </Text>
+        {(totals.lines.length > 0 || totals.warnings.length > 0) && (
+          <View style={styles.howWrap}>
+            <Text style={styles.howTitle}>איך חישבנו</Text>
+            {totals.lines.map((line) => (
+              <View key={line.id} style={styles.howRow}>
+                <Text style={styles.howLabel} numberOfLines={2}>
+                  {line.label}
+                  {line.kind === 'exempt' ? ' · פטור' : ''}
+                </Text>
+                <Text
+                  style={[
+                    styles.howAmt,
+                    {
+                      color:
+                        line.kind === 'deduction'
+                          ? colors.expense
+                          : line.kind === 'exempt'
+                            ? colors.inkSoft
+                            : colors.income,
+                    },
+                  ]}
+                >
+                  {line.amount >= 0 ? '+' : ''}
+                  {formatMoney(line.amount)}
+                </Text>
+              </View>
+            ))}
+            {totals.warnings.map((w, i) => (
+              <Text key={`w-${i}`} style={styles.howWarn}>
+                ⚠ {w}
+              </Text>
+            ))}
+          </View>
+        )}
         <View style={styles.cardFooter}>
           <View style={styles.monthBadge}>
             <Text style={styles.monthBadgeText}>
@@ -314,6 +383,7 @@ export default function HomeScreen() {
               key={e.id}
               entry={e}
               isLast={i === monthEntries.length - 1}
+              onPress={() => openEdit(e)}
               onDelete={() =>
                 toast.confirm({
                   title: 'למחוק את התנועה?',
@@ -386,10 +456,12 @@ function Action({
 function LedgerRow({
   entry,
   isLast,
+  onPress,
   onDelete,
 }: {
   entry: LedgerEntry;
   isLast: boolean;
+  onPress?: () => void;
   onDelete: () => void;
 }) {
   const isIn = entry.kind === 'income';
@@ -407,11 +479,12 @@ function LedgerRow({
 
   return (
     <Pressable
+      onPress={onPress}
       onLongPress={onDelete}
       style={[styles.row, { backgroundColor: softBg }, !isLast && styles.rowBorder]}
       accessibilityRole="button"
       accessibilityLabel={`${kindLabel}, ${entry.category}, ${sign}${formatMoney(entry.amount)}${note ? `, ${note}` : ''}`}
-      accessibilityHint="לחיצה ארוכה למחיקה"
+      accessibilityHint={onPress ? 'לחיצה לעריכה, לחיצה ארוכה למחיקה' : 'לחיצה ארוכה למחיקה'}
     >
       <View style={[styles.rowAccent, { backgroundColor: color }]} />
       <View style={styles.rowMid}>
@@ -525,6 +598,46 @@ const styles = StyleSheet.create({
     marginTop: spacing.sm,
     textAlign: 'center',
     writingDirection: 'rtl',
+    lineHeight: 18,
+  },
+  howWrap: {
+    marginTop: spacing.md,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.14)',
+    gap: 6,
+    width: '100%',
+  },
+  howTitle: {
+    ...type.eyebrow,
+    color: colors.gold,
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  howRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 10,
+  },
+  howLabel: {
+    ...type.caption,
+    color: colors.inkMuted,
+    flex: 1,
+    textAlign: 'start',
+    writingDirection: 'rtl',
+  },
+  howAmt: {
+    ...type.caption,
+    fontFamily: fonts.semi,
+    writingDirection: 'ltr',
+  },
+  howWarn: {
+    ...type.caption,
+    color: colors.gold,
+    textAlign: 'start',
+    writingDirection: 'rtl',
+    marginTop: 2,
     lineHeight: 18,
   },
   balanceGrid: {

@@ -19,14 +19,17 @@ import HistoryScreen from '../screens/HistoryScreen';
 import TaxScreen from '../screens/TaxScreen';
 import GuideScreen from '../screens/GuideScreen';
 import SettingsScreen from '../screens/SettingsScreen';
+import { TabNavProvider, type TabKey } from './TabNavContext';
 
 const TABS = [
-  { key: 'Home', title: 'בית', icon: 'home', iconOut: 'home-outline', Screen: HomeScreen },
-  { key: 'History', title: 'היסטוריה', icon: 'time', iconOut: 'time-outline', Screen: HistoryScreen },
-  { key: 'Tax', title: 'החזר מס', icon: 'receipt', iconOut: 'receipt-outline', Screen: TaxScreen },
-  { key: 'Guide', title: 'הנחיות', icon: 'book', iconOut: 'book-outline', Screen: GuideScreen },
-  { key: 'Settings', title: 'הגדרות', icon: 'settings', iconOut: 'settings-outline', Screen: SettingsScreen },
+  { key: 'Home' as const, title: 'בית', icon: 'home', iconOut: 'home-outline', Screen: HomeScreen },
+  { key: 'History' as const, title: 'היסטוריה', icon: 'time', iconOut: 'time-outline', Screen: HistoryScreen },
+  { key: 'Tax' as const, title: 'החזר מס', icon: 'receipt', iconOut: 'receipt-outline', Screen: TaxScreen },
+  { key: 'Guide' as const, title: 'הנחיות', icon: 'book', iconOut: 'book-outline', Screen: GuideScreen },
+  { key: 'Settings' as const, title: 'הגדרות', icon: 'settings', iconOut: 'settings-outline', Screen: SettingsScreen },
 ] as const;
+
+const TAB_KEYS: TabKey[] = TABS.map((t) => t.key);
 
 /**
  * Web: pager ב־LTR (מתמטיקה + כיוון החלקה יציבים) + טאב־בר RTL.
@@ -104,6 +107,7 @@ export function SwipeTabs() {
   );
 
   return (
+    <TabNavProvider goToIndex={goTo} tabKeys={TAB_KEYS}>
     <View style={styles.root} onLayout={onRootLayout}>
       <ScrollView
         ref={scrollRef}
@@ -181,6 +185,7 @@ export function SwipeTabs() {
         })}
       </View>
     </View>
+    </TabNavProvider>
   );
 }
 

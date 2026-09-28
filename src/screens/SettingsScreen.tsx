@@ -30,11 +30,20 @@ import { SmartInsights } from '../components/SmartInsights';
 import { settingsSmartInsights } from '../utils/smartInsights';
 import { kindLabel } from '../utils/recurring';
 import { exportLedgerCsv } from '../utils/exportCsv';
+import {
+  buildRestoreSummary,
+  collectBackupData,
+  exportBackup,
+  pickBackupFile,
+  readBackup,
+  restoreBackup,
+} from '../utils/backupExport';
 import { wipeAllData } from '../utils/wipeData';
 import { PRIVACY_LINK_LABEL, privacyPageUrl } from '../constants/privacy';
 import { ABOUT_LINK_LABEL, aboutPageUrl } from '../constants/about';
 import { colors, fonts, radii, spacing, type } from '../theme';
-import type { MaaserRate } from '../types';
+import type { MaaserRate, TaxDeductionMode } from '../types';
+import { defaultAdvancedSettings } from '../utils/totalsAdvanced';
 
 function FieldLabel({ children }: { children: string }) {
   return (
@@ -58,6 +67,8 @@ export default function SettingsScreen() {
   const toast = useToast();
   const { openPanel, settings, toggle, cycleMetric } = useA11y();
   const [saved, setSaved] = React.useState(false);
+  const [includeChatBackup, setIncludeChatBackup] = React.useState(false);
+  const [backupBusy, setBackupBusy] = React.useState(false);
   const initial = (profile.displayName?.trim()?.[0] || 'מ').toUpperCase();
   const ratePct = Math.round(profile.rate * 100);
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
@@ -238,6 +249,166 @@ export default function SettingsScreen() {
       <Banner light text={`${BOT_NAME} מחשב מהנטו: הכנסות פחות ניכויי חובה/עסק — לא הוצאות מחיה`} tone="ok" />
 
       <Glass light strong style={styles.panel}>
+        <FieldLabel>הגדרות חישוב מתקדמות</FieldLabel>
+        <Text style={styles.recurIntro}>
+          חישוב לפי שיטות הלכתיות נפוצות. אינו פסק הלכה — שאלו רב בכל ספק.
+        </Text>
+
+        <Text style={styles.advOptTitle}>ניכוי מסים מהבסיס</Text>
+        <Text style={styles.advOptHint}>
+          האם לנכות מס הכנסה, ביטוח לאומי ובריאות לפני חישוב המעשר. שאלו רב.
+        </Text>
+        <SegmentedRow>
+          {(
+            [
+              { id: 'after_mandatory' as TaxDeductionMode, label: 'אחרי חובה' },
+              { id: 'after_income_tax_only' as TaxDeductionMode, label: 'מס הכנסה בלבד' },
+              { id: 'gross' as TaxDeductionMode, label: 'מברוטו' },
+            ] as const
+          ).map((opt) => (
+            <Chip
+              key={opt.id}
+              fill
+              label={opt.label}
+              selected={(profile.advanced?.taxDeductionMode ?? 'after_mandatory') === opt.id}
+              onPress={() =>
+                patchProfile({
+                  advanced: { ...profile.advanced, taxDeductionMode: opt.id },
+                })
+              }
+            />
+          ))}
+        </SegmentedRow>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.advOptTitle}>מתנות כסף</Text>
+        <Text style={styles.advOptHint}>
+          רוב הפוסקים מחייבים מעשר ממתנות כסף; יש פוטרים. שאלו רב.
+        </Text>
+        <SegmentedRow>
+          <Chip
+            fill
+            label="כלול"
+            selected={(profile.advanced?.giftMode ?? 'include') === 'include'}
+            onPress={() =>
+              patchProfile({ advanced: { ...profile.advanced, giftMode: 'include' } })
+            }
+          />
+          <Chip
+            fill
+            label="החרג"
+            selected={profile.advanced?.giftMode === 'exclude'}
+            onPress={() =>
+              patchProfile({ advanced: { ...profile.advanced, giftMode: 'exclude' } })
+            }
+          />
+        </SegmentedRow>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.advOptTitle}>קצבאות</Text>
+        <Text style={styles.advOptHint}>
+          יש פוסקים הפוטרים קצבאות ילדים ממעשר. שאלו רב לפי מנהגכם.
+        </Text>
+        <SegmentedRow>
+          <Chip
+            fill
+            label="החרג"
+            selected={(profile.advanced?.allowanceMode ?? 'exclude') === 'exclude'}
+            onPress={() =>
+              patchProfile({ advanced: { ...profile.advanced, allowanceMode: 'exclude' } })
+            }
+          />
+          <Chip
+            fill
+            label="כלול"
+            selected={profile.advanced?.allowanceMode === 'include'}
+            onPress={() =>
+              patchProfile({ advanced: { ...profile.advanced, allowanceMode: 'include' } })
+            }
+          />
+        </SegmentedRow>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.advOptTitle}>ירושה</Text>
+        <Text style={styles.advOptHint}>
+          רוב הפוסקים: אין מעשר על ירושה; יש מחמירים. שאלו רב.
+        </Text>
+        <SegmentedRow>
+          <Chip
+            fill
+            label="החרג"
+            selected={(profile.advanced?.inheritanceMode ?? 'exclude') === 'exclude'}
+            onPress={() =>
+              patchProfile({ advanced: { ...profile.advanced, inheritanceMode: 'exclude' } })
+            }
+          />
+          <Chip
+            fill
+            label="כלול"
+            selected={profile.advanced?.inheritanceMode === 'include'}
+            onPress={() =>
+              patchProfile({ advanced: { ...profile.advanced, inheritanceMode: 'include' } })
+            }
+          />
+        </SegmentedRow>
+
+        <View style={styles.divider} />
+
+        <Text style={styles.advOptTitle}>החזרי הלוואה</Text>
+        <Text style={styles.advOptHint}>
+          יש פוסקים שמנכים החזר קרן מהבסיס; אחרים לא. שאלו רב.
+        </Text>
+        <SegmentedRow>
+          <Chip
+            fill
+            label="לא לנכות"
+            selected={!profile.advanced?.deductLoans}
+            onPress={() =>
+              patchProfile({ advanced: { ...profile.advanced, deductLoans: false } })
+            }
+          />
+          <Chip
+            fill
+            label="לנכות"
+            selected={!!profile.advanced?.deductLoans}
+            onPress={() =>
+              patchProfile({ advanced: { ...profile.advanced, deductLoans: true } })
+            }
+          />
+        </SegmentedRow>
+
+        <View style={styles.simpleEscape}>
+          <Pressable
+            onPress={() => {
+              const on = profile.advanced?.enabled !== false;
+              patchProfile({
+                advanced: {
+                  ...defaultAdvancedSettings(),
+                  ...profile.advanced,
+                  enabled: !on,
+                },
+              });
+            }}
+            accessibilityRole="button"
+            accessibilityLabel={
+              profile.advanced?.enabled === false
+                ? 'חזרה לחישוב מתקדם'
+                : 'מעבר לחישוב פשוט'
+            }
+          >
+            <Text style={styles.simpleEscapeText}>
+              {profile.advanced?.enabled === false
+                ? 'חזרה לחישוב מתקדם (מומלץ)'
+                : 'חישוב פשוט (תאימות ישנה)'}
+            </Text>
+          </Pressable>
+        </View>
+      </Glass>
+
+      <Glass light strong style={styles.panel}>
         <FieldLabel>שיתוף בצ'אט עם נועם</FieldLabel>
         <Text style={styles.recurIntro}>
           תמיד בלי שם, הערות או תנועות בודדות. אפשר לבחור אם לצרף סיכום סכומי החודש.
@@ -256,6 +427,85 @@ export default function SettingsScreen() {
             onPress={() => patchProfile({ chatShareTotals: false, chatConsentDone: true })}
           />
         </SegmentedRow>
+      </Glass>
+
+      <Glass light strong style={styles.panel}>
+        <FieldLabel>גיבוי ושחזור</FieldLabel>
+        <View style={styles.warnCard}>
+          <Text style={styles.warnCardText}>
+            הנתונים נשמרים רק בדפדפן הזה. אם תמחקו נתוני גלישה, תחליפו טלפון, או לא תיכנסו הרבה
+            זמן באייפון — הם עלולים להימחק. גבו פעם בחודש.
+          </Text>
+        </View>
+        <Text style={styles.recurIntro}>
+          קובץ JSON מלא של הפנקס, הפרופיל, הארכיון, הוראות הקבע ומחשבון המס — לשחזור במכשיר אחר או
+          אחרי מחיקת נתונים.
+        </Text>
+        <SegmentedRow>
+          <Chip
+            fill
+            label="כולל שיחות עם נועם"
+            selected={includeChatBackup}
+            onPress={() => setIncludeChatBackup((v) => !v)}
+          />
+        </SegmentedRow>
+        <View style={{ height: spacing.sm }} />
+        <PrimaryButton
+          label={backupBusy ? 'מכין גיבוי…' : 'גיבוי JSON ✦'}
+          disabled={backupBusy}
+          onPress={async () => {
+            setBackupBusy(true);
+            try {
+              await exportBackup({ includeChat: includeChatBackup });
+              toast.success('הגיבוי מוכן ✦', 'הקובץ הורד / שותף מהמכשיר');
+            } catch {
+              toast.error('הגיבוי נכשל', 'נסה שוב');
+            } finally {
+              setBackupBusy(false);
+            }
+          }}
+        />
+        <View style={{ height: spacing.sm }} />
+        <PrimaryButton
+          label={backupBusy ? 'קורא קובץ…' : 'שחזור מגיבוי'}
+          disabled={backupBusy}
+          onPress={async () => {
+            setBackupBusy(true);
+            try {
+              const file = await pickBackupFile();
+              if (!file) return;
+              let backup;
+              try {
+                backup = await readBackup(file);
+              } catch (e) {
+                const msg =
+                  e instanceof Error ? e.message : 'זה לא קובץ גיבוי של מעשר ישר';
+                toast.error('שחזור בוטל', msg);
+                return;
+              }
+              const current = await collectBackupData();
+              const summary = buildRestoreSummary(backup, current);
+              toast.confirm({
+                title: 'לשחזר מגיבוי?',
+                message: summary,
+                destructive: true,
+                confirmLabel: 'שחזר',
+                cancelLabel: 'ביטול',
+                onConfirm: async () => {
+                  try {
+                    await restoreBackup(backup);
+                  } catch {
+                    toast.error('השחזור נכשל', 'הנתונים הנוכחיים לא נדרסו');
+                  }
+                },
+              });
+            } catch {
+              toast.error('לא ניתן לקרוא את הקובץ', 'נסה שוב');
+            } finally {
+              setBackupBusy(false);
+            }
+          }}
+        />
       </Glass>
 
       <Glass light strong style={styles.panel}>
@@ -591,11 +841,53 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     writingDirection: 'rtl',
   },
+  warnCard: {
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: `${colors.danger}55`,
+    backgroundColor: colors.dangerSoft,
+    marginBottom: spacing.md,
+  },
+  warnCardText: {
+    ...type.bodySm,
+    color: colors.sheetInk,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    lineHeight: 22,
+  },
   recurIntro: {
     ...type.bodySm,
     color: colors.sheetMuted,
     textAlign: 'start',
     marginBottom: spacing.md,
+    writingDirection: 'rtl',
+  },
+  advOptTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.sheetInk,
+    textAlign: 'start',
+    writingDirection: 'rtl',
+    marginBottom: 4,
+  },
+  advOptHint: {
+    ...type.caption,
+    color: colors.sheetMuted,
+    textAlign: 'start',
+    writingDirection: 'rtl',
+    marginBottom: 10,
+    lineHeight: 18,
+  },
+  simpleEscape: {
+    marginTop: spacing.lg,
+    alignItems: 'center',
+  },
+  simpleEscapeText: {
+    ...type.caption,
+    color: colors.sheetMuted,
+    textDecorationLine: 'underline',
+    textAlign: 'center',
     writingDirection: 'rtl',
   },
   recurEmpty: {
