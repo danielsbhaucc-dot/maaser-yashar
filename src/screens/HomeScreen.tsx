@@ -12,6 +12,7 @@ import { DeleteButton } from '../components/DeleteButton';
 import { ProgressRing } from '../components/ProgressRing';
 import { Screen } from '../components/Screen';
 import { Banner, formatMoney, PrimaryButton } from '../components/ui';
+import { PrivacyNotice } from '../components/PrivacyNotice';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { BOT_NAME, t } from '../utils/copy';
@@ -180,10 +181,7 @@ export default function HomeScreen() {
 
   return (
     <Screen sheet hero={hero} scroll>
-      <Banner
-        text="הפנקס נשמר במכשיר. שיחה עם נועם שולחת לשרת שם וסיכום תנועות לעיבוד AI"
-        tone="ok"
-      />
+      <PrivacyNotice />
       <NoamNudge text={companionLine} />
       <SmartInsights items={insights} onAction={onInsightAction} />
 

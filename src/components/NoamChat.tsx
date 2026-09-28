@@ -688,6 +688,10 @@ function ChatPane({
         </View>
       </LinearGradient>
 
+      <Text style={styles.aiDisclosure}>
+        נועם הוא עוזר AI. הוא יכול לטעות ואינו פוסק הלכה.
+      </Text>
+
       <ScrollView
         ref={scrollRef}
         style={styles.msgScroll}
@@ -1085,6 +1089,17 @@ const styles = StyleSheet.create({
     ...type.caption,
     color: colors.inkSoft,
     textAlign: 'center',
+  },
+  aiDisclosure: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.gold,
+    textAlign: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 216, 138, 0.10)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
   },
   headerIconBtn: {
     width: 38,

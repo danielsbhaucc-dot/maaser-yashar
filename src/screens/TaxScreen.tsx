@@ -10,6 +10,7 @@ import {
   StatHero,
   formatMoney,
 } from '../components/ui';
+import { PrivacyNotice } from '../components/PrivacyNotice';
 import { Glass, GlassNumber, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
 import { NoamNudge } from '../components/NoamNudge';
@@ -121,11 +122,7 @@ export default function TaxScreen() {
 
   return (
     <Screen sheet hero={hero} scroll contentStyle={{ paddingTop: spacing.lg }}>
-      <Banner
-        light
-        text="מחשבון המס נשמר במכשיר. שיחה עם נועם שולחת לשרת סיכום לעיבוד AI"
-        tone="ok"
-      />
+      <PrivacyNotice light />
       <NoamNudge
         text={t(
           profile.gender,

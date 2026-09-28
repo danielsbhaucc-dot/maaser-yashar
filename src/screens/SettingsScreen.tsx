@@ -14,6 +14,7 @@ import {
   SegmentedRow,
   formatMoney,
 } from '../components/ui';
+import { PrivacyNotice } from '../components/PrivacyNotice';
 import { Glass, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
 import { useApp } from '../context/AppContext';
@@ -112,11 +113,7 @@ export default function SettingsScreen() {
         <PrimaryButton label="פתח תפריט נגישות ✦" onPress={() => openPanel()} />
       </Glass>
 
-      <Banner
-        light
-        text="הפנקס וההגדרות נשמרים במכשיר. שיחה עם נועם שולחת לשרת שם וסיכום תנועות לעיבוד AI."
-        tone="ok"
-      />
+      <PrivacyNotice light />
 
       <NoamNudge
         text={t(
