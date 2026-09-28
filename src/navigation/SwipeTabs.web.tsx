@@ -110,7 +110,9 @@ export function SwipeTabs() {
         onMomentumScrollEnd={onScrollEnd}
         onScrollEndDrag={onScrollEnd}
         scrollEventThrottle={16}
-        style={[styles.pager, styles.pagerLtr]}
+        // קריטי ל־web: pager במתמטיקת LTR; בלי זה RTL שובר scrollTo
+        {...({ dir: 'ltr' } as object)}
+        style={styles.pager}
         contentContainerStyle={
           pageWidth > 0
             ? { width: pageWidth * TABS.length, flexDirection: 'row' }
@@ -175,10 +177,6 @@ export function SwipeTabs() {
 const styles = StyleSheet.create({
   root: { flex: 1, width: '100%', maxWidth: '100%', overflow: 'hidden' },
   pager: { flex: 1, width: '100%' },
-  /** קריטי ל־web: בלי זה RTL הורס paging + scrollTo */
-  pagerLtr: {
-    direction: 'ltr',
-  },
   page: { flex: 1, height: '100%', overflow: 'hidden' },
   pageFlex: { flex: 1 },
   tabBar: {
