@@ -10,6 +10,7 @@ import {
   NativeScrollEvent,
   LayoutChangeEvent,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../components/Icon';
 import { colors, fonts } from '../theme';
@@ -20,6 +21,7 @@ import TaxScreen from '../screens/TaxScreen';
 import GuideScreen from '../screens/GuideScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { TabNavProvider, type TabKey } from './TabNavContext';
+import { useApp } from '../context/AppContext';
 
 const TABS = [
   { key: 'Home' as const, title: 'בית', icon: 'home', iconOut: 'home-outline', Screen: HomeScreen },
@@ -31,17 +33,14 @@ const TABS = [
 
 const TAB_KEYS: TabKey[] = TABS.map((t) => t.key);
 
-/**
- * Web: pager ב־LTR (מתמטיקה + כיוון החלקה יציבים) + טאב־בר RTL.
- * בית מימין בטאבים; החלקה שמאלה → המסך הבא.
- */
 export function SwipeTabs() {
   const scrollRef = useRef<ScrollView>(null);
   const [index, setIndex] = useState(0);
   const [pageWidth, setPageWidth] = useState(0);
   const indexRef = useRef(0);
   const insets = useSafeAreaInsets();
-  const bottom = (Platform.OS === 'ios' ? 22 : 12) + Math.max(insets.bottom - 8, 0);
+  const { openAdd } = useApp();
+  const bottom = 12 + insets.bottom;
 
   useEffect(() => {
     indexRef.current = index;
@@ -106,85 +105,99 @@ export function SwipeTabs() {
     [pageWidth]
   );
 
+  const renderTab = (tab: (typeof TABS)[number], i: number) => {
+    const focused = i === index;
+    return (
+      <Pressable
+        key={tab.key}
+        onPress={() => goTo(i)}
+        style={({ pressed }) => [styles.tabItem, pressed && styles.tabPressed]}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: focused }}
+        accessibilityLabel={tab.title}
+        hitSlop={8}
+      >
+        <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>
+          <Icon
+            name={focused ? tab.icon : tab.iconOut}
+            size={20}
+            color={focused ? colors.gold : colors.inkSoft}
+          />
+        </View>
+        <Text style={[styles.tabLabel, focused && styles.tabLabelActive]} numberOfLines={1}>
+          {tab.title}
+        </Text>
+      </Pressable>
+    );
+  };
+
   return (
     <TabNavProvider goToIndex={goTo} tabKeys={TAB_KEYS}>
-    <View style={styles.root} onLayout={onRootLayout}>
-      <ScrollView
-        ref={scrollRef}
-        horizontal
-        pagingEnabled
-        nestedScrollEnabled
-        keyboardShouldPersistTaps="handled"
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        decelerationRate="fast"
-        disableIntervalMomentum
-        onScroll={onScroll}
-        onMomentumScrollEnd={onScrollEnd}
-        onScrollEndDrag={onScrollEnd}
-        scrollEventThrottle={16}
-        {...ltrDomProps}
-        style={styles.pager}
-        contentContainerStyle={
-          pageWidth > 0
-            ? { width: pageWidth * TABS.length, flexDirection: 'row' }
-            : { flexDirection: 'row' }
-        }
-      >
-        {TABS.map(({ key, Screen }) => (
-          <View
-            key={key}
-            style={[styles.page, pageWidth > 0 ? { width: pageWidth } : styles.pageFlex, DIR]}
-            collapsable={false}
-            {...rtlDomProps}
-          >
-            <Screen />
-          </View>
-        ))}
-      </ScrollView>
-
-      <View
-        style={[styles.tabBar, DIR, { bottom, left: 12, right: 12 }]}
-        accessibilityRole="tablist"
-        pointerEvents="box-none"
-        {...rtlDomProps}
-      >
-        <View style={styles.tabBg} pointerEvents="none">
-          <View style={styles.tabTint} />
-        </View>
-        {TABS.map((tab, i) => {
-          const focused = i === index;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => goTo(i)}
-              style={({ pressed }) => [
-                styles.tabItem,
-                pressed && styles.tabPressed,
-              ]}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: focused }}
-              accessibilityLabel={tab.title}
-              hitSlop={8}
+      <View style={styles.root} onLayout={onRootLayout}>
+        <ScrollView
+          ref={scrollRef}
+          horizontal
+          pagingEnabled
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          decelerationRate="fast"
+          disableIntervalMomentum
+          onScroll={onScroll}
+          onMomentumScrollEnd={onScrollEnd}
+          onScrollEndDrag={onScrollEnd}
+          scrollEventThrottle={16}
+          {...ltrDomProps}
+          style={styles.pager}
+          contentContainerStyle={
+            pageWidth > 0
+              ? { width: pageWidth * TABS.length, flexDirection: 'row' }
+              : { flexDirection: 'row' }
+          }
+        >
+          {TABS.map(({ key, Screen }) => (
+            <View
+              key={key}
+              style={[styles.page, pageWidth > 0 ? { width: pageWidth } : styles.pageFlex, DIR]}
+              collapsable={false}
+              {...rtlDomProps}
             >
-              <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>
-                <Icon
-                  name={focused ? tab.icon : tab.iconOut}
-                  size={20}
-                  color={focused ? colors.gold : colors.inkSoft}
-                />
-              </View>
-              <Text
-                style={[styles.tabLabel, focused && styles.tabLabelActive]}
-                numberOfLines={1}
+              <Screen />
+            </View>
+          ))}
+        </ScrollView>
+
+        <View
+          style={[styles.tabBar, DIR, { bottom, left: 12, right: 12 }]}
+          accessibilityRole="tablist"
+          pointerEvents="box-none"
+          {...rtlDomProps}
+        >
+          <View style={styles.tabBg} pointerEvents="none">
+            <View style={styles.tabTint} />
+          </View>
+          {TABS.slice(0, 2).map((tab, i) => renderTab(tab, i))}
+          <View style={styles.fabSlot}>
+            <Pressable
+              onPress={() => openAdd('tzedaka')}
+              style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
+              accessibilityRole="button"
+              accessibilityLabel="תנועה חדשה"
+            >
+              <LinearGradient
+                colors={[...colors.primaryGradient]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.fabGrad}
               >
-                {tab.title}
-              </Text>
+                <Text style={styles.fabIcon}>✦</Text>
+              </LinearGradient>
             </Pressable>
-          );
-        })}
+          </View>
+          {TABS.slice(2).map((tab, i) => renderTab(tab, i + 2))}
+        </View>
       </View>
-    </View>
     </TabNavProvider>
   );
 }
@@ -205,7 +218,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingHorizontal: 4,
     zIndex: 100,
-    overflow: 'hidden',
+    overflow: 'visible',
     borderWidth: 1,
     borderColor: colors.glassBorder,
     elevation: 12,
@@ -227,13 +240,14 @@ const styles = StyleSheet.create({
     minHeight: 52,
     gap: 2,
     zIndex: 2,
+    paddingHorizontal: 2,
   },
   tabPressed: { opacity: 0.75 },
   tabIconWrap: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 14,
-    minWidth: 40,
+    minWidth: 36,
     alignItems: 'center',
   },
   tabIconActive: {
@@ -241,12 +255,38 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: fonts.medium,
-    fontSize: 10,
+    fontSize: 9,
     color: colors.inkSoft,
     writingDirection: 'rtl',
     textAlign: 'center',
   },
   tabLabelActive: {
     color: colors.gold,
+  },
+  fabSlot: {
+    width: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+    marginTop: -18,
+  },
+  fab: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  fabGrad: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabIcon: {
+    fontFamily: fonts.displayExtra,
+    fontSize: 20,
+    color: '#fff',
+    lineHeight: 24,
   },
 });

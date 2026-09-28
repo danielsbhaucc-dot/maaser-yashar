@@ -4,6 +4,7 @@ import { SafeAreaView, Edge } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors, layout, radii, spacing } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
+import { NoamHeaderButton } from './NoamHeaderButton';
 
 type Props = {
   children: React.ReactNode;
@@ -11,9 +12,9 @@ type Props = {
   scroll?: boolean;
   contentStyle?: StyleProp<ViewStyle>;
   keyboardShouldPersistTaps?: 'handled' | 'always' | 'never';
-  /** hero + גיליון מעוגל כהה (iOS sheet) */
   sheet?: boolean;
   hero?: React.ReactNode;
+  showNoam?: boolean;
 };
 
 export function Screen({
@@ -24,20 +25,39 @@ export function Screen({
   keyboardShouldPersistTaps = 'handled',
   sheet = false,
   hero,
+  showNoam,
 }: Props) {
-  /**
-   * גלילת עמוד שלם: hero + כרטיס מעוגל יחד —
-   * לא ScrollView פנימי ש״כולא״ את התוכן בתוך הגיליון.
-   */
+  const withNoam = showNoam ?? sheet;
   const page = sheet ? (
     <View style={styles.sheetRoot}>
-      {hero ? <View style={styles.heroPad}>{hero}</View> : null}
+      {hero ? (
+        <View style={styles.heroPad}>
+          {withNoam ? (
+            <View style={styles.heroTopRow}>
+              <View style={styles.heroTopSpacer} />
+              <NoamHeaderButton />
+            </View>
+          ) : null}
+          {hero}
+        </View>
+      ) : withNoam ? (
+        <View style={styles.heroTopOnly}>
+          <NoamHeaderButton />
+        </View>
+      ) : null}
       <View style={styles.sheet}>
         <View style={[styles.sheetInner, contentStyle]}>{children}</View>
       </View>
     </View>
   ) : (
-    <View style={[styles.content, contentStyle]}>{children}</View>
+    <View style={[styles.content, contentStyle]}>
+      {withNoam ? (
+        <View style={styles.heroTopOnly}>
+          <NoamHeaderButton />
+        </View>
+      ) : null}
+      {children}
+    </View>
   );
 
   return (
@@ -108,9 +128,21 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.md,
     alignItems: 'center',
   },
-  /**
-   * גיליון אטום + פינות עליונות — גובה לפי תוכן (לא flex קשיח עם scroll פנימי).
-   */
+  heroTopRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 8,
+  },
+  heroTopSpacer: { flex: 1 },
+  heroTopOnly: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+    marginBottom: 4,
+  },
   sheet: {
     flexGrow: 1,
     backgroundColor: colors.sheet,

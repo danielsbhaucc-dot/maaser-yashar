@@ -110,15 +110,15 @@ export function homeSmartInsights(opts: {
     });
   }
 
-  if (totals.obligation > 0 && !hasTzedaka) {
+  if (totals.obligation > 0 && totals.remaining > 0) {
     const paceBody = buildPaceInsightBody(totals.remaining, left);
     out.push({
       id: 'pace',
       title: 'קצב נתינה מומלץ',
       body: t(g, paceBody, paceBody),
       tone: 'action',
-      actionLabel: 'רשום צדקה',
-      actionKind: 'tzedaka',
+      actionLabel: hasTzedaka ? undefined : 'רשום צדקה',
+      actionKind: hasTzedaka ? 'none' : 'tzedaka',
     });
   }
 

@@ -163,6 +163,8 @@ const styles = StyleSheet.create({
   sheetAnchor: {
     maxHeight: '92%',
     width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
   },
   sheet: {
     borderTopLeftRadius: 30,
@@ -173,6 +175,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0,
     backgroundColor: '#141B30',
     maxHeight: '100%',
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
     ...Platform.select({
       web: {
         backdropFilter: 'blur(28px)',

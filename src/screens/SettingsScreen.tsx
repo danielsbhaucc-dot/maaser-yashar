@@ -25,7 +25,6 @@ import { useA11y } from '../accessibility';
 import { BOT_NAME, type Gender, t } from '../utils/copy';
 import { EXPLAIN } from '../utils/chatScript';
 import { noamSettingsHero } from '../utils/noamCompanion';
-import { NoamNudge } from '../components/NoamNudge';
 import { SmartInsights } from '../components/SmartInsights';
 import { settingsSmartInsights } from '../utils/smartInsights';
 import { kindLabel } from '../utils/recurring';
@@ -180,13 +179,6 @@ export default function SettingsScreen() {
 
       <PinLockSettings />
 
-      <NoamNudge
-        text={t(
-          profile.gender,
-          `שלום ${name}. כל שינוי כאן משפיע על איך אני מדבר איתך ועל חישוב המעשר.`,
-          `שלום ${name}. כל שינוי כאן משפיע על איך אני מדבר איתך ועל חישוב המעשר.`
-        )}
-      />
       <SmartInsights items={insights} />
       <Glass light strong style={styles.panel}>
         <FieldLabel>שם</FieldLabel>

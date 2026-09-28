@@ -10,7 +10,6 @@ import { colors, fonts, spacing, type } from '../theme';
 import { useApp } from '../context/AppContext';
 import { BOT_NAME, t } from '../utils/copy';
 import { noamGuideHero } from '../utils/noamCompanion';
-import { NoamNudge } from '../components/NoamNudge';
 import { currentPeriod } from '../utils/history';
 import { resolvePeriodTotals } from '../utils/totalsAdvanced';
 import { guideSmartInsights } from '../utils/smartInsights';
@@ -52,13 +51,6 @@ export default function GuideScreen() {
 
   return (
     <Screen sheet hero={hero} scroll>
-      <NoamNudge
-        text={t(
-          profile.gender,
-          `${name}, תעבור צעד־צעד. אם משהו לא ברור — תפתח אותי בצ'אט ונפרק את זה יחד.`,
-          `${name}, תעברי צעד־צעד. אם משהו לא ברור — תפתחי אותי בצ'אט ונפרק את זה יחד.`
-        )}
-      />
       <SmartInsights items={insights} />
       <SectionHeader title="מפת החזר מס" />
       <View style={styles.map}>

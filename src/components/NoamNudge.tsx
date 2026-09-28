@@ -1,16 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { View, Text, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BOT_NAME } from '../utils/copy';
 import { colors, fonts, radii, spacing, type } from '../theme';
 
-/** כרטיס ליווי קטן — נועם מדבר בשורה אחת */
+/** כרטיס ליווי קטן — נועם מדבר בשורה אחת; אופציונלית הסתרה */
 export function NoamNudge({
   text,
   style,
+  onDismiss,
 }: {
   text: string;
   style?: StyleProp<ViewStyle>;
+  onDismiss?: () => void;
 }) {
   return (
     <View style={[styles.wrap, style]} accessibilityLabel={`${BOT_NAME}: ${text}`}>
@@ -27,6 +29,17 @@ export function NoamNudge({
           <Text style={styles.name}>{BOT_NAME}</Text>
           <Text style={styles.text}>{text}</Text>
         </View>
+        {onDismiss ? (
+          <Pressable
+            onPress={onDismiss}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel={`הסתר כרטיס ${BOT_NAME}`}
+            style={styles.dismiss}
+          >
+            <Text style={styles.dismissTxt}>×</Text>
+          </Pressable>
+        ) : null}
       </LinearGradient>
     </View>
   );
@@ -62,7 +75,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: colors.ink,
   },
-  body: { flex: 1, gap: 2 },
+  body: { flex: 1, gap: 2, minWidth: 0 },
   name: {
     fontFamily: fonts.bold,
     fontSize: 12,
@@ -73,6 +86,19 @@ const styles = StyleSheet.create({
     color: colors.inkMuted,
     textAlign: 'start',
     writingDirection: 'rtl',
+    lineHeight: 20,
+  },
+  dismiss: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  dismissTxt: {
+    fontSize: 18,
+    color: colors.inkSoft,
     lineHeight: 20,
   },
 });

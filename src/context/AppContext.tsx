@@ -54,6 +54,8 @@ type AppCtx = {
   addEntry: (data: Omit<LedgerEntry, 'id' | 'createdAt'>) => Promise<void>;
   addEntries: (data: Omit<LedgerEntry, 'id' | 'createdAt'>[]) => Promise<void>;
   removeEntry: (id: string) => Promise<void>;
+  /** שחזור תנועה עם אותו ID (ל־Undo אחרי מחיקה) */
+  restoreEntry: (entry: LedgerEntry) => Promise<void>;
   updateEntry: (id: string, patch: Partial<LedgerEntry>) => Promise<void>;
   addRecurring: (
     data: Omit<RecurringRule, 'id' | 'createdAt' | 'enabled'> & {
@@ -232,6 +234,14 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     [ledger, persistLedger]
   );
 
+  const restoreEntry = useCallback(
+    async (entry: LedgerEntry) => {
+      const without = ledger.filter((e) => e.id !== entry.id);
+      await persistLedger([entry, ...without]);
+    },
+    [ledger, persistLedger]
+  );
+
   const updateEntry = useCallback(
     async (id: string, patch: Partial<LedgerEntry>) => {
       await persistLedger(ledger.map((e) => (e.id === id ? { ...e, ...patch } : e)));
@@ -331,6 +341,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addEntry,
       addEntries,
       removeEntry,
+      restoreEntry,
       updateEntry,
       addRecurring,
       removeRecurring,
@@ -359,6 +370,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       addEntry,
       addEntries,
       removeEntry,
+      restoreEntry,
       updateEntry,
       addRecurring,
       removeRecurring,

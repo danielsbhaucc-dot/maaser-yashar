@@ -126,12 +126,29 @@ function ToastCard({
           <Text style={styles.title}>{item.title}</Text>
           {item.message ? <Text style={styles.message}>{item.message}</Text> : null}
         </View>
-        {item.kind === 'toast' ? (
+        {item.kind === 'toast' && !(item.onConfirm && item.confirmLabel) ? (
           <Pressable onPress={() => onDismiss(item.id)} hitSlop={10} style={styles.close}>
             <Text style={styles.closeTxt}>✕</Text>
           </Pressable>
         ) : null}
       </View>
+
+      {item.kind === 'toast' && item.onConfirm && item.confirmLabel ? (
+        <View style={styles.actions}>
+          <Pressable
+            style={[
+              styles.btn,
+              styles.btnSolid,
+              { backgroundColor: `${tone.accent}55`, borderColor: tone.accent },
+            ]}
+            onPress={() => item.onConfirm?.()}
+            accessibilityRole="button"
+            accessibilityLabel={item.confirmLabel}
+          >
+            <Text style={styles.btnSolidTxt}>{item.confirmLabel}</Text>
+          </Pressable>
+        </View>
+      ) : null}
 
       {item.kind === 'confirm' ? (
         <View style={styles.actions}>

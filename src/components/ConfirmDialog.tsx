@@ -1,0 +1,198 @@
+import React, { useEffect, useRef } from 'react';
+import {
+  Modal,
+  View,
+  Text,
+  StyleSheet,
+  Pressable,
+  Platform,
+} from 'react-native';
+import { colors, fonts, radii, spacing, type } from '../theme';
+import { DIR, rtlDomProps } from '../rtl';
+
+export type ConfirmDialogProps = {
+  visible: boolean;
+  title: string;
+  message?: string;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  destructive?: boolean;
+  onConfirm: () => void | Promise<void>;
+  onCancel: () => void;
+};
+
+/**
+ * חלון אישור ממורכז עם רקע מעומעם — למחיקות ופעולות הרסניות.
+ * תומך Esc ב־web ומוכרז כ־dialog.
+ */
+export function ConfirmDialog({
+  visible,
+  title,
+  message,
+  confirmLabel = 'מחק',
+  cancelLabel = 'ביטול',
+  destructive = true,
+  onConfirm,
+  onCancel,
+}: ConfirmDialogProps) {
+  const cancelRef = useRef<View>(null);
+  const busy = useRef(false);
+
+  useEffect(() => {
+    if (!visible || Platform.OS !== 'web') return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [visible, onCancel]);
+
+  const handleConfirm = async () => {
+    if (busy.current) return;
+    busy.current = true;
+    try {
+      await onConfirm();
+    } finally {
+      busy.current = false;
+    }
+  };
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onCancel}
+      statusBarTranslucent
+    >
+      <View style={[styles.root, DIR]} {...rtlDomProps}>
+        <Pressable
+          style={styles.backdrop}
+          onPress={onCancel}
+          accessibilityRole="button"
+          accessibilityLabel="סגור"
+        />
+        <View
+          style={styles.dialog}
+          accessibilityRole="dialog"
+          accessibilityViewIsModal
+          accessibilityLabel={title}
+        >
+          <Text style={styles.title}>{title}</Text>
+          {message ? <Text style={styles.message}>{message}</Text> : null}
+          <View style={styles.actions}>
+            <Pressable
+              ref={cancelRef}
+              style={[styles.btn, styles.btnCancel]}
+              onPress={onCancel}
+              accessibilityRole="button"
+              accessibilityLabel={cancelLabel}
+            >
+              <Text style={styles.btnCancelTxt}>{cancelLabel}</Text>
+            </Pressable>
+            <Pressable
+              style={[
+                styles.btn,
+                styles.btnConfirm,
+                destructive ? styles.btnDanger : styles.btnPrimary,
+              ]}
+              onPress={() => void handleConfirm()}
+              accessibilityRole="button"
+              accessibilityLabel={confirmLabel}
+            >
+              <Text style={styles.btnConfirmTxt}>{confirmLabel}</Text>
+            </Pressable>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  root: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+  },
+  backdrop: {
+    ...StyleSheet.absoluteFill,
+    backgroundColor: 'rgba(6, 8, 18, 0.72)',
+  },
+  dialog: {
+    width: '100%',
+    maxWidth: 480,
+    alignSelf: 'center',
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.16)',
+    backgroundColor: 'rgba(22, 26, 48, 0.98)',
+    padding: spacing.lg,
+    gap: 10,
+    zIndex: 2,
+    ...Platform.select({
+      web: { boxShadow: '0 20px 48px rgba(0,0,0,0.45)' } as object,
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.4,
+        shadowRadius: 24,
+        elevation: 16,
+      },
+    }),
+  },
+  title: {
+    ...type.h3,
+    color: colors.ink,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  message: {
+    ...type.bodySm,
+    color: colors.inkMuted,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    lineHeight: 22,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: spacing.sm,
+  },
+  btn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+  },
+  btnCancel: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderColor: 'rgba(255,255,255,0.16)',
+  },
+  btnCancelTxt: {
+    fontFamily: fonts.semi,
+    fontSize: 15,
+    color: colors.inkMuted,
+  },
+  btnConfirm: {},
+  btnDanger: {
+    backgroundColor: 'rgba(220, 80, 100, 0.88)',
+    borderColor: 'rgba(255,160,170,0.45)',
+  },
+  btnPrimary: {
+    backgroundColor: 'rgba(139, 155, 255, 0.85)',
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  btnConfirmTxt: {
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.ink,
+  },
+});

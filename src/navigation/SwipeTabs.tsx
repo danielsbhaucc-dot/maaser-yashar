@@ -11,6 +11,7 @@ import PagerView, {
   type PagerViewOnPageScrollEvent,
 } from 'react-native-pager-view';
 import { BlurView } from 'expo-blur';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Icon from '../components/Icon';
 import { colors, fonts } from '../theme';
@@ -21,6 +22,7 @@ import TaxScreen from '../screens/TaxScreen';
 import GuideScreen from '../screens/GuideScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { TabNavProvider, type TabKey } from './TabNavContext';
+import { useApp } from '../context/AppContext';
 
 const TABS = [
   { key: 'Home' as const, title: 'בית', icon: 'home', iconOut: 'home-outline', Screen: HomeScreen },
@@ -37,14 +39,15 @@ const TAB_KEYS: TabKey[] = TABS.map((t) => t.key);
  * האפליקציה כבר ב־RTL (I18nManager). PagerView עם layoutDirection="rtl"
  * עושה היפוך כפול — החלקה הפוכה. לכן ה־pager ב־LTR מבודד,
  * והטאב־בר נשאר RTL (בית מימין).
- * החלקה שמאלה → מסך הבא (היסטוריה וכו') — תואם למיקום הטאבים.
  */
 export function SwipeTabs() {
   const pagerRef = useRef<PagerView>(null);
   const [index, setIndex] = useState(0);
   const indexRef = useRef(0);
   const insets = useSafeAreaInsets();
-  const bottom = (Platform.OS === 'ios' ? 22 : 12) + Math.max(insets.bottom - 8, 0);
+  const { openAdd } = useApp();
+  /** ריווח מעל פס הבית באייפון */
+  const bottom = 12 + insets.bottom;
 
   const setIndexSafe = useCallback((i: number) => {
     const next = Math.max(0, Math.min(TABS.length - 1, i));
@@ -60,7 +63,6 @@ export function SwipeTabs() {
     [setIndexSafe]
   );
 
-  /** עדכון טאב גם תוך כדי החלקה — לא רק בסוף */
   const onPageScroll = useCallback(
     (e: PagerViewOnPageScrollEvent) => {
       const { position, offset } = e.nativeEvent;
@@ -69,93 +71,105 @@ export function SwipeTabs() {
     [setIndexSafe]
   );
 
-  const goTo = useCallback(
-    (i: number) => {
-      if (i < 0 || i >= TABS.length) return;
-      indexRef.current = i;
-      setIndex(i);
-      requestAnimationFrame(() => {
-        pagerRef.current?.setPage(i);
-      });
-    },
-    []
-  );
+  const goTo = useCallback((i: number) => {
+    if (i < 0 || i >= TABS.length) return;
+    indexRef.current = i;
+    setIndex(i);
+    requestAnimationFrame(() => {
+      pagerRef.current?.setPage(i);
+    });
+  }, []);
+
+  const renderTab = (tab: (typeof TABS)[number], i: number) => {
+    const focused = i === index;
+    return (
+      <Pressable
+        key={tab.key}
+        onPress={() => goTo(i)}
+        style={({ pressed }) => [styles.tabItem, pressed && styles.tabPressed]}
+        accessibilityRole="tab"
+        accessibilityState={{ selected: focused }}
+        accessibilityLabel={tab.title}
+        hitSlop={8}
+      >
+        <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>
+          <Icon
+            name={focused ? tab.icon : tab.iconOut}
+            size={20}
+            color={focused ? colors.gold : colors.inkSoft}
+          />
+        </View>
+        <Text style={[styles.tabLabel, focused && styles.tabLabelActive]} numberOfLines={1}>
+          {tab.title}
+        </Text>
+      </Pressable>
+    );
+  };
 
   return (
     <TabNavProvider goToIndex={goTo} tabKeys={TAB_KEYS}>
-    <View style={styles.root}>
-      {/* מבודד מ־RTL של האפליקציה — מונע היפוך כיוון החלקה */}
-      <View style={styles.pagerHost}>
-        <PagerView
-          ref={pagerRef}
-          style={styles.pager}
-          initialPage={0}
-          onPageSelected={onPageSelected}
-          onPageScroll={onPageScroll}
-          layoutDirection="ltr"
-          overdrag
-          offscreenPageLimit={1}
-        >
-          {TABS.map(({ key, Screen }) => (
-            <View key={key} style={[styles.page, DIR]} collapsable={false}>
-              <Screen />
-            </View>
-          ))}
-        </PagerView>
-      </View>
-
-      <View
-        style={[styles.tabBar, DIR, { bottom, left: 12, right: 12 }]}
-        accessibilityRole="tablist"
-        pointerEvents="box-none"
-      >
-        <View style={styles.tabBg} pointerEvents="none">
-          {Platform.OS !== 'web' ? (
-            <BlurView
-              intensity={Platform.OS === 'ios' ? 70 : 40}
-              tint="systemChromeMaterialDark"
-              style={StyleSheet.absoluteFill}
-            />
-          ) : null}
-          <View style={styles.tabTint} />
-        </View>
-        {TABS.map((tab, i) => {
-          const focused = i === index;
-          return (
-            <Pressable
-              key={tab.key}
-              onPress={() => goTo(i)}
-              style={({ pressed }) => [styles.tabItem, pressed && styles.tabPressed]}
-              accessibilityRole="tab"
-              accessibilityState={{ selected: focused }}
-              accessibilityLabel={tab.title}
-              hitSlop={8}
-            >
-              <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>
-                <Icon
-                  name={focused ? tab.icon : tab.iconOut}
-                  size={20}
-                  color={focused ? colors.gold : colors.inkSoft}
-                />
+      <View style={styles.root}>
+        <View style={styles.pagerHost}>
+          <PagerView
+            ref={pagerRef}
+            style={styles.pager}
+            initialPage={0}
+            onPageSelected={onPageSelected}
+            onPageScroll={onPageScroll}
+            layoutDirection="ltr"
+            overdrag
+            offscreenPageLimit={1}
+          >
+            {TABS.map(({ key, Screen }) => (
+              <View key={key} style={[styles.page, DIR]} collapsable={false}>
+                <Screen />
               </View>
-              <Text
-                style={[styles.tabLabel, focused && styles.tabLabelActive]}
-                numberOfLines={1}
+            ))}
+          </PagerView>
+        </View>
+
+        <View
+          style={[styles.tabBar, DIR, { bottom, left: 12, right: 12 }]}
+          accessibilityRole="tablist"
+          pointerEvents="box-none"
+        >
+          <View style={styles.tabBg} pointerEvents="none">
+            {Platform.OS !== 'web' ? (
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 70 : 40}
+                tint="systemChromeMaterialDark"
+                style={StyleSheet.absoluteFill}
+              />
+            ) : null}
+            <View style={styles.tabTint} />
+          </View>
+          {TABS.slice(0, 2).map((tab, i) => renderTab(tab, i))}
+          <View style={styles.fabSlot}>
+            <Pressable
+              onPress={() => openAdd('tzedaka')}
+              style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
+              accessibilityRole="button"
+              accessibilityLabel="תנועה חדשה"
+            >
+              <LinearGradient
+                colors={[...colors.primaryGradient]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.fabGrad}
               >
-                {tab.title}
-              </Text>
+                <Text style={styles.fabIcon}>✦</Text>
+              </LinearGradient>
             </Pressable>
-          );
-        })}
+          </View>
+          {TABS.slice(2).map((tab, i) => renderTab(tab, i + 2))}
+        </View>
       </View>
-    </View>
     </TabNavProvider>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, width: '100%', maxWidth: '100%' },
-  /** LTR מפורש — בלי direction:rtl מההורה */
   pagerHost: {
     flex: 1,
     width: '100%',
@@ -174,7 +188,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
     paddingHorizontal: 4,
     zIndex: 100,
-    overflow: 'hidden',
+    overflow: 'visible',
     borderWidth: 1,
     borderColor: colors.glassBorder,
     elevation: 12,
@@ -196,13 +210,14 @@ const styles = StyleSheet.create({
     minHeight: 52,
     gap: 2,
     zIndex: 2,
+    paddingHorizontal: 2,
   },
   tabPressed: { opacity: 0.75 },
   tabIconWrap: {
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 14,
-    minWidth: 40,
+    minWidth: 36,
     alignItems: 'center',
   },
   tabIconActive: {
@@ -210,12 +225,38 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: fonts.medium,
-    fontSize: 10,
+    fontSize: 9,
     color: colors.inkSoft,
     writingDirection: 'rtl',
     textAlign: 'center',
   },
   tabLabelActive: {
     color: colors.gold,
+  },
+  fabSlot: {
+    width: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+    marginTop: -18,
+  },
+  fab: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.4)',
+  },
+  fabGrad: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  fabIcon: {
+    fontFamily: fonts.displayExtra,
+    fontSize: 20,
+    color: '#fff',
+    lineHeight: 24,
   },
 });

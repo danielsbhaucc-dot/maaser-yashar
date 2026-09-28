@@ -4,8 +4,6 @@ import {
   StyleSheet,
   Platform,
   I18nManager,
-  Pressable,
-  Text,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { reloadAppAsync } from 'expo';
@@ -30,11 +28,11 @@ import {
   Heebo_700Bold,
   Heebo_800ExtraBold,
 } from '@expo-google-fonts/heebo';
-import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { PinLockProvider, usePinLock } from './src/context/PinLockContext';
 import { ToastProvider, useToast } from './src/context/ToastContext';
+import { NoamChatProvider } from './src/navigation/NoamChatContext';
 import {
   AccessibilityProvider,
   AccessibilityWidget,
@@ -47,7 +45,7 @@ import AddEntryModal from './src/components/AddEntryModal';
 import NoamChat from './src/components/NoamChat';
 import { LoadingScreen } from './src/components/LoadingScreen';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
-import { colors, fonts, shadow } from './src/theme';
+import { colors } from './src/theme';
 import { DIR, rtlDomProps } from './src/rtl';
 import { isNativeRtlActive } from './src/rtlBootstrap';
 import { currentPeriod } from './src/utils/history';
@@ -121,30 +119,6 @@ const navTheme = {
     primary: colors.primary,
   },
 };
-
-function FloatingFab() {
-  const { openAdd, profile } = useApp();
-  const insets = useSafeAreaInsets();
-  if (!profile.onboardingDone) return null;
-  const bottom = (Platform.OS === 'ios' ? 22 : 12) + 64 + Math.max(insets.bottom - 8, 0) - 28;
-
-  return (
-    <Pressable
-      onPress={() => openAdd('tzedaka')}
-      style={[styles.fab, shadow.fab, { bottom }]}
-      accessibilityLabel="תנועה חדשה"
-    >
-      <LinearGradient
-        colors={[...colors.primaryGradient]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.fabGrad}
-      >
-        <Text style={styles.fabIcon}>✦</Text>
-      </LinearGradient>
-    </Pressable>
-  );
-}
 
 function StorageAlertBridge() {
   const { ready, corrupt, acknowledgeCorrupt } = useApp();
@@ -408,7 +382,6 @@ function Root() {
     <AccessibilityRoot>
       <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
         <SwipeTabs />
-        <FloatingFab />
         <NoamChat />
         <GlobalAddModal />
         <AccessibilityWidget />
@@ -449,14 +422,16 @@ export default function App() {
             <View style={[styles.phoneFrame, DIR]} {...rtlDomProps}>
               <AppProvider>
                 <ToastProvider>
-                  <PinLockProvider>
-                    <AccessibilityProvider>
-                      <NavigationContainer theme={navTheme}>
-                        <StatusBar style="light" />
-                        <Root />
-                      </NavigationContainer>
-                    </AccessibilityProvider>
-                  </PinLockProvider>
+                  <NoamChatProvider>
+                    <PinLockProvider>
+                      <AccessibilityProvider>
+                        <NavigationContainer theme={navTheme}>
+                          <StatusBar style="light" />
+                          <Root />
+                        </NavigationContainer>
+                      </AccessibilityProvider>
+                    </PinLockProvider>
+                  </NoamChatProvider>
                 </ToastProvider>
               </AppProvider>
             </View>
@@ -477,35 +452,14 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     alignItems: 'center',
   },
-  /** מובייל־פירסט: על דסקטופ נשארים ברוחב טלפון */
+  /** מובייל־פירסט: על דסקטופ נשארים ברוחב טלפון ממורכז */
   phoneFrame: {
     flex: 1,
     width: '100%',
     maxWidth: 480,
+    alignSelf: 'center',
     overflow: 'hidden',
     backgroundColor: colors.bg,
   },
   mainShell: { flex: 1, width: '100%' },
-  fab: {
-    position: 'absolute',
-    alignSelf: 'center',
-    width: 58,
-    height: 58,
-    borderRadius: 29,
-    overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
-    zIndex: 50,
-  },
-  fabGrad: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  fabIcon: {
-    fontFamily: fonts.displayExtra,
-    fontSize: 22,
-    color: '#fff',
-    lineHeight: 26,
-  },
 });

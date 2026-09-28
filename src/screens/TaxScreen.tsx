@@ -13,7 +13,6 @@ import {
 import { PrivacyNotice } from '../components/PrivacyNotice';
 import { Glass, GlassNumber, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
-import { NoamNudge } from '../components/NoamNudge';
 import { SmartInsights } from '../components/SmartInsights';
 import { colors, fonts, spacing, type } from '../theme';
 import { calculateSection46, SECTION_46, getMinDonation } from '../utils/taxCalc';
@@ -166,13 +165,6 @@ export default function TaxScreen() {
   return (
     <Screen sheet hero={hero} scroll contentStyle={{ paddingTop: spacing.lg }}>
       <PrivacyNotice light />
-      <NoamNudge
-        text={t(
-          profile.gender,
-          'תזין תרומות והכנסה חייבת — ואני אעזור לך להבין את האומדן. זה לא ייעוץ מס.',
-          'תזיני תרומות והכנסה חייבת — ואני אעזור לך להבין את האומדן. זה לא ייעוץ מס.'
-        )}
-      />
       <SmartInsights items={insights} onAction={onInsightAction} />
       <Accordion
         items={[
@@ -191,7 +183,7 @@ export default function TaxScreen() {
             <Text style={styles.missingTitle}>חסר נתון</Text>
             <Text style={styles.missingText}>
               {!hasDonations
-                ? 'הזינו סה״כ תרומות כדי לראות אומדן זיכוי — בלי זה לא מציגים 0 מטעה.'
+                ? 'אין עדיין תרומות. אפשר להזין סכום ידנית'
                 : 'הזינו הכנסה חייבת, או בחרו לא בטוח אם אין לכם את המספר.'}
             </Text>
           </Glass>

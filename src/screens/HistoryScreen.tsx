@@ -10,10 +10,9 @@ import { formatPeriod } from '../utils/history';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { BOT_NAME, t } from '../utils/copy';
-import { noamHistoryEmpty, noamHistoryHero } from '../utils/noamCompanion';
-import { NoamNudge } from '../components/NoamNudge';
+import { noamHistoryHero } from '../utils/noamCompanion';
 import { historySmartInsights } from '../utils/smartInsights';
-import { monthsClosedTogetherLabel, monthsLabel } from '../utils/plural';
+import { monthsLabel } from '../utils/plural';
 import { formatRelativeTime } from '../utils/relativeTime';
 import {
   exportHistoryCsv,
@@ -33,7 +32,7 @@ import { useTabNav } from '../navigation/TabNavContext';
 type ViewMode = 'months' | 'year';
 
 export default function HistoryScreen() {
-  const { openAdd, profile, history: entries, ledger, deleteMonth, clearHistory } = useApp();
+  const { profile, history: entries, ledger, deleteMonth, clearHistory } = useApp();
   const toast = useToast();
   const { goToTab } = useTabNav();
 
@@ -43,7 +42,6 @@ export default function HistoryScreen() {
 
   const totalRemaining = entries.reduce((s, e) => s + e.result.remaining, 0);
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
-  const empty = noamHistoryEmpty(name, profile.gender);
   const insights = useMemo(
     () => historySmartInsights({ name, gender: profile.gender, entries }),
     [name, profile.gender, entries]
@@ -255,13 +253,6 @@ export default function HistoryScreen() {
         <>
           {entries.length > 0 ? (
             <>
-              <NoamNudge
-                text={t(
-                  profile.gender,
-                  `${name}, יש כאן ${monthsClosedTogetherLabel(entries.length)}. יתרות פתוחות: ${formatMoney(totalRemaining)}.`,
-                  `${name}, יש כאן ${monthsClosedTogetherLabel(entries.length)}. יתרות פתוחות: ${formatMoney(totalRemaining)}.`
-                )}
-              />
               <SmartInsights items={insights} />
               <StatHero
                 label="סה״כ יתרות לתת"
@@ -283,9 +274,11 @@ export default function HistoryScreen() {
             </>
           ) : (
             <Glass dark style={styles.emptyCard}>
-              <Text style={styles.emptyTitle}>{empty.title}</Text>
-              <Text style={styles.emptySub}>{empty.body}</Text>
-              <PrimaryButton label="הוסף תנועה ✦" onPress={() => openAdd('tzedaka')} />
+              <Text style={styles.emptyTitle}>עדיין אין ארכיון</Text>
+              <Text style={styles.emptySub}>
+                בסוף כל חודש לוחצים «שמור סיכום חודש», והוא נשמר כאן
+              </Text>
+              <PrimaryButton label="חזור לבית" onPress={() => goToTab('Home')} />
             </Glass>
           )}
 

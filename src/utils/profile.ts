@@ -38,6 +38,12 @@ export interface UserProfile {
    * דורש התניה מראש לפי חלק מהפוסקים.
    */
   carryForwardSurplus: boolean;
+  /** דילג על אונבורדינג — מציג כרטיס «לכוון?» חד־פעמי בבית */
+  skippedSetup?: boolean;
+  /** המשתמש הסתיר את כרטיס נועם בבית */
+  hideNoamNudge?: boolean;
+  /** כרטיס «לכוון?» נסגר */
+  tuneCardDismissed?: boolean;
 }
 
 export const defaultProfile = (): UserProfile => ({
@@ -52,6 +58,9 @@ export const defaultProfile = (): UserProfile => ({
   chatConsentDone: false,
   advanced: defaultAdvancedSettings(),
   carryForwardSurplus: false,
+  skippedSetup: false,
+  hideNoamNudge: false,
+  tuneCardDismissed: false,
 });
 
 export async function loadProfile(): Promise<SafeLoadResult<UserProfile>> {

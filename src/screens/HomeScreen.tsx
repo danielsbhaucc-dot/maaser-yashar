@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
   ScrollView,
+  Platform,
 } from 'react-native';
 import Icon from '../components/Icon';
 import { Glass } from '../components/Glass';
@@ -13,6 +14,7 @@ import { ProgressRing, type Ring } from '../components/ProgressRing';
 import { Screen } from '../components/Screen';
 import { Banner, formatMoney, PrimaryButton } from '../components/ui';
 import { PrivacyNotice } from '../components/PrivacyNotice';
+import { AnimatedMoney } from '../components/AnimatedMoney';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { BOT_NAME, t } from '../utils/copy';
@@ -53,19 +55,35 @@ import {
   previousPeriod,
   shouldShowCloseMonthBanner,
 } from '../utils/monthlyReminder';
+import { useTabNav } from '../navigation/TabNavContext';
 
 const BASE_EXPLAIN_SHORT = `בסיס המעשר כאן = הכנסות שרשמת פחות הוצאות מותרות (מס / ביטוח / בריאות / הוצאות עסק).
 לא מנכים הוצאות מחיה (שכירות, אוכל וכו'). צדקה לא מורידה מהבסיס — רק נספרת מול החובה.`;
 
 export default function HomeScreen() {
-  const { profile, ledger, history, removeEntry, openAdd, openEdit, saveMonth } = useApp();
+  const {
+    profile,
+    ledger,
+    history,
+    removeEntry,
+    restoreEntry,
+    openAdd,
+    openEdit,
+    saveMonth,
+    patchProfile,
+  } = useApp();
   const toast = useToast();
+  const { goToTab } = useTabNav();
   const [period, setPeriod] = useState(currentPeriod);
   const [saving, setSaving] = useState(false);
+  const [savedFlash, setSavedFlash] = useState(false);
   const [now, setNow] = useState(() => new Date());
   const [showBackupBanner, setShowBackupBanner] = useState(false);
   const [closeMonthDismissed, setCloseMonthDismissed] = useState<string | null>(null);
   const [closeMonthReady, setCloseMonthReady] = useState(false);
+  const periodScrollRef = useRef<ScrollView>(null);
+  const periodLayouts = useRef<Record<string, { x: number; w: number }>>({});
+  const [periodViewportW, setPeriodViewportW] = useState(0);
 
   useEffect(() => {
     const id = setInterval(() => setNow(new Date()), 60_000);
@@ -189,6 +207,8 @@ export default function HomeScreen() {
         },
       });
       toast.success('נשמר בהיסטוריה ✦', noamSaveMonthToast(name, profile.gender, formatPeriod(period)));
+      setSavedFlash(true);
+      setTimeout(() => setSavedFlash(false), 900);
     } catch {
       toast.error('השמירה נכשלה', 'נסה שוב בעוד רגע');
     } finally {
@@ -225,6 +245,24 @@ export default function HomeScreen() {
       }),
     [name, profile.gender, profile.rate, totals, monthEntries, period]
   );
+  const paceInsight = useMemo(
+    () => insights.find((i) => i.id === 'pace') ?? null,
+    [insights]
+  );
+  const otherInsights = useMemo(
+    () => insights.filter((i) => i.id !== 'pace'),
+    [insights]
+  );
+
+  const showTuneCard = !!profile.skippedSetup && !profile.tuneCardDismissed;
+  const showNoamNudge = !profile.hideNoamNudge;
+
+  useEffect(() => {
+    const layout = periodLayouts.current[period];
+    if (!layout || periodViewportW <= 0) return;
+    const x = Math.max(0, layout.x - (periodViewportW - layout.w) / 2);
+    periodScrollRef.current?.scrollTo({ x, animated: true });
+  }, [period, periodViewportW, periods]);
 
   const onInsightAction = (item: SmartInsight) => {
     if (item.actionKind === 'income') openAdd('income', period);
@@ -250,15 +288,22 @@ export default function HomeScreen() {
   const hero = (
     <View style={styles.hero}>
       <View style={styles.brandPill}>
-        <Text style={styles.brandPillText}>מעשר ישר · {BOT_NAME}</Text>
+        <Text style={styles.brandPillText}>
+          מעשר ישר · {BOT_NAME}
+        </Text>
       </View>
-      <Text style={styles.greet}>{greet.line}</Text>
+      <Text style={styles.greet}>
+        {greet.line}
+      </Text>
       <Text style={styles.sub}>
         {formatPeriod(period)} · {formatRatePercent(profile.rate)}%
         {journeyDays != null ? ` · ${daysLabel(journeyDays)}` : ''}
       </Text>
     </View>
   );
+
+  const isEmptyMonth = monthEntries.length === 0;
+  const celebrateDone = totals.remaining <= 0 && totals.obligation > 0;
 
   return (
     <Screen sheet hero={hero} scroll>
@@ -313,11 +358,58 @@ export default function HomeScreen() {
           />
         </Pressable>
       ) : null}
-      <NoamNudge text={companionLine} />
-      <SmartInsights items={insights} onAction={onInsightAction} />
 
-      <View style={styles.periodWrap}>
+      {showTuneCard ? (
+        <Glass dark gold style={styles.tuneCard}>
+          <View style={styles.closeMonthRow}>
+            <Pressable
+              style={styles.closeMonthMain}
+              onPress={() => goToTab('Settings')}
+              accessibilityRole="button"
+              accessibilityLabel="לכוון? מעבר להגדרות"
+            >
+              <Text style={styles.tuneTitle}>לכוון?</Text>
+              <Text style={styles.tuneBody}>
+                אפשר לעדכן שם, לשון פנייה ואחוז מעשר בהגדרות — בלחיצה אחת.
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => void patchProfile({ tuneCardDismissed: true })}
+              hitSlop={10}
+              accessibilityRole="button"
+              accessibilityLabel="סגור כרטיס לכוון"
+              style={styles.closeMonthDismiss}
+            >
+              <Text style={styles.closeMonthDismissText}>×</Text>
+            </Pressable>
+          </View>
+        </Glass>
+      ) : null}
+
+      {showNoamNudge ? (
+        <NoamNudge
+          text={companionLine}
+          onDismiss={() => void patchProfile({ hideNoamNudge: true })}
+        />
+      ) : null}
+
+      {/* 1) תחזית חודשית */}
+      {paceInsight ? (
+        <SmartInsights
+          items={[paceInsight]}
+          onAction={onInsightAction}
+          hideHeader
+          style={{ marginBottom: spacing.sm }}
+        />
+      ) : null}
+
+      <View
+        style={styles.periodWrap}
+        onLayout={(e) => setPeriodViewportW(e.nativeEvent.layout.width)}
+      >
+        <View style={styles.periodFadeStart} pointerEvents="none" />
         <ScrollView
+          ref={periodScrollRef}
           horizontal
           nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
@@ -329,6 +421,12 @@ export default function HomeScreen() {
             <Pressable
               key={p}
               onPress={() => setPeriod(p)}
+              onLayout={(e) => {
+                periodLayouts.current[p] = {
+                  x: e.nativeEvent.layout.x,
+                  w: e.nativeEvent.layout.width,
+                };
+              }}
               style={[styles.periodChip, period === p && styles.periodChipOn]}
               accessibilityRole="button"
               accessibilityState={{ selected: period === p }}
@@ -340,96 +438,123 @@ export default function HomeScreen() {
             </Pressable>
           ))}
         </ScrollView>
+        <View style={styles.periodFadeEnd} pointerEvents="none" />
       </View>
 
+      {/* 2) טבעת יתרה */}
       <Glass
         dark
         gold
         style={styles.balanceCard}
         accessibilityLabel={`יתרה לתת ${formatMoney(totals.remaining)}, מתוך חובה ${formatMoney(totals.obligation)}`}
       >
-        <View style={styles.balanceRow}>
-          <View style={styles.balanceText}>
-            <Text style={styles.balanceLabel}>יתרה לתת</Text>
-            <Text style={styles.balanceValue}>{formatMoney(totals.remaining)}</Text>
-            {ringStatusLine ? (
-              <Text style={styles.balanceHint}>
-                <Text style={styles.balanceHintEm}>{ringStatusLine}</Text>
-              </Text>
-            ) : (
-              <Text style={styles.balanceHint}>
-                מתוך חובה של{' '}
-                <Text style={styles.balanceHintEm}>{formatMoney(totals.obligation)}</Text>
-              </Text>
-            )}
-            {surplusLine ? (
-              <Text style={styles.surplusHint}>{surplusLine}</Text>
-            ) : null}
-            {carryInLine ? (
-              <Text style={styles.carryHint}>{carryInLine}</Text>
-            ) : null}
+        {isEmptyMonth ? (
+          <View style={styles.emptyHome}>
+            <Text style={styles.emptyHomeTitle}>שלושה צעדים</Text>
+            <Text style={styles.emptyHomeBody}>
+              רשום הכנסה, רשום ניכוי חובה, רשום צדקה
+            </Text>
+            <PrimaryButton
+              label="הוסף הכנסה ראשונה"
+              onPress={() => openAdd('income', period)}
+            />
           </View>
-          <ProgressRing ring={ring} color={colors.gold} />
-        </View>
-        <View style={styles.balanceGrid}>
-          <Stat
-            label="הכנסות (+בסיס)"
-            value={formatMoney(totals.income)}
-            color={colors.income}
-          />
-          <Stat
-            label="ניכויים (−בסיס)"
-            value={formatMoney(totals.expenses)}
-            color={colors.expense}
-          />
-          <Stat label="בסיס נטו" value={formatMoney(totals.netBase)} color={colors.accent} />
-          <Stat label="צדקה (מול חובה)" value={formatMoney(totals.tzedaka)} color={colors.tzedaka} />
-        </View>
-        <Text style={styles.baseHint}>
-          חובה = {formatRatePercent(profile.rate)}% × בסיס נטו · ניכוי כאן = יורד מהבסיס (לא מחיה)
-        </Text>
-        {(totals.lines.length > 0 || totals.warnings.length > 0) && (
-          <View style={styles.howWrap}>
-            <Text style={styles.howTitle}>איך חישבנו</Text>
-            {totals.lines.map((line) => (
-              <View key={line.id} style={styles.howRow}>
-                <Text style={styles.howLabel} numberOfLines={2}>
-                  {line.label}
-                  {line.kind === 'exempt' ? ' · פטור' : ''}
-                </Text>
-                <Text
-                  style={[
-                    styles.howAmt,
-                    {
-                      color:
-                        line.kind === 'deduction'
-                          ? colors.expense
-                          : line.kind === 'exempt'
-                            ? colors.inkSoft
-                            : colors.income,
-                    },
-                  ]}
-                >
-                  {line.amount >= 0 ? '+' : ''}
-                  {formatMoney(line.amount)}
+        ) : (
+          <>
+            <View style={styles.balanceRow}>
+              <View style={styles.balanceText}>
+                <Text style={styles.balanceLabel}>יתרה לתת</Text>
+                <AnimatedMoney value={totals.remaining} style={styles.balanceValue} />
+                {ringStatusLine ? (
+                  <Text style={styles.balanceHint}>
+                    <Text style={styles.balanceHintEm}>{ringStatusLine}</Text>
+                  </Text>
+                ) : (
+                  <Text style={styles.balanceHint}>
+                    מתוך חובה של{' '}
+                    <Text style={styles.balanceHintEm}>{formatMoney(totals.obligation)}</Text>
+                  </Text>
+                )}
+                {surplusLine ? (
+                  <Text style={styles.surplusHint}>{surplusLine}</Text>
+                ) : null}
+                {carryInLine ? (
+                  <Text style={styles.carryHint}>{carryInLine}</Text>
+                ) : null}
+              </View>
+              <ProgressRing
+                ring={ring}
+                color={colors.gold}
+                celebrate={celebrateDone || savedFlash}
+              />
+            </View>
+            {/* 3) כרטיסי סיכום */}
+            <View style={styles.balanceGrid}>
+              <Stat
+                label="הכנסות (+בסיס)"
+                value={formatMoney(totals.income)}
+                color={colors.income}
+              />
+              <Stat
+                label="ניכויים (−בסיס)"
+                value={formatMoney(totals.expenses)}
+                color={colors.expense}
+              />
+              <Stat label="בסיס נטו" value={formatMoney(totals.netBase)} color={colors.accent} />
+              <Stat label="צדקה (מול חובה)" value={formatMoney(totals.tzedaka)} color={colors.tzedaka} />
+            </View>
+            <Text style={styles.baseHint}>
+              חובה = {formatRatePercent(profile.rate)}% × בסיס נטו · ניכוי כאן = יורד מהבסיס (לא מחיה)
+            </Text>
+            {(totals.lines.length > 0 || totals.warnings.length > 0) && (
+              <View style={styles.howWrap}>
+                <Text style={styles.howTitle}>איך חישבנו</Text>
+                {totals.lines.map((line) => (
+                  <View key={line.id} style={styles.howRow}>
+                    <Text style={styles.howLabel} numberOfLines={2}>
+                      {line.label}
+                      {line.kind === 'exempt' ? ' · פטור' : ''}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.howAmt,
+                        {
+                          color:
+                            line.kind === 'deduction'
+                              ? colors.expense
+                              : line.kind === 'exempt'
+                                ? colors.inkSoft
+                                : colors.income,
+                        },
+                      ]}
+                    >
+                      {line.amount >= 0 ? '+' : ''}
+                      {formatMoney(line.amount)}
+                    </Text>
+                  </View>
+                ))}
+                {totals.warnings.map((w, i) => (
+                  <Text key={`w-${i}`} style={styles.howWarn}>
+                    ⚠ {w}
+                  </Text>
+                ))}
+              </View>
+            )}
+            <View style={styles.cardFooter}>
+              <View style={styles.monthBadge}>
+                <Text style={styles.monthBadgeText}>
+                  ✦ {entriesLabel(monthEntries.length)} החודש
                 </Text>
               </View>
-            ))}
-            {totals.warnings.map((w, i) => (
-              <Text key={`w-${i}`} style={styles.howWarn}>
-                ⚠ {w}
-              </Text>
-            ))}
-          </View>
+            </View>
+          </>
         )}
-        <View style={styles.cardFooter}>
-          <View style={styles.monthBadge}>
-            <Text style={styles.monthBadgeText}>
-              ✦ {entriesLabel(monthEntries.length)} החודש
-            </Text>
-          </View>
-        </View>
       </Glass>
+
+      {/* 4) תובנה אחת + עוד */}
+      {!isEmptyMonth && otherInsights.length > 0 ? (
+        <SmartInsights items={otherInsights} onAction={onInsightAction} maxVisible={1} />
+      ) : null}
 
       <Accordion
         items={[
@@ -461,7 +586,7 @@ export default function HomeScreen() {
           <Text style={styles.emptyTitle}>{emptyCopy.title}</Text>
           <Text style={styles.emptySub}>{emptyCopy.body}</Text>
           <View style={styles.emptyActions}>
-            <PrimaryButton label="הוסף תנועה ✦" onPress={() => openAdd('income', period)} />
+            <PrimaryButton label="הוסף הכנסה ראשונה" onPress={() => openAdd('income', period)} />
           </View>
         </Glass>
       ) : (
@@ -475,12 +600,21 @@ export default function HomeScreen() {
               onDelete={() =>
                 toast.confirm({
                   title: 'למחוק את התנועה?',
-                  message: 'לא ניתן לשחזר אחר כך',
+                  message: `${e.category} · ${formatMoney(e.amount)}`,
                   destructive: true,
                   confirmLabel: 'מחק',
                   onConfirm: async () => {
+                    const snapshot = e;
                     await removeEntry(e.id);
-                    toast.success('התנועה נמחקה');
+                    toast.undo({
+                      title: 'התנועה נמחקה',
+                      message: 'מחק — בטל',
+                      duration: 5000,
+                      onUndo: async () => {
+                        await restoreEntry(snapshot);
+                        toast.success('התנועה שוחזרה');
+                      },
+                    });
                   },
                 })
               }
@@ -497,7 +631,9 @@ export default function HomeScreen() {
         accessibilityState={{ disabled: saving }}
         accessibilityLabel={saving ? 'שומר סיכום חודש' : 'שמור סיכום חודש'}
       >
-        <Text style={styles.saveText}>{saving ? 'שומר…' : 'שמור סיכום חודש'}</Text>
+        <Text style={styles.saveText}>
+          {saving ? 'שומר…' : savedFlash ? '✔ נשמר' : 'שמור סיכום חודש'}
+        </Text>
       </Pressable>
 
       <Banner text={noamBannerTip(profile.gender)} tone="info" />
@@ -576,20 +712,23 @@ function LedgerRow({
     >
       <View style={[styles.rowAccent, { backgroundColor: color }]} />
       <View style={styles.rowMid}>
-        <View style={styles.rowKindRow}>
-          <View style={[styles.rowKindPill, { borderColor: `${color}88`, backgroundColor: `${color}22` }]}>
-            <Text style={[styles.rowKindText, { color }]}>{kindLabel}</Text>
-          </View>
-          <Text style={styles.rowCat}>{entry.category}</Text>
+        <View style={styles.rowTop}>
+          <Text style={styles.rowCat} numberOfLines={1}>
+            {entry.category}
+          </Text>
+          <Text style={[styles.rowAmount, { color }]} numberOfLines={1}>
+            {sign}
+            {formatMoney(entry.amount)}
+          </Text>
         </View>
-        {note ? <Text style={styles.rowNote}>{note}</Text> : null}
-        <Text style={styles.rowDate}>{time}</Text>
-      </View>
-      <View style={styles.rowAmountCol}>
-        <Text style={[styles.rowAmount, { color }]} numberOfLines={1}>
-          {sign}
-          {formatMoney(entry.amount)}
-        </Text>
+        <View style={styles.rowBottom}>
+          <Text style={styles.rowNote} numberOfLines={1}>
+            {note || kindLabel}
+          </Text>
+          <Text style={styles.rowDate} numberOfLines={1}>
+            {time}
+          </Text>
+        </View>
       </View>
       <View style={styles.rowDeleteCol}>
         <DeleteButton onPress={onDelete} size={28} />
@@ -657,6 +796,10 @@ const styles = StyleSheet.create({
     color: colors.ink,
     writingDirection: 'rtl',
     textAlign: 'center',
+    ...Platform.select({
+      web: { userSelect: 'none', caretColor: 'transparent' } as object,
+      default: {},
+    }),
   },
   greet: {
     ...type.highlight,
@@ -665,6 +808,10 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     writingDirection: 'rtl',
     marginTop: 4,
+    ...Platform.select({
+      web: { userSelect: 'none', caretColor: 'transparent' } as object,
+      default: {},
+    }),
   },
   sub: {
     ...type.caption,
@@ -672,8 +819,79 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'center',
   },
-  periodWrap: { width: '100%', marginBottom: spacing.md },
-  periodRow: { flexDirection: 'row', gap: 8 },
+  periodWrap: {
+    width: '100%',
+    marginBottom: spacing.md,
+    position: 'relative',
+  },
+  periodFadeStart: {
+    position: 'absolute',
+    start: 0,
+    top: 0,
+    bottom: 0,
+    width: 18,
+    zIndex: 2,
+    backgroundColor: 'transparent',
+    ...Platform.select({
+      web: {
+        backgroundImage: 'linear-gradient(to left, transparent, rgba(20,27,48,0.95))',
+      } as object,
+      default: {},
+    }),
+  },
+  periodFadeEnd: {
+    position: 'absolute',
+    end: 0,
+    top: 0,
+    bottom: 0,
+    width: 18,
+    zIndex: 2,
+    ...Platform.select({
+      web: {
+        backgroundImage: 'linear-gradient(to right, transparent, rgba(20,27,48,0.95))',
+      } as object,
+      default: {},
+    }),
+  },
+  tuneCard: {
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    width: '100%',
+  },
+  tuneTitle: {
+    ...type.emphasis,
+    fontFamily: fonts.semi,
+    color: colors.gold,
+    textAlign: 'start',
+    writingDirection: 'rtl',
+  },
+  tuneBody: {
+    ...type.caption,
+    color: colors.inkSoft,
+    marginTop: 4,
+    textAlign: 'start',
+    writingDirection: 'rtl',
+  },
+  emptyHome: {
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: spacing.md,
+  },
+  emptyHomeTitle: {
+    ...type.emphasis,
+    fontFamily: fonts.extra,
+    color: colors.gold,
+    fontSize: 17,
+    textAlign: 'center',
+  },
+  emptyHomeBody: {
+    ...type.bodySm,
+    color: colors.inkMuted,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginBottom: spacing.sm,
+  },
+  periodRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
   periodChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
@@ -903,8 +1121,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.md,
-    paddingVertical: 12,
-    gap: 12,
+    paddingVertical: 10,
+    gap: 10,
+    minHeight: 56,
   },
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -916,22 +1135,18 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     minHeight: 28,
   },
-  rowMid: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
-  rowKindRow: {
+  rowMid: { flex: 1, minWidth: 0, gap: 4 },
+  rowTop: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: 10,
   },
-  rowKindPill: {
-    borderRadius: radii.pill,
-    borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  rowKindText: {
-    fontFamily: fonts.semi,
-    fontSize: 11,
+  rowBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
   },
   rowCat: {
     ...type.emphasis,
@@ -939,33 +1154,33 @@ const styles = StyleSheet.create({
     color: colors.sheetInk,
     textAlign: 'start',
     writingDirection: 'rtl',
+    flex: 1,
+    minWidth: 0,
   },
   rowNote: {
     ...type.caption,
     color: colors.sheetMuted,
-    marginTop: 2,
     textAlign: 'start',
     writingDirection: 'rtl',
+    flex: 1,
+    minWidth: 0,
   },
   rowDate: {
     ...type.caption,
     color: colors.sheetMuted,
-    marginTop: 2,
     fontFamily: fonts.regular,
-    textAlign: 'start',
+    textAlign: 'end',
     writingDirection: 'rtl',
-  },
-  rowAmountCol: {
-    minWidth: 96,
-    maxWidth: 120,
-    alignItems: 'flex-end',
-    justifyContent: 'center',
+    flexShrink: 0,
   },
   rowAmount: {
     ...type.money,
     fontSize: 14,
-    textAlign: 'start',
+    textAlign: 'end',
     writingDirection: 'ltr',
+    fontVariant: ['tabular-nums'],
+    minWidth: 88,
+    flexShrink: 0,
   },
   rowDeleteCol: {
     width: 36,

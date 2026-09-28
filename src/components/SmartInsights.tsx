@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, Pressable, StyleProp, ViewStyle } from 'react-native';
 import type { SmartInsight, SmartTone } from '../utils/smartInsights';
 import { colors, fonts, radii, spacing, type } from '../theme';
@@ -33,50 +33,81 @@ const TONE: Record<
   },
 };
 
+function InsightCard({
+  item,
+  onAction,
+}: {
+  item: SmartInsight;
+  onAction?: (item: SmartInsight) => void;
+}) {
+  const tone = TONE[item.tone];
+  return (
+    <View
+      style={[styles.card, { borderColor: tone.border, backgroundColor: tone.bg }]}
+    >
+      <Text style={[styles.badge, { color: tone.chip }]}>{tone.label}</Text>
+      <Text style={styles.title}>{item.title}</Text>
+      <Text style={styles.body}>{item.body}</Text>
+      {item.actionLabel && item.actionKind && item.actionKind !== 'none' && onAction ? (
+        <Pressable
+          onPress={() => onAction(item)}
+          style={({ pressed }) => [
+            styles.action,
+            { borderColor: tone.chip },
+            pressed && { opacity: 0.85 },
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={item.actionLabel}
+        >
+          <Text style={[styles.actionTxt, { color: tone.chip }]}>{item.actionLabel}</Text>
+        </Pressable>
+      ) : null}
+    </View>
+  );
+}
+
 export function SmartInsights({
   items,
   onAction,
   style,
+  /** כמה כרטיסים להציג לפני «עוד תובנות» — ברירת מחדל: הכול */
+  maxVisible,
+  hideHeader,
 }: {
   items: SmartInsight[];
   onAction?: (item: SmartInsight) => void;
   style?: StyleProp<ViewStyle>;
+  maxVisible?: number;
+  hideHeader?: boolean;
 }) {
+  const [expanded, setExpanded] = useState(false);
   if (!items.length) return null;
+
+  const limit = maxVisible ?? items.length;
+  const visible = expanded || items.length <= limit ? items : items.slice(0, limit);
+  const hiddenCount = items.length - limit;
 
   return (
     <View style={[styles.wrap, style]} accessibilityRole="summary">
-      <View style={styles.head}>
-        <View style={styles.dot} />
-        <Text style={styles.headTitle}>תובנות חכמות</Text>
-      </View>
-      {items.map((item) => {
-        const tone = TONE[item.tone];
-        return (
-          <View
-            key={item.id}
-            style={[styles.card, { borderColor: tone.border, backgroundColor: tone.bg }]}
-          >
-            <Text style={[styles.badge, { color: tone.chip }]}>{tone.label}</Text>
-            <Text style={styles.title}>{item.title}</Text>
-            <Text style={styles.body}>{item.body}</Text>
-            {item.actionLabel && item.actionKind && item.actionKind !== 'none' && onAction ? (
-              <Pressable
-                onPress={() => onAction(item)}
-                style={({ pressed }) => [
-                  styles.action,
-                  { borderColor: tone.chip },
-                  pressed && { opacity: 0.85 },
-                ]}
-                accessibilityRole="button"
-                accessibilityLabel={item.actionLabel}
-              >
-                <Text style={[styles.actionTxt, { color: tone.chip }]}>{item.actionLabel}</Text>
-              </Pressable>
-            ) : null}
-          </View>
-        );
-      })}
+      {!hideHeader ? (
+        <View style={styles.head}>
+          <View style={styles.dot} />
+          <Text style={styles.headTitle}>תובנות חכמות</Text>
+        </View>
+      ) : null}
+      {visible.map((item) => (
+        <InsightCard key={item.id} item={item} onAction={onAction} />
+      ))}
+      {!expanded && hiddenCount > 0 ? (
+        <Pressable
+          onPress={() => setExpanded(true)}
+          style={styles.moreBtn}
+          accessibilityRole="button"
+          accessibilityLabel="עוד תובנות"
+        >
+          <Text style={styles.moreTxt}>עוד תובנות ({hiddenCount})</Text>
+        </Pressable>
+      ) : null}
     </View>
   );
 }
@@ -144,6 +175,21 @@ const styles = StyleSheet.create({
   actionTxt: {
     fontFamily: fonts.semi,
     fontSize: 13,
+    writingDirection: 'rtl',
+  },
+  moreBtn: {
+    alignSelf: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  moreTxt: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    color: colors.gold,
     writingDirection: 'rtl',
   },
 });

@@ -23,7 +23,7 @@ import { BOT_NAME, type Gender, t } from '../utils/copy';
 import {
   ASK_NAME,
   EXPLAIN,
-  GENDER_JOKES,
+  GENDER_ASK,
   INTROS,
   afterGender,
   afterMarital,
@@ -314,7 +314,7 @@ export default function OnboardingScreen() {
       if (step === 0) {
         if (result.intent === 'name' && result.name) {
           const reply = result.reply || afterName(result.name);
-          push('bot', `${reply}\n\n${pick(GENDER_JOKES)}`);
+          push('bot', `${reply}\n\n${pick(GENDER_ASK)}`);
           setName(result.name);
           setSkippedName(false);
           setStep(1);
@@ -322,7 +322,7 @@ export default function OnboardingScreen() {
         }
         if (result.intent === 'skip_name') {
           // תשובה אחת בלבד — בלי כפילות של reply מה־AI
-          push('bot', `${skipNameContinue(gender)}\n\n${pick(GENDER_JOKES)}`);
+          push('bot', `${skipNameContinue(gender)}\n\n${pick(GENDER_ASK)}`);
           setName('');
           setSkippedName(true);
           setStep(1);
@@ -425,6 +425,25 @@ export default function OnboardingScreen() {
       includeSpouse: marital === 'married' ? includeSpouse : false,
       rate,
       joinedAt: new Date().toISOString(),
+      skippedSetup: false,
+    });
+  };
+
+  /** דילוג ישר לחשבון — פרופיל ברירת מחדל */
+  const skipToAccount = async () => {
+    if (finishing) return;
+    setFinishing(true);
+    await setProfile({
+      ...profile,
+      onboardingDone: true,
+      displayName: '',
+      gender: 'male',
+      maritalStatus: 'single',
+      includeSpouse: false,
+      rate: 0.1,
+      joinedAt: new Date().toISOString(),
+      skippedSetup: true,
+      tuneCardDismissed: false,
     });
   };
 
@@ -709,34 +728,47 @@ export default function OnboardingScreen() {
             </ScrollView>
 
             {showComposer ? (
-              <View style={[styles.composer, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
-                <TextInput
-                  style={styles.input}
-                  value={draft}
-                  onChangeText={setDraft}
-                  placeholder={
-                    step === 0
-                      ? 'שם פרטי, שאלה, או בלי שם…'
-                      : 'שאלה לנועם…'
-                  }
-                  placeholderTextColor="rgba(255,255,255,0.35)"
-                  textAlign="start"
-                  onSubmitEditing={() => void handleFreeText()}
-                  returnKeyType="send"
-                  autoCorrect={false}
-                  editable={!thinking}
-                />
-                <Pressable
-                  style={[
-                    styles.send,
-                    (!draft.trim() || thinking) && styles.sendDisabled,
-                    shadow.float,
-                  ]}
-                  onPress={() => void handleFreeText()}
-                  disabled={!draft.trim() || thinking}
-                >
-                  <Text style={styles.sendLabel}>{thinking ? '…' : 'שלח'}</Text>
-                </Pressable>
+              <View style={[styles.composerCol, { paddingBottom: Math.max(insets.bottom, 12) + 8 }]}>
+                {step === 0 ? (
+                  <Pressable
+                    style={[styles.skipBtn, finishing && { opacity: 0.55 }]}
+                    onPress={() => void skipToAccount()}
+                    disabled={finishing || thinking}
+                    accessibilityRole="button"
+                    accessibilityLabel="דלג ישר לחשבון"
+                  >
+                    <Text style={styles.skipBtnText}>דלג ישר לחשבון</Text>
+                  </Pressable>
+                ) : null}
+                <View style={styles.composer}>
+                  <TextInput
+                    style={styles.input}
+                    value={draft}
+                    onChangeText={setDraft}
+                    placeholder={
+                      step === 0
+                        ? 'שם פרטי, שאלה, או בלי שם…'
+                        : 'שאלה לנועם…'
+                    }
+                    placeholderTextColor="rgba(255,255,255,0.35)"
+                    textAlign="start"
+                    onSubmitEditing={() => void handleFreeText()}
+                    returnKeyType="send"
+                    autoCorrect={false}
+                    editable={!thinking}
+                  />
+                  <Pressable
+                    style={[
+                      styles.send,
+                      (!draft.trim() || thinking) && styles.sendDisabled,
+                      shadow.float,
+                    ]}
+                    onPress={() => void handleFreeText()}
+                    disabled={!draft.trim() || thinking}
+                  >
+                    <Text style={styles.sendLabel}>{thinking ? '…' : 'שלח'}</Text>
+                  </Pressable>
+                </View>
               </View>
             ) : null}
           </KeyboardAvoidingView>
@@ -963,15 +995,35 @@ const styles = StyleSheet.create({
     color: '#fff',
     letterSpacing: -0.5,
   },
+  composerCol: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(10,14,28,0.55)',
+    width: '100%',
+    paddingTop: 10,
+    gap: 8,
+  },
+  skipBtn: {
+    marginHorizontal: spacing.lg,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  skipBtnText: {
+    fontFamily: fonts.semi,
+    fontSize: 15,
+    color: colors.gold,
+    writingDirection: 'rtl',
+  },
   composer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     paddingHorizontal: spacing.lg,
     paddingVertical: 12,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(10,14,28,0.55)',
     width: '100%',
   },
   input: {

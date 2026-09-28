@@ -46,6 +46,7 @@ import { entriesForPeriod } from '../utils/ledger';
 import { resolvePeriodTotals } from '../utils/totalsAdvanced';
 import { RichMessageText } from './RichMessageText';
 import { PRIVACY_LINK_LABEL, privacyPageUrl } from '../constants/privacy';
+import { useNoamChat } from '../navigation/NoamChatContext';
 
 type ViewMode = 'home' | 'chat' | 'history';
 
@@ -129,7 +130,7 @@ export default function NoamChat() {
   const { profile, ledger, addEntries, patchProfile } = useApp();
   const toast = useToast();
   const insets = useSafeAreaInsets();
-  const [open, setOpen] = useState(false);
+  const { open, openChat, closeChat } = useNoamChat();
   const [mode, setMode] = useState<ViewMode>('home');
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -138,11 +139,15 @@ export default function NoamChat() {
   const [pending, setPending] = useState<ProposedEntry[]>([]);
   const [applying, setApplying] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
-  const launcherPulse = useRef(new Animated.Value(1)).current;
   const threadsRef = useRef<ChatThread[]>(threads);
   const sendingRef = useRef(false);
   const pendingSeedRef = useRef<{ text: string; threadId: string } | null>(null);
   const motionOk = useMotionEnabled();
+
+  const setOpen = (v: boolean) => {
+    if (v) openChat();
+    else closeChat();
+  };
 
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
   const active = useMemo(
@@ -155,38 +160,9 @@ export default function NoamChat() {
     threadsRef.current = threads;
   }, [threads]);
 
-  const tabBottom =
-    (Platform.OS === 'ios' ? 22 : 12) + 64 + Math.max(insets.bottom - 8, 0);
-  const launcherBottom = tabBottom + 8;
-
   useEffect(() => {
     loadThreads().then(setThreads);
   }, []);
-
-  useEffect(() => {
-    if (!motionOk) {
-      launcherPulse.setValue(1);
-      return;
-    }
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(launcherPulse, {
-          toValue: 1.06,
-          duration: 1400,
-          useNativeDriver: NATIVE_DRIVER,
-          easing: Easing.inOut(Easing.sin),
-        }),
-        Animated.timing(launcherPulse, {
-          toValue: 1,
-          duration: 1400,
-          useNativeDriver: NATIVE_DRIVER,
-          easing: Easing.inOut(Easing.sin),
-        }),
-      ])
-    );
-    loop.start();
-    return () => loop.stop();
-  }, [launcherPulse, motionOk]);
 
   useEffect(() => {
     if (!open || mode !== 'chat') return;
@@ -434,33 +410,6 @@ export default function NoamChat() {
 
   return (
     <>
-      {!open ? (
-        <Animated.View
-          style={[
-            styles.launcherWrap,
-            { bottom: launcherBottom, transform: [{ scale: launcherPulse }] },
-          ]}
-        >
-          <Pressable
-            onPress={openMessenger}
-            accessibilityLabel={`פתח צ'אט עם ${BOT_NAME}`}
-            style={({ pressed }) => [styles.launcher, pressed && styles.launcherPressed]}
-          >
-            <LinearGradient
-              colors={[...colors.primaryGradient]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.launcherGrad}
-            >
-              <Text style={styles.launcherGlyph}>💬</Text>
-            </LinearGradient>
-            <View style={styles.launcherBadge}>
-              <Text style={styles.launcherBadgeTxt}>נ</Text>
-            </View>
-          </Pressable>
-        </Animated.View>
-      ) : null}
-
       <Modal
         visible={open}
         animationType="slide"
@@ -472,7 +421,15 @@ export default function NoamChat() {
           <Pressable style={styles.backdrop} onPress={closeMessenger} />
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={[styles.sheet, { paddingBottom: Math.max(insets.bottom, 10) }]}
+            style={[
+              styles.sheet,
+              {
+                paddingBottom: Math.max(insets.bottom, 10),
+                maxWidth: 480,
+                width: '100%',
+                alignSelf: 'center',
+              },
+            ]}
           >
             {Platform.OS !== 'web' ? (
               <BlurView
@@ -605,7 +562,7 @@ function HomePane({
         </Pressable>
 
         <Text style={styles.orLabel}>או התחילו מ־</Text>
-        {QUICK_STARTS.slice(0, 2).map((q) => (
+        {QUICK_STARTS.slice(0, 3).map((q) => (
           <Pressable
             key={q}
             onPress={() => onQuick(q)}
