@@ -88,11 +88,20 @@ export async function sendToNoam(params: {
     body.context = params.context;
   }
 
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    throw new Error('אין חיבור');
+  }
+
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch {
+    throw new Error('אין חיבור');
+  }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {

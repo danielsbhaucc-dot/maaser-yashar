@@ -4,11 +4,11 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Platform,
   ScrollView,
   NativeSyntheticEvent,
   NativeScrollEvent,
   LayoutChangeEvent,
+  useWindowDimensions,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -27,11 +27,13 @@ const TABS = [
   { key: 'Home' as const, title: 'בית', icon: 'home', iconOut: 'home-outline', Screen: HomeScreen },
   { key: 'History' as const, title: 'היסטוריה', icon: 'time', iconOut: 'time-outline', Screen: HistoryScreen },
   { key: 'Tax' as const, title: 'החזר מס', icon: 'receipt', iconOut: 'receipt-outline', Screen: TaxScreen },
-  { key: 'Guide' as const, title: 'הנחיות', icon: 'book', iconOut: 'book-outline', Screen: GuideScreen },
+  { key: 'Guide' as const, title: 'מדריך', icon: 'book', iconOut: 'book-outline', Screen: GuideScreen },
   { key: 'Settings' as const, title: 'הגדרות', icon: 'settings', iconOut: 'settings-outline', Screen: SettingsScreen },
 ] as const;
 
 const TAB_KEYS: TabKey[] = TABS.map((t) => t.key);
+/** רוחב מתחתיו מציגים תווית רק לטאב הפעיל */
+const LABEL_ACTIVE_ONLY_MAX = 360;
 
 export function SwipeTabs() {
   const scrollRef = useRef<ScrollView>(null);
@@ -39,8 +41,10 @@ export function SwipeTabs() {
   const [pageWidth, setPageWidth] = useState(0);
   const indexRef = useRef(0);
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { openAdd } = useApp();
   const bottom = 12 + insets.bottom;
+  const activeOnlyLabels = windowWidth <= LABEL_ACTIVE_ONLY_MAX;
 
   useEffect(() => {
     indexRef.current = index;
@@ -107,6 +111,7 @@ export function SwipeTabs() {
 
   const renderTab = (tab: (typeof TABS)[number], i: number) => {
     const focused = i === index;
+    const showLabel = focused || !activeOnlyLabels;
     return (
       <Pressable
         key={tab.key}
@@ -115,7 +120,7 @@ export function SwipeTabs() {
         accessibilityRole="tab"
         accessibilityState={{ selected: focused }}
         accessibilityLabel={tab.title}
-        hitSlop={8}
+        hitSlop={4}
       >
         <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>
           <Icon
@@ -124,9 +129,13 @@ export function SwipeTabs() {
             color={focused ? colors.gold : colors.inkSoft}
           />
         </View>
-        <Text style={[styles.tabLabel, focused && styles.tabLabelActive]} numberOfLines={1}>
-          {tab.title}
-        </Text>
+        {showLabel ? (
+          <Text style={[styles.tabLabel, focused && styles.tabLabelActive]} numberOfLines={1}>
+            {tab.title}
+          </Text>
+        ) : (
+          <View style={styles.tabLabelSpacer} />
+        )}
       </Pressable>
     );
   };
@@ -177,25 +186,27 @@ export function SwipeTabs() {
           <View style={styles.tabBg} pointerEvents="none">
             <View style={styles.tabTint} />
           </View>
-          {TABS.slice(0, 2).map((tab, i) => renderTab(tab, i))}
-          <View style={styles.fabSlot}>
-            <Pressable
-              onPress={() => openAdd('tzedaka')}
-              style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
-              accessibilityRole="button"
-              accessibilityLabel="תנועה חדשה"
-            >
-              <LinearGradient
-                colors={[...colors.primaryGradient]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.fabGrad}
+          <View style={styles.tabsRow}>
+            {TABS.slice(0, 2).map((tab, i) => renderTab(tab, i))}
+            <View style={styles.fabNotch} pointerEvents="box-none">
+              <Pressable
+                onPress={() => openAdd('tzedaka')}
+                style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
+                accessibilityRole="button"
+                accessibilityLabel="תנועה חדשה"
               >
-                <Text style={styles.fabIcon}>✦</Text>
-              </LinearGradient>
-            </Pressable>
+                <LinearGradient
+                  colors={[...colors.primaryGradient]}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.fabGrad}
+                >
+                  <Text style={styles.fabIcon}>✦</Text>
+                </LinearGradient>
+              </Pressable>
+            </View>
+            {TABS.slice(2).map((tab, i) => renderTab(tab, i + 2))}
           </View>
-          {TABS.slice(2).map((tab, i) => renderTab(tab, i + 2))}
         </View>
       </View>
     </TabNavProvider>
@@ -211,12 +222,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     height: 64,
     borderRadius: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-around',
-    paddingTop: 6,
-    paddingBottom: 8,
-    paddingHorizontal: 4,
     zIndex: 100,
     overflow: 'visible',
     borderWidth: 1,
@@ -233,14 +238,23 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(12, 16, 32, 0.92)',
     borderRadius: 28,
   },
+  tabsRow: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingTop: 6,
+    paddingBottom: 8,
+    paddingHorizontal: 2,
+  },
   tabItem: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 52,
+    minHeight: 44,
+    minWidth: 44,
     gap: 2,
     zIndex: 2,
-    paddingHorizontal: 2,
+    paddingHorizontal: 1,
   },
   tabPressed: { opacity: 0.75 },
   tabIconWrap: {
@@ -255,15 +269,21 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: fonts.medium,
-    fontSize: 9,
+    fontSize: 12,
+    lineHeight: 14,
     color: colors.inkSoft,
     writingDirection: 'rtl',
     textAlign: 'center',
+    maxWidth: '100%',
   },
   tabLabelActive: {
     color: colors.gold,
   },
-  fabSlot: {
+  tabLabelSpacer: {
+    height: 14,
+  },
+  /** notch מרכזי ל־✦ — לא גוזל מ־flex של הטאבים */
+  fabNotch: {
     width: 56,
     alignItems: 'center',
     justifyContent: 'center',

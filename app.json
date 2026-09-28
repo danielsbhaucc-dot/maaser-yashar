@@ -26,7 +26,13 @@
     "web": {
       "favicon": "./assets/favicon.png",
       "bundler": "metro",
-      "output": "single"
+      "output": "single",
+      "name": "מעשר ישר",
+      "shortName": "מעשר ישר",
+      "description": "פנקס מעשר כספים חינמי, בלי הרשמה. הנתונים נשמרים אצלך.",
+      "lang": "he",
+      "themeColor": "#0B1020",
+      "backgroundColor": "#0B1020"
     },
     "plugins": [
       "expo-font",

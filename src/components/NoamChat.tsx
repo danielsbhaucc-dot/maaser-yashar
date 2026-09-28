@@ -322,10 +322,11 @@ export default function NoamChat() {
       setPending(actions);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'שגיאה לא ידועה';
+      const offline = msg === 'אין חיבור';
       const botMsg: ChatMessage = {
         id: msgId(),
         role: 'assistant',
-        content: `אופס — ${msg}`,
+        content: offline ? 'אין חיבור' : `אופס — ${msg}`,
         createdAt: new Date().toISOString(),
       };
       patchThread(tid, (cur) => {

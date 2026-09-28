@@ -45,12 +45,15 @@ import AddEntryModal from './src/components/AddEntryModal';
 import NoamChat from './src/components/NoamChat';
 import { LoadingScreen } from './src/components/LoadingScreen';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
+import PwaInstallBanner from './src/components/PwaInstallBanner';
 import { colors } from './src/theme';
 import { DIR, rtlDomProps } from './src/rtl';
 import { isNativeRtlActive } from './src/rtlBootstrap';
 import { currentPeriod } from './src/utils/history';
+import { registerWebPwa } from './src/pwa/registerWebPwa';
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  registerWebPwa();
   // html: נגישות. ה־RTL האמיתי של RN-web מגיע מ־dir על View (ראה rtlDomProps).
   document.documentElement.lang = 'he';
   document.documentElement.dir = 'rtl';
@@ -384,6 +387,7 @@ function Root() {
         <SwipeTabs />
         <NoamChat />
         <GlobalAddModal />
+        <PwaInstallBanner />
         <AccessibilityWidget />
         <StorageAlertBridge />
       </View>
