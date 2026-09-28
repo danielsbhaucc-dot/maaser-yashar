@@ -33,13 +33,16 @@ import {
 import { SafeAreaProvider, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { AppProvider, useApp } from './src/context/AppContext';
+import { PinLockProvider, usePinLock } from './src/context/PinLockContext';
 import { ToastProvider, useToast } from './src/context/ToastContext';
 import {
   AccessibilityProvider,
   AccessibilityWidget,
   AccessibilityRoot,
 } from './src/accessibility';
-import OnboardingScreen from './src/screens/OnboardingScreen';import ErrorBoundary from './src/components/ErrorBoundary';
+import OnboardingScreen from './src/screens/OnboardingScreen';
+import PinLockScreen from './src/components/PinLockScreen';
+import ErrorBoundary from './src/components/ErrorBoundary';
 import AddEntryModal from './src/components/AddEntryModal';
 import NoamChat from './src/components/NoamChat';
 import { LoadingScreen } from './src/components/LoadingScreen';
@@ -185,8 +188,19 @@ function GlobalAddModal() {
 
 function Root() {
   const { ready, profile } = useApp();
-  if (!ready) {
+  const pin = usePinLock();
+  if (!ready || !pin.ready) {
     return <LoadingScreen variant="app" message="מכין את המעשר שלך…" />;
+  }
+  if (pin.locked) {
+    return (
+      <AccessibilityRoot>
+        <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
+          <PinLockScreen />
+          <AccessibilityWidget />
+        </View>
+      </AccessibilityRoot>
+    );
   }
   if (!profile.onboardingDone) {
     return (
@@ -242,12 +256,14 @@ export default function App() {
             <View style={[styles.phoneFrame, DIR]} {...rtlDomProps}>
               <AppProvider>
                 <ToastProvider>
-                  <AccessibilityProvider>
-                    <NavigationContainer theme={navTheme}>
-                      <StatusBar style="light" />
-                      <Root />
-                    </NavigationContainer>
-                  </AccessibilityProvider>
+                  <PinLockProvider>
+                    <AccessibilityProvider>
+                      <NavigationContainer theme={navTheme}>
+                        <StatusBar style="light" />
+                        <Root />
+                      </NavigationContainer>
+                    </AccessibilityProvider>
+                  </PinLockProvider>
                 </ToastProvider>
               </AppProvider>
             </View>

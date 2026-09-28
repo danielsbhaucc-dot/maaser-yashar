@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0B1020" />
+  <meta
+    name="description"
+    content="אודות מעשר ישר — מי בנה את האפליקציה, למה היא חינמית, מה עולה לשרת, ואיך יוצרים קשר."
+  />
+  <title>אודות · מעשר ישר</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Assistant:wght@600;700;800&family=Heebo:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg-mid: #1b1648;
+      --bg-end: #2c1a52;
+      --ink: rgba(255, 255, 255, 0.96);
+      --ink-soft: rgba(255, 255, 255, 0.64);
+      --ink-muted: rgba(255, 255, 255, 0.82);
+      --gold: #ffd88a;
+      --gold-deep: #f0c674;
+      --primary: #8b9bff;
+      --accent: #c4b5fd;
+      --glass: rgba(255, 255, 255, 0.05);
+      --glass-border: rgba(255, 255, 255, 0.14);
+      --max: 42rem;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Heebo, Assistant, Arial, sans-serif;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+    .sky {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background: linear-gradient(165deg, var(--bg) 0%, var(--bg-mid) 52%, var(--bg-end) 100%);
+      pointer-events: none;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(48px);
+      opacity: 0.45;
+      animation: drift 18s var(--ease) infinite alternate;
+    }
+    .orb-a {
+      width: min(52vw, 420px);
+      height: min(52vw, 420px);
+      background: #7c6bf0;
+      top: -8%;
+      right: -10%;
+    }
+    .orb-b {
+      width: min(40vw, 320px);
+      height: min(40vw, 320px);
+      background: #4f86d8;
+      bottom: 12%;
+      left: -8%;
+      animation-delay: -6s;
+    }
+    .orb-c {
+      width: min(28vw, 220px);
+      height: min(28vw, 220px);
+      background: #d4a84b;
+      top: 42%;
+      left: 38%;
+      opacity: 0.22;
+      animation-delay: -11s;
+    }
+    @keyframes drift {
+      from { transform: translate3d(0, 0, 0) scale(1); }
+      to { transform: translate3d(18px, -24px, 0) scale(1.06); }
+    }
+    .wrap {
+      position: relative;
+      z-index: 1;
+      width: min(100%, calc(var(--max) + 3rem));
+      margin: 0 auto;
+      padding: 1.25rem 1.25rem 4.5rem;
+    }
+    .topnav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+      animation: rise 0.7s var(--ease) both;
+    }
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(232, 192, 122, 0.35);
+      background: rgba(255, 216, 138, 0.08);
+      color: var(--gold);
+      font-family: Assistant, Heebo, sans-serif;
+      font-weight: 700;
+      font-size: 0.92rem;
+      text-decoration: none;
+    }
+    .brand-pill span { opacity: 0.7; font-weight: 600; }
+    .back {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.92rem;
+    }
+    .back:hover { color: var(--gold); }
+    .nav-links { display: flex; gap: 0.9rem; align-items: center; }
+    .hero { text-align: center; padding: 1rem 0 2.25rem; animation: rise 0.85s var(--ease) 0.08s both; }
+    .hero-mark {
+      width: 4.25rem;
+      height: 4.25rem;
+      margin: 0 auto 1.1rem;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #8b9bff, #a78bfa);
+      box-shadow: 0 0 0 8px rgba(139, 155, 255, 0.12), 0 18px 40px rgba(102, 119, 240, 0.35);
+      font-family: Assistant, sans-serif;
+      font-weight: 800;
+      font-size: 1.65rem;
+      color: #0b1024;
+    }
+    .hero h1 {
+      margin: 0;
+      font-family: Assistant, Heebo, sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.1rem, 7vw, 3.1rem);
+      letter-spacing: -0.035em;
+      line-height: 1.15;
+    }
+    .hero .lede {
+      margin: 1rem auto 0;
+      max-width: 34rem;
+      color: var(--ink-soft);
+      font-size: 1.05rem;
+      font-weight: 500;
+    }
+    section {
+      margin-bottom: 2.35rem;
+      padding-bottom: 2.15rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      animation: rise 0.8s var(--ease) both;
+    }
+    section:last-of-type { border-bottom: 0; }
+    section h2 {
+      margin: 0 0 0.85rem;
+      font-family: Assistant, Heebo, sans-serif;
+      font-weight: 800;
+      font-size: 1.45rem;
+      letter-spacing: -0.02em;
+    }
+    p { margin: 0 0 0.85rem; color: var(--ink-soft); }
+    p:last-child { margin-bottom: 0; }
+    a.inline { color: var(--gold); font-weight: 700; text-decoration: none; }
+    a.inline:hover { text-decoration: underline; }
+    .callout {
+      margin: 1rem 0 0;
+      padding: 1rem 1.1rem;
+      border-radius: 1rem;
+      border: 1px solid rgba(255, 216, 138, 0.35);
+      background: rgba(255, 216, 138, 0.08);
+      color: var(--ink-muted);
+      font-weight: 500;
+    }
+    .panel {
+      margin-top: 0.85rem;
+      padding: 1rem 1.05rem;
+      border-radius: 1.1rem;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.035);
+    }
+    .panel h3 { margin: 0 0 0.45rem; font-size: 0.98rem; color: var(--gold-deep); }
+    .panel p { font-size: 0.94rem; }
+    .footer {
+      margin-top: 1rem;
+      text-align: center;
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+    }
+    .footer a { color: var(--gold); font-weight: 600; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sky" aria-hidden="true">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+  </div>
+
+  <div class="wrap">
+    <nav class="topnav" aria-label="ניווט עליון">
+      <a class="brand-pill" href="/">מעשר ישר <span>· נועם</span></a>
+      <span class="nav-links">
+        <a class="back" href="/privacy.html">פרטיות</a>
+        <a class="back" href="/">חזרה לאפליקציה ‹</a>
+      </span>
+    </nav>
+
+    <header class="hero">
+      <div class="hero-mark" aria-hidden="true">מ</div>
+      <h1>אודות מעשר ישר</h1>
+      <p class="lede">
+        פרויקט התנדבותי. בלי פרסומות, ובלי איסוף של הפנקס.
+        העמוד הזה עונה על מי, למה זה חינמי, מה עולה לשרת, ואיך יוצרים קשר.
+      </p>
+    </header>
+
+    <main>
+      <section id="who">
+        <h2>מי</h2>
+        <p>
+          אני מיכאל. בניתי את מעשר ישר — פנקס מעשר וצדקה עם העוזר נועם —
+          כדי שיהיה מקום פשוט לעקוב אחרי חובה, נטו ונותר, בלי חשבון משתמש ובלי סנכרון של הפנקס לענן.
+        </p>
+        <p>
+          נועם יכול לטעות. הוא לא פוסק הלכה ולא ייעוץ מס.
+        </p>
+      </section>
+
+      <section id="why-free">
+        <h2>למה זה חינמי</h2>
+        <p>
+          אני משלם על זה מהכסף שלי, או ממיזמים אחרים — נטו מתוך רצון לזיכוי הרבים.
+          אין מודל עסקי מאחורי הפנקס, אין פרסומות, ואין מכירת נתונים.
+        </p>
+        <p class="callout">
+          אין כאן מלכוד. החינם הוא כי כך בחרתי לממן את זה, לא כי הפנקס «משלם» עליי בנתונים שלכם.
+        </p>
+      </section>
+
+      <section id="upload">
+        <h2>מה עולה לשרת</h2>
+        <p>
+          הפנקס, השם, ההערות ורשימת התנועות נשארים במכשיר. הם לא עולים לשרת.
+        </p>
+        <div class="panel">
+          <h3>רק הצ׳אט, ורק אם פותחים אותו</h3>
+          <p>
+            כששולחים הודעה לנועם, עולה תוכן ההודעות. אם בחרתם בזה בהגדרות — גם סיכום של חמישה סכומים לחודש, בלי שם ובלי תנועות בודדות.
+            הבקשה מוגבלת במקור, בקצב ובגודל. פירוט מלא ב<a class="inline" href="/privacy.html">עמוד הפרטיות</a>.
+          </p>
+        </div>
+        <p style="margin-top:1rem">
+          נעילת קוד בהגדרות, אם מפעילים אותה, היא מסך מפני עיניים סקרניות. זו לא הצפנה של הפנקס, והקוד עצמו לא נשמר.
+        </p>
+      </section>
+
+      <section id="source">
+        <h2>קוד פתוח</h2>
+        <p>
+          אפשר לקרוא את הקוד ולבדוק בעצמכם מה נשאר במכשיר ומה נשלח.
+          זו בדיקה חזקה יותר ממשפט על האתר.
+        </p>
+        <p>
+          <a class="inline" href="https://github.com/danielsbhaucc-dot/maaser-yashar" rel="noopener noreferrer">קוד המקור ב-GitHub</a>
+        </p>
+      </section>
+
+      <section id="contact">
+        <h2>איך יוצרים קשר</h2>
+        <p>
+          לשאלות, לפרטיות ולנגישות:
+          <a class="inline" href="mailto:accessibility@maaser-yashar.app?subject=%D7%90%D7%95%D7%93%D7%95%D7%AA%20%D7%9E%D7%A2%D7%A9%D7%A8%20%D7%99%D7%A9%D7%A8">accessibility@maaser-yashar.app</a>
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p><a href="/">חזרה למעשר ישר</a> · <a href="/privacy.html">פרטיות</a></p>
+      <p style="margin-top:0.65rem;opacity:0.75">מעשר ישר · פרויקט התנדבותי</p>
+    </footer>
+  </div>
+</body>
+</html>

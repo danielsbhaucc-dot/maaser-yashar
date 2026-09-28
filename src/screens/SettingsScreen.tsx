@@ -16,6 +16,7 @@ import {
   formatMoney,
 } from '../components/ui';
 import { PrivacyNotice } from '../components/PrivacyNotice';
+import { PinLockSettings } from '../components/PinLockSettings';
 import { Glass, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
 import { useApp } from '../context/AppContext';
@@ -31,6 +32,7 @@ import { kindLabel } from '../utils/recurring';
 import { exportLedgerCsv } from '../utils/exportCsv';
 import { wipeAllData } from '../utils/wipeData';
 import { PRIVACY_LINK_LABEL, privacyPageUrl } from '../constants/privacy';
+import { ABOUT_LINK_LABEL, aboutPageUrl } from '../constants/about';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import type { MaaserRate } from '../types';
 
@@ -117,6 +119,8 @@ export default function SettingsScreen() {
       </Glass>
 
       <PrivacyNotice light />
+
+      <PinLockSettings />
 
       <NoamNudge
         text={t(
@@ -343,6 +347,15 @@ export default function SettingsScreen() {
         accessibilityLabel={PRIVACY_LINK_LABEL}
       >
         <Text style={styles.privacyLink}>{PRIVACY_LINK_LABEL} ‹</Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.privacyLinkWrap}
+        onPress={() => void Linking.openURL(aboutPageUrl())}
+        accessibilityRole="link"
+        accessibilityLabel={ABOUT_LINK_LABEL}
+      >
+        <Text style={styles.privacyLink}>{ABOUT_LINK_LABEL} ‹</Text>
       </Pressable>
 
       <Pressable

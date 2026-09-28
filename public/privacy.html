@@ -330,7 +330,10 @@
   <div class="wrap">
     <nav class="topnav" aria-label="ניווט עליון">
       <a class="brand-pill" href="/">מעשר ישר <span>· נועם</span></a>
-      <a class="back" href="/">חזרה לאפליקציה ‹</a>
+      <span>
+        <a class="back" href="/about.html">אודות</a>
+        <a class="back" href="/" style="margin-right:0.9rem">חזרה לאפליקציה ‹</a>
+      </span>
     </nav>
 
     <header class="hero">
@@ -402,6 +405,7 @@
           <li><strong>ארכיון חודשים</strong> — סיכומים ששמרתם בהיסטוריה (<code>maaser_history_v1</code>).</li>
           <li><strong>שיחות עם נועם</strong> — היסטוריית צ׳אט במכשיר (<code>noam_chat_threads_v1</code>).</li>
           <li><strong>נגישות</strong> — הגדלת טקסט, הפחתת תנועה ועוד (<code>@maaser/a11y-v2</code>, ולעיתים מפתח ישן <code>@maaser/a11y-v1</code>).</li>
+          <li><strong>נעילת קוד (אופציונלי)</strong> — אם הופעלה: רק טביעת אצבע של הקוד (hash) ומלח אקראי. הקוד עצמו לא נשמר (<code>maaser_pin_v1</code>).</li>
         </ul>
         <p>
           ייצוא CSV (אם תבחרו) נוצר אצלכם במכשיר לצורך שיתוף/הורדה — בלי שליחה אוטומטית לשרת.
@@ -498,6 +502,7 @@
           <li>הצ׳אט מוגבל במקור (Origin), בקצב בקשות, ובגודל הודעות.</li>
           <li>הנחיות המודל נבנות בשרת — לא ניתן להזריק system prompt מהלקוח.</li>
           <li>מפתחות API נשמרים כמשתני סביבה בשרת, לא בקוד הלקוח.</li>
+          <li>נעילת קוד אופציונלית היא מסך מפני עיניים סקרניות, לא הצפנה של הפנקס. מי ששכח את הקוד יכול רק למחוק את הנתונים במכשיר.</li>
         </ul>
         <p>
           אין מערכת מושלמת. שמרו על המכשיר עצמו (נעילת מסך, עדכונים),
@@ -524,6 +529,8 @@
       <section id="contact">
         <h2>12. יצירת קשר</h2>
         <p>
+          מי בנה את האפליקציה, למה היא חינמית ומה עולה לשרת — בעמוד
+          <a href="/about.html" style="color:var(--gold);font-weight:700;text-decoration:none">אודות</a>.
           לשאלות על פרטיות ונגישות אפשר לפנות אל
           <a href="mailto:accessibility@maaser-yashar.app?subject=%D7%A4%D7%A8%D7%98%D7%99%D7%95%D7%AA%20%D7%9E%D7%A2%D7%A9%D7%A8%20%D7%99%D7%A9%D7%A8" style="color:var(--gold);font-weight:700;text-decoration:none">accessibility@maaser-yashar.app</a>.
         </p>
@@ -534,7 +541,7 @@
     </main>
 
     <footer class="footer">
-      <p><a href="/">חזרה למעשר ישר</a> · <a href="#principles">לראש העמוד</a></p>
+      <p><a href="/">חזרה למעשר ישר</a> · <a href="/about.html">אודות</a> · <a href="#principles">לראש העמוד</a></p>
       <p style="margin-top:0.65rem;opacity:0.75">מעשר ישר · הפנקס שלכם, אצלכם</p>
     </footer>
   </div>
