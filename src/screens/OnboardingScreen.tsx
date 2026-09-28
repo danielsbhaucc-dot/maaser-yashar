@@ -31,7 +31,7 @@ import {
   pick,
   welcomeDone,
 } from '../utils/chatScript';
-import { askOnboardAi, skipNameContinue } from '../ai/onboardApi';
+import { localOnboardParse, skipNameContinue } from '../ai/onboardApi';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import { RichMessageText } from '../components/RichMessageText';
@@ -293,7 +293,7 @@ export default function OnboardingScreen() {
     setMsgs((m) => [...m, { id: `${Date.now()}-${Math.random()}`, from, text }]);
   };
 
-  const handleFreeText = async () => {
+  const handleFreeText = () => {
     const text = draft.trim();
     if (!text || thinking) return;
     setDraft('');
@@ -301,17 +301,11 @@ export default function OnboardingScreen() {
     setThinking(true);
 
     try {
-      const result = await askOnboardAi({
-        text,
-        step,
-        knownName: name,
-      });
+      const result = localOnboardParse(text);
 
       if (step === 0) {
         if (result.intent === 'name' && result.name) {
-          const reply =
-            result.reply ||
-            afterName(result.name);
+          const reply = result.reply || afterName(result.name);
           push('bot', `${reply}\n\n${pick(GENDER_JOKES)}`);
           setName(result.name);
           setSkippedName(false);
@@ -319,10 +313,8 @@ export default function OnboardingScreen() {
           return;
         }
         if (result.intent === 'skip_name') {
-          push(
-            'bot',
-            `${result.reply}\n\n${skipNameContinue('male')}\n\n${pick(GENDER_JOKES)}`
-          );
+          // תשובה אחת בלבד — בלי כפילות של reply מה־AI
+          push('bot', `${skipNameContinue(gender)}\n\n${pick(GENDER_JOKES)}`);
           setName('');
           setSkippedName(true);
           setStep(1);
@@ -355,8 +347,6 @@ export default function OnboardingScreen() {
             'קיבלתי. אפשר גם לבחור מהכפתורים למטה — זה הכי מדויק.'
           )
       );
-    } catch {
-      push('bot', 'רגע של גליץ׳ קטן. נסה שוב — או בחר מהכפתורים.');
     } finally {
       setThinking(false);
     }

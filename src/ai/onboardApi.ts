@@ -1,4 +1,3 @@
-import { Platform } from 'react-native';
 import { BOT_NAME, t, type Gender } from '../utils/copy';
 
 export type OnboardIntent = 'name' | 'skip_name' | 'gibberish' | 'question' | 'other';
@@ -8,15 +7,6 @@ export type OnboardResult = {
   name: string | null;
   reply: string;
 };
-
-function onboardEndpoint(): string {
-  const fromEnv = process.env.EXPO_PUBLIC_ONBOARD_API_URL?.trim();
-  if (fromEnv) return fromEnv.replace(/\/$/, '');
-  if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    return `${window.location.origin}/.netlify/functions/onboard`;
-  }
-  return 'https://maaser-yashar.netlify.app/.netlify/functions/onboard';
-}
 
 const NAME_MAX = 20;
 
@@ -64,10 +54,7 @@ function looksLikeNameToken(token: string): boolean {
   if (!/^[\u0590-\u05FFa-zA-Z][\u0590-\u05FFa-zA-Z\-']*$/.test(tkn)) return false;
   if (/(.)\1{3,}/.test(tkn)) return false;
   // חרטוט עברי בלי אותיות יסוד — רק אם ארוך יחסית
-  if (
-    /^[\u05D0-\u05EA]{5,}$/.test(tkn) &&
-    !/[אעיהווי]/.test(tkn)
-  ) {
+  if (/^[\u05D0-\u05EA]{5,}$/.test(tkn) && !/[אעיהווי]/.test(tkn)) {
     return false;
   }
   return true;
@@ -156,7 +143,7 @@ function questionReply(raw: string): string {
   return `אני ${BOT_NAME}. מעשר = בדרך כלל 10% מהנטו לצדקה; חומש = 20%. אפשר לשאול עוד — וגם לזרוק שם פרטי כדי שנתחיל.`;
 }
 
-/** זיהוי מקומי — מקור האמת לשמות קצרים וברורים */
+/** זיהוי מקומי בלבד — בלי קריאת רשת. מקור האמת להיכרות. */
 export function localOnboardParse(text: string): OnboardResult {
   const raw = text.trim();
   const lower = raw.toLowerCase();
@@ -165,7 +152,7 @@ export function localOnboardParse(text: string): OnboardResult {
     return {
       intent: 'skip_name',
       name: null,
-      reply: `לגמרי מקובל. בלי שם החוויה פחות אישית — אבל ממשיכים יחד בכיף. אני ${BOT_NAME} 💚`,
+      reply: '',
     };
   }
 
@@ -200,51 +187,6 @@ export function localOnboardParse(text: string): OnboardResult {
     name: null,
     reply: `שם פרטי מספיק — קצר ופשוט. או בלי שם אם מעדיפים.`,
   };
-}
-
-export async function askOnboardAi(opts: {
-  text: string;
-  step: number;
-  knownName?: string;
-}): Promise<OnboardResult> {
-  // המודל מחליט. מקומי = גיבוי רק אם ה־API נפל.
-  try {
-    const res = await fetch(onboardEndpoint(), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        text: opts.text,
-        step: opts.step,
-        knownName: opts.knownName || '',
-      }),
-    });
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(typeof data?.error === 'string' ? data.error : 'fail');
-
-    const intent = data.intent as OnboardIntent;
-    if (!['name', 'skip_name', 'gibberish', 'question', 'other'].includes(intent)) {
-      throw new Error('bad intent');
-    }
-
-    let name = typeof data.name === 'string' ? cleanToken(data.name) : null;
-    if (name && (name.length < 2 || name.length > 20)) name = null;
-
-    if (intent === 'name' && !name) {
-      throw new Error('name without value');
-    }
-
-    return {
-      intent,
-      name: intent === 'name' ? name : null,
-      reply: String(data.reply || '').trim(),
-    };
-  } catch {
-    return localOnboardParse(opts.text);
-  }
-}
-
-export function afterValidNameAi(name: string, genderJoke: string): string {
-  return `${name}! שם יפה — נרשם ✦\n${genderJoke}`;
 }
 
 export function skipNameContinue(g: Gender): string {

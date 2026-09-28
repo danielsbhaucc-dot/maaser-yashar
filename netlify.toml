@@ -11,12 +11,7 @@
 # OPENROUTER_MODEL = meta-llama/... (אופציונלי; ברירת מחדל בשרת)
 # AI_ALLOWED_ORIGINS = https://your-site.netlify.app   (אופציונלי)
 
-# /api/chat מוגש ישירות מהפונקציה (config.path) — בלי redirect
-
-[[redirects]]
-  from = "/api/onboard"
-  to = "/.netlify/functions/onboard"
-  status = 200
+# /api/chat ו־/api/onboard מוגשים ישירות מהפונקציות (config.path)
 
 [[redirects]]
   from = "/*"
