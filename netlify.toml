@@ -6,8 +6,9 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
-# מפתח: הגדר ב־Netlify UI → Site settings → Environment variables
-# OPENROUTER_API_KEY = sk-or-...
+# מפתח AI: Netlify UI → Site settings → Environment variables
+# OPENROUTER_API_KEY = ...   (שרת בלבד, בלי EXPO_PUBLIC_)
+# AI_ALLOWED_ORIGINS = https://your-site.netlify.app   (אופציונלי)
 
 [[redirects]]
   from = "/api/chat"

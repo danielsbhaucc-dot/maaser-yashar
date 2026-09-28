@@ -49,11 +49,12 @@ import { DIR } from './src/rtl';
 import { currentPeriod } from './src/utils/history';
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
+  // dir על ה־html בלבד (נגישות / דפדפן). לא על body.style.direction —
+  // אחרת יחד עם I18nManager.forceRTL מתקבל היפוך כפול בלייאאוט.
   document.documentElement.lang = 'he';
   document.documentElement.dir = 'rtl';
   document.documentElement.style.overflowX = 'hidden';
   document.documentElement.style.width = '100%';
-  document.body.style.direction = 'rtl';
   document.body.style.backgroundColor = colors.bg;
   document.body.style.overflowX = 'hidden';
   document.body.style.width = '100%';
@@ -66,7 +67,6 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
     root.style.width = '100%';
     root.style.maxWidth = '100%';
     root.style.margin = '0 auto';
-    root.setAttribute('dir', 'rtl');
     root.setAttribute('lang', 'he');
   }
   // מובייל־פירסט: viewport צפוף
@@ -240,8 +240,8 @@ export default function App() {
     <ErrorBoundary>
       <GestureHandlerRootView style={styles.flex}>
         <SafeAreaProvider>
-          <View style={[styles.appRoot, DIR]} {...({ dir: 'rtl' } as object)}>
-            <View style={styles.phoneFrame} {...({ dir: 'rtl' } as object)}>
+          <View style={[styles.appRoot, DIR]}>
+            <View style={styles.phoneFrame}>
               <AppProvider>
                 <ToastProvider>
                   <AccessibilityProvider>

@@ -1,14 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import type { LedgerEntry, LedgerKind } from '../types/ledger';
-import {
-  EXPENSE_CATEGORIES,
-  INCOME_CATEGORIES,
-  TZEDAKA_CATEGORIES,
-} from '../types/ledger';
-import { BOT_NAME, t, type Gender } from '../utils/copy';
+import { t, type Gender } from '../utils/copy';
 import { computeTotals, entriesForPeriod } from '../utils/ledger';
-import { currentPeriod, formatPeriod } from '../utils/history';
+import { currentPeriod } from '../utils/history';
 import type { UserProfile } from '../utils/profile';
 import type { MaaserRate } from '../types';
 
@@ -48,68 +43,58 @@ export function chatEndpoint(): string {
   return 'https://maaser-yashar.netlify.app/.netlify/functions/chat';
 }
 
-export function buildNoamSystem(opts: {
+/** הקשר מובנה לשרת — ההנחיה למודל נבנית שם, לא בלקוח */
+export type NoamChatContext = {
+  displayName: string;
+  gender: Gender;
+  rate: number;
+  period: string;
+  totals: {
+    income: number;
+    expenses: number;
+    netBase: number;
+    obligation: number;
+    tzedaka: number;
+    remaining: number;
+  };
+  recent: { kind: LedgerKind; category: string; amount: number }[];
+};
+
+export function buildNoamContext(opts: {
   profile: UserProfile;
   ledger: LedgerEntry[];
   period?: string;
-}): string {
+}): NoamChatContext {
   const period = opts.period || currentPeriod();
   const month = entriesForPeriod(opts.ledger, period);
   const totals = computeTotals(month, opts.profile.rate as MaaserRate);
   const name = opts.profile.displayName || t(opts.profile.gender, 'חבר', 'חברה');
-  const g = opts.profile.gender as Gender;
-  const ratePct = Math.round(opts.profile.rate * 100);
-  const rateLabel = opts.profile.rate === 0.2 ? 'חומש 20%' : 'מעשר 10%';
 
-  const recent = month
-    .slice(0, 12)
-    .map((e) => {
-      const kindLabel =
-        e.kind === 'income' ? 'הכנסה' : e.kind === 'expense' ? 'הוצאה' : 'צדקה';
-      return `- ${kindLabel} · ${e.category} · ₪${e.amount}${e.note ? ` (${e.note})` : ''}`;
-    })
-    .join('\n');
-
-  return `אתה ${BOT_NAME}. גבר. בן. חבר חכם עם אישיות — לא בוט, לא עוזרת, לא AI.
-שיחה בוואטסאפ עם ${name} על מעשר ופנקס. אתה יודע על מה מדברים, בטוח בעצמך, חד.
-
-זהות (קריטי):
-- אתה בן/גבר. תמיד על עצמך בלשון זכר: אני יודע, אני פה, אני מציע — אף פעם לא נקבה.
-- שואלים מה המין שלך / אתה בן או בת / אתה גבר? → ענה ישר: בן. גבר. ואז תחזיר לשאלה/לפנקס במשפט אחד.
-- אל תגיד שאתה מודל / Llama / בוט / עוזרת וירטואלית. אתה נועם.
-
-מילון הפנקס (אל תתיימר שלא להבין):
-- חובה = כמה צריך לתת החודש לפי ${rateLabel} מהנטו. עכשיו: ₪${totals.obligation}.
-- נטו = הכנסות פחות ניכויים (מסים וכו').
-- נותר = חובה פחות צדקה שכבר ניתנה. עכשיו: ₪${totals.remaining}.
-- מעשר ≈ 10%, חומש ≈ 20%. אם שואלים זה חובה? על מעשר — תענה בקצרה שכן, זו החובה שסיכמנו בפרופיל, ותחזיר למספרים.
-
-איך אתה מדבר:
-- עברית מדוברת, חדה, חמה. 1–4 משפטים (או רשימה קצרה כשצריך סדר). חוש הומור יבש. ישר. לא מלחך־פנכה.
-- הדגשה חשובה: עטוף ב־**כך** (שתי כוכביות מכל צד). רשימה ממוספרת: שורה לכל פריט בצורה 1. 2. 3.
-- בלי כותרות markdown, בלי להלן, בלי אשמח לעזור, בלי אימוג'י מוגזם (אחד מקסימום).
-- פנה ל${name} ב${g === 'female' ? 'נקבה' : 'זכר'}. בשם רק כשזה טבעי.
-- תמיד תענה על השאלה — ואז תחזיר לעניין (פנקס / כמה נשאר / מה לרשום). בלי דרשה ובלי לא יודע מה זה… על מושגי מעשר.
-
-מה אתה עושה:
-- עוזר לרשום הכנסה / הוצאה (מסים וכו') / צדקה, ומחשב כמה נשאר לתת.
-- כשיש סכומים ברורים — propose_entries + משפט קצר, ואז שיאשרו.
-- אל תמציא מספרים. חסר משהו? שאלה אחת קצרה.
-- ספק הלכתי עמוק? תשאל רב בשורה אחת וחזרה לפנקס.
-
-הקשר עכשיו:
-שיעור ${rateLabel} (${ratePct}%). חודש ${formatPeriod(period)}.
-הכנסות ₪${totals.income} · ניכויים ₪${totals.expenses} · נטו ₪${totals.netBase}
-חובה ₪${totals.obligation} · ניתן ₪${totals.tzedaka} · נותר ₪${totals.remaining}
-תנועות: ${recent || 'עדיין ריק'}
-
-קטגוריות: הכנסה [${INCOME_CATEGORIES.join(', ')}] · הוצאה [${EXPENSE_CATEGORIES.join(', ')}] · צדקה [${TZEDAKA_CATEGORIES.join(', ')}]
-מיפוי: מסים/ביטוח/בריאות/הוצאות עסק=expense · משכורת/קיבלתי=income · נתתי צדקה=tzedaka`;
+  return {
+    displayName: name.slice(0, 40),
+    gender: (opts.profile.gender as Gender) || 'male',
+    rate: opts.profile.rate === 0.2 ? 0.2 : 0.1,
+    period,
+    totals: {
+      income: totals.income,
+      expenses: totals.expenses,
+      netBase: totals.netBase,
+      obligation: totals.obligation,
+      tzedaka: totals.tzedaka,
+      remaining: totals.remaining,
+    },
+    // בלי הערות חופשיות — מצמצם שליחת פרטים מזהים
+    recent: month.slice(0, 12).map((e) => ({
+      kind: e.kind,
+      category: e.category.slice(0, 40),
+      amount: e.amount,
+    })),
+  };
 }
 
 export async function sendToNoam(params: {
   messages: { role: ChatRole; content: string }[];
-  system: string;
+  context: NoamChatContext;
 }): Promise<{ reply: string; actions: ProposedEntry[] }> {
   const endpoint = chatEndpoint();
   const res = await fetch(endpoint, {
@@ -117,7 +102,7 @@ export async function sendToNoam(params: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       messages: params.messages,
-      system: params.system,
+      context: params.context,
     }),
   });
 
@@ -126,7 +111,7 @@ export async function sendToNoam(params: {
     const msg =
       typeof data?.error === 'string'
         ? data.error
-        : 'לא הצלחתי להגיע לנועם. בדוק חיבור / מפתח Netlify.';
+        : 'לא הצלחתי להגיע לנועם. בדוק חיבור / מפתח בשרת.';
     throw new Error(msg);
   }
 

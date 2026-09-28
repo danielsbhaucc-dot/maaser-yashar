@@ -10,6 +10,7 @@ import {
   Platform,
   Animated,
   Easing,
+  I18nManager,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -38,6 +39,9 @@ import { RichMessageText } from '../components/RichMessageText';
 import type { MaaserRate } from '../types';
 
 type Msg = { id: string; from: 'bot' | 'me'; text: string };
+
+/** יישור עברית יציב גם לפני/אחרי forceRTL */
+const heInputAlign = I18nManager.isRTL ? 'left' : 'right';
 
 /** 0 שם · 1 מגדר · 2 משפחה · 3 שיעור · 4 סיום חגיגי (דורש לחיצה) */
 const STORY_COUNT = 5;
@@ -672,7 +676,7 @@ export default function OnboardingScreen() {
                       : 'שאלה לנועם…'
                   }
                   placeholderTextColor="rgba(255,255,255,0.35)"
-                  textAlign="left"
+                  textAlign={heInputAlign}
                   onSubmitEditing={() => void handleFreeText()}
                   returnKeyType="send"
                   autoCorrect={false}
@@ -784,24 +788,29 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.bg,
   },
-  headerText: { flex: 1, alignItems: 'flex-start' },
-  botName: { ...type.h3, color: '#fff' },
+  headerText: { flex: 1, alignItems: 'flex-start', minWidth: 0 },
+  botName: { ...type.h3, color: '#fff', writingDirection: 'rtl', textAlign: 'left' },
   botMeta: {
     ...type.caption,
     color: 'rgba(255,255,255,0.55)',
     marginTop: 2,
+    writingDirection: 'rtl',
+    textAlign: 'left',
   },
   brandMini: {
     fontFamily: fonts.semi,
     fontSize: 11,
     color: colors.gold,
+    writingDirection: 'rtl',
   },
   chat: {
     paddingHorizontal: spacing.lg,
     paddingBottom: 24,
     gap: 10,
+    width: '100%',
   },
   row: { width: '100%' },
+  // I18nManager RTL: flex-start = ימין (נועם), flex-end = שמאל (אני)
   rowBot: { alignItems: 'flex-start' },
   rowMe: { alignItems: 'flex-end' },
   bubble: {
@@ -824,8 +833,8 @@ const styles = StyleSheet.create({
     ...shadow.soft,
   },
   msg: { ...type.chat },
-  msgBot: { color: '#F8FAFC' },
-  msgMe: { ...type.chatMe, color: colors.ink },
+  msgBot: { color: '#F8FAFC', writingDirection: 'rtl', textAlign: 'left' },
+  msgMe: { ...type.chatMe, color: colors.ink, writingDirection: 'rtl', textAlign: 'left' },
   typingRow: { alignSelf: 'flex-start' },
   typingBubble: {
     flexDirection: 'row',
@@ -881,12 +890,14 @@ const styles = StyleSheet.create({
   },
   composer: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
     paddingHorizontal: spacing.lg,
     paddingVertical: 12,
     borderTopWidth: StyleSheet.hairlineWidth,
     borderTopColor: 'rgba(255,255,255,0.12)',
     backgroundColor: 'rgba(10,14,28,0.55)',
+    width: '100%',
   },
   input: {
     flex: 1,
@@ -900,7 +911,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.glassGoldBorder,
     writingDirection: 'rtl',
-    textAlign: 'left',
+    textAlign: heInputAlign,
   },
   send: {
     backgroundColor: 'rgba(139, 155, 255, 0.82)',

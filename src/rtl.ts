@@ -1,17 +1,17 @@
-import { FlexStyle, TextStyle, ViewStyle } from 'react-native';
+import { FlexStyle, Platform, TextStyle, ViewStyle } from 'react-native';
 
 /**
- * RTL אחיד ב־Web ובנייד.
+ * RTL אחיד ב־Native וב־Web — בלי היפוך כפול.
  *
- * מודל: I18nManager.isRTL = true בכל הפלטפורמות.
- * - textAlign:'left'  = start (ימין בעברית)
- * - textAlign:'right' = end   (שמאל בעברית) — לא להשתמש ליישור עברית
- * - flex-start / flex-end מתהפכים אוטומטית
+ * Native: I18nManager.isRTL=true → textAlign:'left' = start (ימין),
+ *         flex-start מימין. DIR מוסיף direction לקונטיינרים.
  *
- * Web: גם document.dir + dir="rtl" על השורש (App.tsx).
- * Native: expo-localization forcesRTL + forceRTL + reload אם צריך.
+ * Web: I18nManager.forceRTL כבר הופך left/start ו־flex.
+ *      אסור גם לשים style.direction:'rtl' / body.direction — זה היפוך כפול
+ *      (מסכים נראים LTR). נשענים על I18nManager + document.documentElement.dir.
  */
-export const DIR: ViewStyle = { direction: 'rtl' };
+export const DIR: ViewStyle =
+  Platform.OS === 'web' ? {} : { direction: 'rtl' };
 
 /**
  * שורות אופקיות: עם RTL מספיק 'row' (start מימין).
@@ -30,5 +30,5 @@ export const rtlText: TextStyle = {
 
 export const rtlRow: FlexStyle = {
   flexDirection: rowDir,
-  direction: 'rtl',
+  ...(Platform.OS === 'web' ? {} : { direction: 'rtl' as const }),
 };

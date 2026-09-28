@@ -181,7 +181,7 @@ export default function HomeScreen() {
   return (
     <Screen sheet hero={hero} scroll>
       <Banner
-        text="הנתונים נשמרים במכשיר בלבד — לא נשלחים לשרת"
+        text="הפנקס נשמר במכשיר. שיחה עם נועם שולחת לשרת שם וסיכום תנועות לעיבוד AI"
         tone="ok"
       />
       <NoamNudge text={companionLine} />

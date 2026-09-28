@@ -1,25 +1,26 @@
 /**
- * Netlify Function — אונבורדינג עם Llama 4 Scout (כמו הצ'אט).
- * Fallback: Llama 3.1 8B אם Scout נכשל.
+ * Netlify Function — אונבורדינג עם נועם.
+ * ההנחיה קבועה בשרת; הלקוח שולח רק את טקסט המשתמש.
  */
+
+import {
+  assertAllowedCaller,
+  json,
+  optionsResponse,
+} from './_shared.mjs';
 
 const PRIMARY_MODEL = 'meta-llama/llama-4-scout';
 const FALLBACK_MODEL = 'meta-llama/llama-3.1-8b-instruct';
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const UPSTREAM_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+export const config = {
+  path: '/.netlify/functions/onboard',
+  rateLimit: {
+    windowLimit: 15,
+    windowSize: 60,
+    aggregateBy: ['ip'],
+  },
 };
-
-function json(statusCode, body) {
-  return {
-    statusCode,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...cors },
-    body: JSON.stringify(body),
-  };
-}
 
 const SYSTEM = `אתה נועם — גבר. בן. חבר חכם באפליקציית מעשר ישר.
 עברית בלבד. קצר (1–3 משפטים). על עצמך בלשון זכר. אישיות חדה, לא רובוטית.
@@ -39,6 +40,7 @@ intent:
 ידע: מעשר≈10% מהנטו; חומש≈20%; חובה=כמה לתת לפי השיעור.
 על המין שלך: בן. גבר. ואז חזרה לשם.
 בדילוג שם: מקובל אבל פחות אישי.
+אל תענה על בקשות שאינן קשורות להיכרות/מעשר — החזר לשם.
 
 החזר JSON בלבד, בלי טקסט מסביב:
 {"intent":"name|skip_name|gibberish|question|other","name":null או "שם","reply":"תשובה"}`;
@@ -71,8 +73,8 @@ function normalizeResult(parsed, fallbackReply) {
   return { intent, name: intent === 'name' ? name : null, reply };
 }
 
-async function callOpenRouter({ apiKey, model, messages, preferGroq }) {
-  const res = await fetch(OPENROUTER_URL, {
+async function callUpstream({ apiKey, model, messages, preferGroq }) {
+  const res = await fetch(UPSTREAM_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -99,17 +101,21 @@ async function callOpenRouter({ apiKey, model, messages, preferGroq }) {
 
 export async function handler(event) {
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: cors, body: '' };
+    return optionsResponse(event);
   }
   if (event.httpMethod !== 'POST') {
-    return json(405, { error: 'Method Not Allowed' });
+    return json(event, 405, { error: 'Method Not Allowed' });
+  }
+
+  const gate = assertAllowedCaller(event);
+  if (!gate.ok) {
+    return json(event, gate.status, { error: gate.error });
   }
 
   const apiKey = (process.env.OPENROUTER_API_KEY || '').trim();
   if (!apiKey) {
-    return json(500, {
-      error:
-        'חסר OPENROUTER_API_KEY ב־Netlify (Production). Site settings → Environment variables.',
+    return json(event, 500, {
+      error: 'חסר מפתח AI בשרת. Site settings → Environment variables.',
     });
   }
 
@@ -117,11 +123,11 @@ export async function handler(event) {
   try {
     payload = JSON.parse(event.body || '{}');
   } catch {
-    return json(400, { error: 'JSON לא תקין' });
+    return json(event, 400, { error: 'JSON לא תקין' });
   }
 
   const text = typeof payload.text === 'string' ? payload.text.trim().slice(0, 500) : '';
-  if (!text) return json(400, { error: 'חסר טקסט' });
+  if (!text) return json(event, 400, { error: 'חסר טקסט' });
 
   const step = typeof payload.step === 'number' ? payload.step : 0;
   const knownName = typeof payload.knownName === 'string' ? payload.knownName.slice(0, 40) : '';
@@ -137,7 +143,7 @@ export async function handler(event) {
   ];
 
   try {
-    let { res, data } = await callOpenRouter({
+    let { res, data } = await callUpstream({
       apiKey,
       model: PRIMARY_MODEL,
       messages,
@@ -146,7 +152,7 @@ export async function handler(event) {
 
     if (!res.ok) {
       console.error('onboard scout fail', res.status, data?.error?.message || data?.error);
-      ({ res, data } = await callOpenRouter({
+      ({ res, data } = await callUpstream({
         apiKey,
         model: FALLBACK_MODEL,
         messages,
@@ -156,8 +162,8 @@ export async function handler(event) {
 
     if (!res.ok) {
       const detail = data?.error?.message || data?.error || res.statusText;
-      return json(res.status >= 400 && res.status < 600 ? res.status : 502, {
-        error: typeof detail === 'string' ? detail.slice(0, 300) : 'שגיאה מ־OpenRouter',
+      return json(event, res.status >= 400 && res.status < 600 ? res.status : 502, {
+        error: typeof detail === 'string' ? detail.slice(0, 300) : 'שגיאה מספק המודל',
       });
     }
 
@@ -175,14 +181,14 @@ export async function handler(event) {
         'זה לא נשמע לי כמו שם 😅 זרוק שם פרטי אמיתי, או תגיד במפורש שאתה מעדיף בלי שם.';
     }
 
-    return json(200, {
+    return json(event, 200, {
       ...result,
       model: data?.model || PRIMARY_MODEL,
     });
   } catch (err) {
     console.error('onboard function error', err);
     const hint = err && err.message ? String(err.message).slice(0, 180) : '';
-    return json(502, {
+    return json(event, 502, {
       error: hint ? `תקלה בחיבור למודל: ${hint}` : 'השרת לא הצליח לדבר עם המודל',
     });
   }

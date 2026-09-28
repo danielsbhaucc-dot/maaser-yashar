@@ -123,7 +123,7 @@ export default function TaxScreen() {
     <Screen sheet hero={hero} scroll contentStyle={{ paddingTop: spacing.lg }}>
       <Banner
         light
-        text="הסכומים נשמרים במכשיר בלבד — לא נשלחים לשרת"
+        text="מחשבון המס נשמר במכשיר. שיחה עם נועם שולחת לשרת סיכום לעיבוד AI"
         tone="ok"
       />
       <NoamNudge

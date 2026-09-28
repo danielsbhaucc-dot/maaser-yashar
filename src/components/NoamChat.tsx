@@ -26,7 +26,7 @@ import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR } from '../rtl';
 import {
   QUICK_STARTS,
-  buildNoamSystem,
+  buildNoamContext,
   kindLabel,
   loadThreads,
   msgId,
@@ -296,10 +296,10 @@ export default function NoamChat() {
         role: m.role,
         content: m.content,
       }));
-      const system = buildNoamSystem({ profile, ledger, period: currentPeriod() });
+      const context = buildNoamContext({ profile, ledger, period: currentPeriod() });
       const { reply, actions } = await sendToNoam({
         messages: apiMsgs,
-        system,
+        context,
       });
 
       const botMsg: ChatMessage = {
@@ -766,7 +766,8 @@ function ChatPane({
       ) : null}
 
       <Text style={styles.privacy}>
-        ⚠ לפני שליחה: בלי פרטים מזהים. העיבוד דרך ספקי AI בינלאומיים (OpenRouter).
+        ⚠ השיחה עם נועם שולחת לשרת את ההודעות, השם, וסיכום סכומים/קטגוריות של עד 12 תנועות —
+        לעיבוד AI. אל תכתוב פרטים מזהים מיותרים (כתובת, ת״ז, חשבון בנק).
       </Text>
 
       <View style={styles.inputRow}>

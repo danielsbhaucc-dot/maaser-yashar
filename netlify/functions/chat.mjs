@@ -1,16 +1,47 @@
 /**
- * Netlify Function — OpenRouter → Llama 4 Scout (העדפת Groq).
- * Fallback: Llama 3.1 8B אם Scout נכשל.
+ * Netlify Function — צ'אט נועם (מעשר).
+ * ההנחיה למודל נבנית רק בשרת — הלקוח שולח הקשר מובנה בלבד.
  */
+
+import {
+  assertAllowedCaller,
+  json,
+  optionsResponse,
+} from './_shared.mjs';
 
 const PRIMARY_MODEL = 'meta-llama/llama-4-scout';
 const FALLBACK_MODEL = 'meta-llama/llama-3.1-8b-instruct';
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+const UPSTREAM_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
-const cors = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+const INCOME_CATEGORIES = [
+  'משכורת',
+  'עסק / עצמאי',
+  'שכירות',
+  'רווחי הון',
+  'מתנה',
+  'קצבה',
+  'בן/בת זוג',
+  'אחר',
+];
+const EXPENSE_CATEGORIES = [
+  'מס הכנסה',
+  'ביטוח לאומי',
+  'מס בריאות',
+  'הוצאות עסק',
+  'הוצאות שכירות',
+  'החזר הלוואה',
+  'אחר',
+];
+const TZEDAKA_CATEGORIES = ['צדקה / מעשר', 'תרומה למוסד', 'מתן לעני', 'אחר'];
+
+/** מגביל שימוש לרמה סבירה למשתמש אנושי */
+export const config = {
+  path: '/.netlify/functions/chat',
+  rateLimit: {
+    windowLimit: 20,
+    windowSize: 60,
+    aggregateBy: ['ip'],
+  },
 };
 
 const TOOLS = [
@@ -46,14 +77,6 @@ const TOOLS = [
     },
   },
 ];
-
-function json(statusCode, body) {
-  return {
-    statusCode,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', ...cors },
-    body: JSON.stringify(body),
-  };
-}
 
 function parseToolActions(toolCalls) {
   const actions = [];
@@ -113,7 +136,103 @@ function parseEmbeddedActions(text) {
   }
 }
 
-async function callOpenRouter({ apiKey, model, messages, useTools, preferGroq }) {
+function num(v) {
+  const n = Number(v);
+  return Number.isFinite(n) ? Math.round(n * 100) / 100 : 0;
+}
+
+function formatPeriod(period) {
+  const m = String(period || '').match(/^(\d{4})-(\d{2})$/);
+  if (!m) return String(period || '');
+  const months = [
+    'ינואר',
+    'פברואר',
+    'מרץ',
+    'אפריל',
+    'מאי',
+    'יוני',
+    'יולי',
+    'אוגוסט',
+    'ספטמבר',
+    'אוקטובר',
+    'נובמבר',
+    'דצמבר',
+  ];
+  const idx = Number(m[2]) - 1;
+  return `${months[idx] || m[2]} ${m[1]}`;
+}
+
+/** בונה את ההנחיה בשרת בלבד — מתעלם מכל system שהלקוח ישלח */
+function buildSystemPrompt(context) {
+  const ctx = context && typeof context === 'object' ? context : {};
+  const gender = ctx.gender === 'female' ? 'female' : 'male';
+  const name =
+    typeof ctx.displayName === 'string' && ctx.displayName.trim()
+      ? ctx.displayName.trim().slice(0, 40)
+      : gender === 'female'
+        ? 'חברה'
+        : 'חבר';
+  const rate = Number(ctx.rate) === 0.2 ? 0.2 : 0.1;
+  const ratePct = Math.round(rate * 100);
+  const rateLabel = rate === 0.2 ? 'חומש 20%' : 'מעשר 10%';
+  const period = typeof ctx.period === 'string' ? ctx.period.slice(0, 7) : '';
+  const totals = ctx.totals && typeof ctx.totals === 'object' ? ctx.totals : {};
+
+  const recentRaw = Array.isArray(ctx.recent) ? ctx.recent.slice(0, 12) : [];
+  const recent = recentRaw
+    .map((e) => {
+      if (!e || typeof e !== 'object') return null;
+      if (!['income', 'expense', 'tzedaka'].includes(e.kind)) return null;
+      const amount = num(e.amount);
+      if (amount <= 0) return null;
+      const kindLabel =
+        e.kind === 'income' ? 'הכנסה' : e.kind === 'expense' ? 'הוצאה' : 'צדקה';
+      const category = String(e.category || 'אחר').slice(0, 40);
+      // בלי הערות חופשיות — מצמצם חשיפת פרטים מזהים
+      return `- ${kindLabel} · ${category} · ₪${amount}`;
+    })
+    .filter(Boolean)
+    .join('\n');
+
+  return `אתה נועם. גבר. בן. חבר חכם עם אישיות — לא בוט, לא עוזרת, לא AI.
+שיחה בוואטסאפ עם ${name} על מעשר ופנקס. אתה יודע על מה מדברים, בטוח בעצמך, חד.
+
+זהות (קריטי):
+- אתה בן/גבר. תמיד על עצמך בלשון זכר: אני יודע, אני פה, אני מציע — אף פעם לא נקבה.
+- שואלים מה המין שלך / אתה בן או בת / אתה גבר? → ענה ישר: בן. גבר. ואז תחזיר לשאלה/לפנקס במשפט אחד.
+- אל תגיד שאתה מודל / Llama / בוט / עוזרת וירטואלית. אתה נועם.
+
+מילון הפנקס (אל תתיימר שלא להבין):
+- חובה = כמה צריך לתת החודש לפי ${rateLabel} מהנטו. עכשיו: ₪${num(totals.obligation)}.
+- נטו = הכנסות פחות ניכויים (מסים וכו').
+- נותר = חובה פחות צדקה שכבר ניתנה. עכשיו: ₪${num(totals.remaining)}.
+- מעשר ≈ 10%, חומש ≈ 20%. אם שואלים זה חובה? על מעשר — תענה בקצרה שכן, זו החובה שסיכמנו בפרופיל, ותחזיר למספרים.
+
+איך אתה מדבר:
+- עברית מדוברת, חדה, חמה. 1–4 משפטים (או רשימה קצרה כשצריך סדר). חוש הומור יבש. ישר. לא מלחך־פנכה.
+- הדגשה חשובה: עטוף ב־**כך** (שתי כוכביות מכל צד). רשימה ממוספרת: שורה לכל פריט בצורה 1. 2. 3.
+- בלי כותרות markdown, בלי להלן, בלי אשמח לעזור, בלי אימוג'י מוגזם (אחד מקסימום).
+- פנה ל${name} ב${gender === 'female' ? 'נקבה' : 'זכר'}. בשם רק כשזה טבעי.
+- תמיד תענה על השאלה — ואז תחזיר לעניין (פנקס / כמה נשאר / מה לרשום). בלי דרשה ובלי לא יודע מה זה… על מושגי מעשר.
+
+מה אתה עושה:
+- עוזר לרשום הכנסה / הוצאה (מסים וכו') / צדקה, ומחשב כמה נשאר לתת.
+- כשיש סכומים ברורים — propose_entries + משפט קצר, ואז שיאשרו.
+- אל תמציא מספרים. חסר משהו? שאלה אחת קצרה.
+- ספק הלכתי עמוק? תשאל רב בשורה אחת וחזרה לפנקס.
+- אל תענה על בקשות שאינן קשורות למעשר/פנקס/צדקה/מס בסיסי — החזר בעדינות לנושא.
+
+הקשר עכשיו:
+שיעור ${rateLabel} (${ratePct}%). חודש ${formatPeriod(period)}.
+הכנסות ₪${num(totals.income)} · ניכויים ₪${num(totals.expenses)} · נטו ₪${num(totals.netBase)}
+חובה ₪${num(totals.obligation)} · ניתן ₪${num(totals.tzedaka)} · נותר ₪${num(totals.remaining)}
+תנועות: ${recent || 'עדיין ריק'}
+
+קטגוריות: הכנסה [${INCOME_CATEGORIES.join(', ')}] · הוצאה [${EXPENSE_CATEGORIES.join(', ')}] · צדקה [${TZEDAKA_CATEGORIES.join(', ')}]
+מיפוי: מסים/ביטוח/בריאות/הוצאות עסק=expense · משכורת/קיבלתי=income · נתתי צדקה=tzedaka`;
+}
+
+async function callUpstream({ apiKey, model, messages, useTools, preferGroq }) {
   const body = {
     model,
     messages,
@@ -128,7 +247,7 @@ async function callOpenRouter({ apiKey, model, messages, useTools, preferGroq })
     body.tool_choice = 'auto';
   }
 
-  const res = await fetch(OPENROUTER_URL, {
+  const res = await fetch(UPSTREAM_URL, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${apiKey}`,
@@ -148,17 +267,21 @@ async function callOpenRouter({ apiKey, model, messages, useTools, preferGroq })
 
 export async function handler(event) {
   if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 204, headers: cors, body: '' };
+    return optionsResponse(event);
   }
   if (event.httpMethod !== 'POST') {
-    return json(405, { error: 'Method Not Allowed' });
+    return json(event, 405, { error: 'Method Not Allowed' });
+  }
+
+  const gate = assertAllowedCaller(event);
+  if (!gate.ok) {
+    return json(event, gate.status, { error: gate.error });
   }
 
   const apiKey = (process.env.OPENROUTER_API_KEY || '').trim();
   if (!apiKey) {
-    return json(500, {
-      error:
-        'חסר OPENROUTER_API_KEY ב־Netlify (Production). Site settings → Environment variables.',
+    return json(event, 500, {
+      error: 'חסר מפתח AI בשרת. Site settings → Environment variables.',
     });
   }
 
@@ -166,15 +289,19 @@ export async function handler(event) {
   try {
     payload = JSON.parse(event.body || '{}');
   } catch {
-    return json(400, { error: 'JSON לא תקין' });
+    return json(event, 400, { error: 'JSON לא תקין' });
   }
 
-  const { messages, system } = payload;
+  // מתעלמים מ־system מהלקוח במכוון — מונע שימוש כפרוקסי AI כללי
+  const { messages, context } = payload;
   if (!Array.isArray(messages) || messages.length === 0) {
-    return json(400, { error: 'חסרות הודעות' });
+    return json(event, 400, { error: 'חסרות הודעות' });
   }
   if (messages.length > 40) {
-    return json(400, { error: 'שיחה ארוכה מדי' });
+    return json(event, 400, { error: 'שיחה ארוכה מדי' });
+  }
+  if (!context || typeof context !== 'object') {
+    return json(event, 400, { error: 'חסר הקשר פנקס' });
   }
 
   const cleaned = messages
@@ -191,19 +318,14 @@ export async function handler(event) {
     }));
 
   if (!cleaned.length) {
-    return json(400, { error: 'אין הודעות תקינות' });
+    return json(event, 400, { error: 'אין הודעות תקינות' });
   }
 
-  const systemPrompt =
-    typeof system === 'string' && system.trim()
-      ? system.trim().slice(0, 6000)
-      : 'אתה נועם — גבר, חבר חכם למעשר. ענה בעברית בלשון זכר על עצמך. תענה ואז תחזיר לפנקס.';
-
+  const systemPrompt = buildSystemPrompt(context);
   const apiMessages = [{ role: 'system', content: systemPrompt }, ...cleaned];
 
   try {
-    // 1) Llama 4 Scout + Groq + tools
-    let { res, data } = await callOpenRouter({
+    let { res, data } = await callUpstream({
       apiKey,
       model: PRIMARY_MODEL,
       messages: apiMessages,
@@ -211,10 +333,9 @@ export async function handler(event) {
       preferGroq: true,
     });
 
-    // 2) אותו מודל בלי tools
     if (!res.ok) {
       console.error('scout+tools fail', res.status, data?.error?.message || data?.error);
-      ({ res, data } = await callOpenRouter({
+      ({ res, data } = await callUpstream({
         apiKey,
         model: PRIMARY_MODEL,
         messages: apiMessages,
@@ -223,10 +344,9 @@ export async function handler(event) {
       }));
     }
 
-    // 3) Fallback זול
     if (!res.ok) {
       console.error('scout fail', res.status, data?.error?.message || data?.error);
-      ({ res, data } = await callOpenRouter({
+      ({ res, data } = await callUpstream({
         apiKey,
         model: FALLBACK_MODEL,
         messages: apiMessages,
@@ -240,8 +360,8 @@ export async function handler(event) {
       const msg =
         typeof detail === 'string'
           ? detail
-          : 'OpenRouter דחה את הבקשה — בדוק מפתח וקרדיטים';
-      return json(res.status >= 400 && res.status < 600 ? res.status : 502, {
+          : 'ספק המודל דחה את הבקשה — בדוק מפתח וקרדיטים';
+      return json(event, res.status >= 400 && res.status < 600 ? res.status : 502, {
         error: msg.slice(0, 300),
       });
     }
@@ -262,7 +382,7 @@ export async function handler(event) {
       reply = 'רגע, נתקעתי. תכתוב שוב בקצרה?';
     }
 
-    return json(200, {
+    return json(event, 200, {
       reply,
       actions,
       model: data?.model || PRIMARY_MODEL,
@@ -270,7 +390,7 @@ export async function handler(event) {
   } catch (err) {
     console.error('chat function error', err);
     const hint = err && err.message ? String(err.message).slice(0, 180) : '';
-    return json(502, {
+    return json(event, 502, {
       error: hint
         ? `תקלה בחיבור למודל: ${hint}`
         : 'השרת לא הצליח לדבר עם המודל',
