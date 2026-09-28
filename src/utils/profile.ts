@@ -15,6 +15,13 @@ export interface UserProfile {
   hasBusiness: boolean;
   /** ISO — לתצוגת ימי מסע */
   joinedAt?: string;
+  /**
+   * האם לשלוח סיכום סכומי החודש עם הודעות הצ'אט.
+   * false = רק ההודעה, בלי context.
+   */
+  chatShareTotals: boolean;
+  /** האם המשתמש כבר אישר את מסך הסכמת הצ'אט */
+  chatConsentDone: boolean;
 }
 
 export const defaultProfile = (): UserProfile => ({
@@ -27,6 +34,8 @@ export const defaultProfile = (): UserProfile => ({
   hasSalary: true,
   hasBusiness: false,
   joinedAt: undefined,
+  chatShareTotals: true,
+  chatConsentDone: false,
 });
 
 export async function loadProfile(): Promise<UserProfile> {

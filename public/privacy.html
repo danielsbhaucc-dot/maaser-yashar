@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0B1020" />
+  <meta
+    name="description"
+    content="מדיניות פרטיות של מעשר ישר — איך נשמר הפנקס במכשיר, מה נשלח כשמדברים עם נועם, ואיך מוחקים הכל."
+  />
+  <title>פרטיות · מעשר ישר</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Assistant:wght@600;700;800&family=Heebo:wght@400;500;600;700;800&display=swap"
+    rel="stylesheet"
+  />
+  <style>
+    :root {
+      --bg: #0b1020;
+      --bg-mid: #1b1648;
+      --bg-end: #2c1a52;
+      --ink: rgba(255, 255, 255, 0.96);
+      --ink-soft: rgba(255, 255, 255, 0.64);
+      --ink-muted: rgba(255, 255, 255, 0.82);
+      --gold: #ffd88a;
+      --gold-deep: #f0c674;
+      --primary: #8b9bff;
+      --accent: #c4b5fd;
+      --success: #7ec8e3;
+      --danger: #f0a8b8;
+      --glass: rgba(255, 255, 255, 0.05);
+      --glass-border: rgba(255, 255, 255, 0.14);
+      --max: 42rem;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Heebo, Assistant, Arial, sans-serif;
+      line-height: 1.7;
+      overflow-x: hidden;
+    }
+
+    .sky {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background: linear-gradient(165deg, var(--bg) 0%, var(--bg-mid) 52%, var(--bg-end) 100%);
+      pointer-events: none;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(48px);
+      opacity: 0.45;
+      animation: drift 18s var(--ease) infinite alternate;
+    }
+    .orb-a {
+      width: min(52vw, 420px);
+      height: min(52vw, 420px);
+      background: #7c6bf0;
+      top: -8%;
+      right: -10%;
+    }
+    .orb-b {
+      width: min(40vw, 320px);
+      height: min(40vw, 320px);
+      background: #4f86d8;
+      bottom: 12%;
+      left: -8%;
+      animation-delay: -6s;
+    }
+    .orb-c {
+      width: min(28vw, 220px);
+      height: min(28vw, 220px);
+      background: #d4a84b;
+      top: 42%;
+      left: 38%;
+      opacity: 0.22;
+      animation-delay: -11s;
+    }
+    @keyframes drift {
+      from { transform: translate3d(0, 0, 0) scale(1); }
+      to { transform: translate3d(18px, -24px, 0) scale(1.06); }
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      width: min(100%, calc(var(--max) + 3rem));
+      margin: 0 auto;
+      padding: 1.25rem 1.25rem 4.5rem;
+    }
+
+    .topnav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-bottom: 2.5rem;
+      animation: rise 0.7s var(--ease) both;
+    }
+    .brand-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid rgba(232, 192, 122, 0.35);
+      background: rgba(255, 216, 138, 0.08);
+      color: var(--gold);
+      font-family: Assistant, Heebo, sans-serif;
+      font-weight: 700;
+      font-size: 0.92rem;
+      text-decoration: none;
+      letter-spacing: -0.02em;
+    }
+    .brand-pill span { opacity: 0.7; font-weight: 600; }
+    .back {
+      color: var(--primary);
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 0.92rem;
+    }
+    .back:hover { color: var(--gold); }
+
+    .hero {
+      text-align: center;
+      padding: 1rem 0 2.75rem;
+      animation: rise 0.85s var(--ease) 0.08s both;
+    }
+    .hero-mark {
+      width: 4.25rem;
+      height: 4.25rem;
+      margin: 0 auto 1.1rem;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: linear-gradient(135deg, #8b9bff, #a78bfa);
+      box-shadow: 0 0 0 8px rgba(139, 155, 255, 0.12), 0 18px 40px rgba(102, 119, 240, 0.35);
+      font-family: Assistant, sans-serif;
+      font-weight: 800;
+      font-size: 1.65rem;
+      color: #0b1024;
+      animation: pulse 3.6s var(--ease) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 8px rgba(139, 155, 255, 0.12), 0 18px 40px rgba(102, 119, 240, 0.35); }
+      50% { box-shadow: 0 0 0 14px rgba(139, 155, 255, 0.08), 0 22px 48px rgba(102, 119, 240, 0.42); }
+    }
+    .hero h1 {
+      margin: 0;
+      font-family: Assistant, Heebo, sans-serif;
+      font-weight: 800;
+      font-size: clamp(2.1rem, 7vw, 3.1rem);
+      letter-spacing: -0.035em;
+      line-height: 1.15;
+    }
+    .hero .lede {
+      margin: 1rem auto 0;
+      max-width: 34rem;
+      color: var(--ink-soft);
+      font-size: 1.05rem;
+      font-weight: 500;
+    }
+    .meta {
+      margin-top: 1.25rem;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .chip {
+      padding: 0.35rem 0.75rem;
+      border-radius: 999px;
+      border: 1px solid var(--glass-border);
+      background: var(--glass);
+      color: var(--ink-muted);
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .chip strong { color: var(--gold); font-weight: 700; }
+
+    .toc {
+      margin: 0 0 2.5rem;
+      padding: 1.1rem 1.2rem;
+      border-radius: 1.25rem;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.04);
+      backdrop-filter: blur(12px);
+      animation: rise 0.9s var(--ease) 0.14s both;
+    }
+    .toc h2 {
+      margin: 0 0 0.75rem;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.04em;
+    }
+    .toc ol {
+      margin: 0;
+      padding: 0 1.1rem 0 0;
+      display: grid;
+      gap: 0.35rem;
+    }
+    .toc a {
+      color: var(--ink-muted);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.95rem;
+    }
+    .toc a:hover { color: var(--primary); }
+
+    section {
+      margin-bottom: 2.35rem;
+      padding-bottom: 2.15rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      animation: rise 0.8s var(--ease) both;
+    }
+    section:last-of-type { border-bottom: 0; }
+    section h2 {
+      margin: 0 0 0.85rem;
+      font-family: Assistant, Heebo, sans-serif;
+      font-weight: 800;
+      font-size: 1.45rem;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+    }
+    section h3 {
+      margin: 1.35rem 0 0.45rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--gold-deep);
+    }
+    p { margin: 0 0 0.85rem; color: var(--ink-soft); }
+    p:last-child { margin-bottom: 0; }
+    ul, ol {
+      margin: 0.35rem 0 0.85rem;
+      padding: 0 1.2rem 0 0;
+      color: var(--ink-soft);
+    }
+    li { margin-bottom: 0.45rem; }
+    li strong { color: var(--ink-muted); font-weight: 700; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.84em;
+      padding: 0.12em 0.4em;
+      border-radius: 0.4em;
+      background: rgba(139, 155, 255, 0.14);
+      color: var(--accent);
+      direction: ltr;
+      unicode-bidi: embed;
+    }
+
+    .callout {
+      margin: 1rem 0;
+      padding: 1rem 1.1rem;
+      border-radius: 1rem;
+      border: 1px solid rgba(126, 200, 227, 0.35);
+      background: rgba(126, 200, 227, 0.1);
+      color: var(--ink-muted);
+      font-weight: 500;
+    }
+    .callout.warn {
+      border-color: rgba(240, 168, 184, 0.4);
+      background: rgba(240, 168, 184, 0.1);
+    }
+    .callout.gold {
+      border-color: rgba(255, 216, 138, 0.35);
+      background: rgba(255, 216, 138, 0.08);
+    }
+
+    .grid {
+      display: grid;
+      gap: 0.85rem;
+      margin-top: 0.85rem;
+    }
+    @media (min-width: 640px) {
+      .grid.two { grid-template-columns: 1fr 1fr; }
+    }
+    .panel {
+      padding: 1rem 1.05rem;
+      border-radius: 1.1rem;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.035);
+    }
+    .panel h3 {
+      margin: 0 0 0.45rem;
+      font-size: 0.98rem;
+    }
+    .panel p { font-size: 0.94rem; }
+
+    .footer {
+      margin-top: 2rem;
+      text-align: center;
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+      animation: rise 0.8s var(--ease) 0.2s both;
+    }
+    .footer a { color: var(--gold); font-weight: 600; text-decoration: none; }
+    .footer a:hover { text-decoration: underline; }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(16px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation: none !important;
+        transition: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="sky" aria-hidden="true">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+    <div class="orb orb-c"></div>
+  </div>
+
+  <div class="wrap">
+    <nav class="topnav" aria-label="ניווט עליון">
+      <a class="brand-pill" href="/">מעשר ישר <span>· נועם</span></a>
+      <a class="back" href="/">חזרה לאפליקציה ‹</a>
+    </nav>
+
+    <header class="hero">
+      <div class="hero-mark" aria-hidden="true">מ</div>
+      <h1>פרטיות במעשר ישר</h1>
+      <p class="lede">
+        הפנקס שלכם נשאר אצלכם. אנחנו מסבירים כאן בדיוק מה נשמר במכשיר,
+        מה יוצא החוצה רק כשפותחים שיחה עם נועם, ומה אפשר למחוק בכל רגע.
+      </p>
+      <div class="meta">
+        <span class="chip"><strong>עודכן:</strong> ספטמבר 2026</span>
+        <span class="chip"><strong>ללא חשבון</strong> משתמש</span>
+        <span class="chip"><strong>ללא עוגיות</strong> מעקב</span>
+        <span class="chip"><strong>ללא פרסומות</strong></span>
+      </div>
+    </header>
+
+    <nav class="toc" aria-label="תוכן העניינים">
+      <h2>במסמך הזה</h2>
+      <ol>
+        <li><a href="#principles">עקרונות</a></li>
+        <li><a href="#local">מה נשמר במכשיר</a></li>
+        <li><a href="#chat">מה נשלח בצ׳אט עם נועם</a></li>
+        <li><a href="#onboarding">היכרות — בלי רשת</a></li>
+        <li><a href="#third-parties">ספקים חיצוניים</a></li>
+        <li><a href="#not-collecting">מה אנחנו לא אוספים</a></li>
+        <li><a href="#delete">מחיקה ושליטה שלכם</a></li>
+        <li><a href="#limits">מגבלות אחסון מקומי</a></li>
+        <li><a href="#security">אבטחה בסיסית</a></li>
+        <li><a href="#minors">קטינים</a></li>
+        <li><a href="#changes">שינויים במדיניות</a></li>
+        <li><a href="#contact">יצירת קשר</a></li>
+      </ol>
+    </nav>
+
+    <main>
+      <section id="principles">
+        <h2>1. עקרונות</h2>
+        <p>
+          מעשר ישר היא אפליקציית פנקס מעשר וצדקה. המטרה שלנו היא לעזור לכם
+          לעקוב אחרי חובה, נטו ונותר — בלי לבנות עליכם פרופיל שיווקי ובלי
+          לסנכרן את הפנקס לענן שלנו.
+        </p>
+        <div class="grid two">
+          <div class="panel">
+            <h3>ברירת מחדל מקומית</h3>
+            <p>תנועות, פרופיל, היסטוריה והגדרות נשמרים באחסון המכשיר/הדפדפן שלכם בלבד.</p>
+          </div>
+          <div class="panel">
+            <h3>שקיפות כשיש שליחה</h3>
+            <p>רק שיחה עם נועם שולחת נתונים לעיבוד חיצוני — ואנחנו מפרטים מה בדיוק יוצא.</p>
+          </div>
+        </div>
+        <p class="callout gold" style="margin-top:1rem">
+          נועם הוא עוזר AI. הוא יכול לטעות ואינו פוסק הלכה ואינו ייעוץ מס.
+        </p>
+      </section>
+
+      <section id="local">
+        <h2>2. מה נשמר במכשיר</h2>
+        <p>
+          הנתונים הבאים נשמרים מקומית (למשל ב־AsyncStorage / אחסון הדפדפן).
+          הם לא מסונכרנים לשרת הפנקס של מעשר ישר, ואין חשבון משתמש שמחזיק אותם בענן.
+        </p>
+        <ul>
+          <li><strong>פרופיל</strong> — שם לתצוגה, מגדר, מצב משפחתי, שיעור מעשר/חומש, תאריך הצטרפות (<code>maaser_profile_v2</code>).</li>
+          <li><strong>פנקס תנועות</strong> — הכנסות, ניכויים וצדקה עם סכומים, קטגוריות והערות (<code>maaser_ledger_v1</code>).</li>
+          <li><strong>הוראות קבע</strong> — תנועות חוזרות לפי יום בחודש (<code>maaser_recurring_v1</code>).</li>
+          <li><strong>ארכיון חודשים</strong> — סיכומים ששמרתם בהיסטוריה (<code>maaser_history_v1</code>).</li>
+          <li><strong>שיחות עם נועם</strong> — היסטוריית צ׳אט במכשיר (<code>noam_chat_threads_v1</code>).</li>
+          <li><strong>נגישות</strong> — הגדלת טקסט, הפחתת תנועה ועוד (<code>@maaser/a11y-v2</code>, ולעיתים מפתח ישן <code>@maaser/a11y-v1</code>).</li>
+        </ul>
+        <p>
+          ייצוא CSV (אם תבחרו) נוצר אצלכם במכשיר לצורך שיתוף/הורדה — בלי שליחה אוטומטית לשרת.
+        </p>
+      </section>
+
+      <section id="chat">
+        <h2>3. מה נשלח בצ׳אט עם נועם</h2>
+        <p>
+          כל עוד לא פותחים את הצ׳אט — הפנקס נשאר מקומי. כששולחים הודעה לנועם,
+          האפליקציה קוראת לשרת של האתר (Netlify Function בנתיב <code>/api/chat</code>),
+          והשרת בונה את הנחיות המודל בעצמו (לא מקבל system prompt מהלקוח).
+        </p>
+        <h3>מה נכלל בבקשה</h3>
+        <ul>
+          <li>תוכן ההודעות בשיחה (משתמש/עוזר), עם הגבלת אורך ומספר הודעות.</li>
+          <li>אופציונלי (ברירת מחדל אחרי הסכמה): סיכום חמישה סכומים לחודש — הכנסות, ניכויים, חובה, צדקה שניתנה, נותר — ושיעור המעשר.</li>
+          <li><strong>לא נשלחים:</strong> שם לתצוגה, הערות חופשיות, או רשימת תנועות בודדות.</li>
+        </ul>
+        <div class="callout warn">
+          אפשר לבחור בהגדרות או במסך ההסכמה הראשון: «גם סיכום חודש» או «רק ההודעה».
+          גם אז — אל תכתבו בצ׳אט ת״ז, חשבון בנק או סיסמאות.
+        </div>
+        <h3>מה קורה בשרת</h3>
+        <p>
+          השרת בודק Origin מורשה, מגביל קצב בקשות, ומעביר את ההודעות לעיבוד דרך
+          OpenRouter לספק מודל שפה. לפי תכנון המערכת — <strong>לא נשמר עותק קבוע של הפנקס או השיחה בשרת שלנו</strong>
+          מעבר למה שנדרש לטיפול בבקשה בזמן אמת (לוגים תפעוליים קצרים אפשריים בתשתית האחסון).
+        </p>
+      </section>
+
+      <section id="onboarding">
+        <h2>4. היכרות — בלי רשת</h2>
+        <p>
+          שלב ההיכרות הראשונית (שם, מגדר, מצב משפחתי, שיעור) מטופל <strong>מקומית באפליקציה</strong>,
+          בלי קריאה לשרת AI. פונקציית האונבורדינג הישנה בשרת אינה בשימוש פעיל ומחזירה סטטוס שהשירות הוסר.
+        </p>
+      </section>
+
+      <section id="third-parties">
+        <h2>5. ספקים חיצוניים</h2>
+        <ul>
+          <li><strong>Netlify</strong> — אחסון האתר והפונקציות (<code>/api/chat</code>). מקבל את בקשות הצ׳אט.</li>
+          <li><strong>OpenRouter</strong> — שער לספקי מודלי שפה. מקבל את תוכן השיחה והקשר המספרי שתואר למעלה.</li>
+          <li><strong>ספק המודל</strong> (למשל מודלים דרך OpenRouter) — מעבד את הבקשה ומחזיר תשובה.</li>
+        </ul>
+        <p>
+          לכל ספק מדיניות פרטיות משלו. השימוש בצ׳אט מהווה הסכמה לשליחת המידע הדרוש לעיבוד התשובה.
+        </p>
+      </section>
+
+      <section id="not-collecting">
+        <h2>6. מה אנחנו לא אוספים</h2>
+        <ul>
+          <li>אין הרשמה / סיסמה / חשבון משתמש מרכזי לפנקס.</li>
+          <li>אין רשת פרסום, אין פיקסלים שיווקיים, ואין מעקב בין־אתרי שאנחנו מפעילים.</li>
+          <li>אין מכירת נתוני פנקס לצדדים שלישיים.</li>
+          <li>אין דרישה להעלאת מסמכים, תמונות תלוש או קבצי בנק כאמצעי הפעלה בסיסי.</li>
+        </ul>
+        <p>
+          ייתכן שהתשתית (Netlify / הדפדפן) תייצר יומני גישה טכניים שגרתיים
+          (כגון כתובת IP בזמן קריאת API) — זה חלק מתפעול שרת, לא פרופיל מעשר שלכם.
+        </p>
+      </section>
+
+      <section id="delete">
+        <h2>7. מחיקה ושליטה שלכם</h2>
+        <p>אתם יכולים למחוק את כל נתוני האפליקציה מהמכשיר בכל רגע:</p>
+        <ul>
+          <li><strong>בהגדרות באפליקציה</strong> — כפתור «מחק את כל הנתונים» (עם אישור מראש).</li>
+          <li><strong>באמצעות הדפדפן/המערכת</strong> — ניקוי נתוני אתר / אחסון האפליקציה.</li>
+        </ul>
+        <p>
+          אחרי מחיקה מלאה האפליקציה מתנהגת כמו ביקור ראשון: בלי פנקס, בלי שיחות שמורות, ובלי פרופיל.
+        </p>
+        <p class="callout">
+          מחיקה מקומית לא מוחקת בדיעבד עותקים שכבר נשלחו לעיבוד בצ׳אט בזמן אמת אצל ספקים חיצוניים,
+          אם כאלה נוצרו אצלם לפי המדיניות שלהם. לכן כדאי להימנע מלכתחילה ממידע רגיש בצ׳אט.
+        </p>
+      </section>
+
+      <section id="limits">
+        <h2>8. מגבלות אחסון מקומי</h2>
+        <p>
+          אחסון בדפדפן או במכשיר עלול להימחק על ידי המערכת — למשל במצב גלישה פרטית,
+          ניקוי מטמון אגרסיבי, או מגבלות אחסון במכשירי iOS/Safari.
+          אם הפנקס חשוב לכם לטווח ארוך, מומלץ לייצא CSV מדי פעם או לשמור גיבוי חיצוני שלכם.
+        </p>
+      </section>
+
+      <section id="security">
+        <h2>9. אבטחה בסיסית</h2>
+        <ul>
+          <li>הצ׳אט מוגבל במקור (Origin), בקצב בקשות, ובגודל הודעות.</li>
+          <li>הנחיות המודל נבנות בשרת — לא ניתן להזריק system prompt מהלקוח.</li>
+          <li>מפתחות API נשמרים כמשתני סביבה בשרת, לא בקוד הלקוח.</li>
+        </ul>
+        <p>
+          אין מערכת מושלמת. שמרו על המכשיר עצמו (נעילת מסך, עדכונים),
+          ואל תשתפו מכשיר פתוח עם גישה לפנקס שלכם.
+        </p>
+      </section>
+
+      <section id="minors">
+        <h2>10. קטינים</h2>
+        <p>
+          האפליקציה מיועדת לשימוש עצמאי של בגירים המנהלים מעשר/צדקה.
+          אם אתם אפוטרופוסים — פקחו על שימוש של קטינים, במיוחד בצ׳אט עם נועם.
+        </p>
+      </section>
+
+      <section id="changes">
+        <h2>11. שינויים במדיניות</h2>
+        <p>
+          אם נשנה באופן מהותי מה נשמר או מה נשלח, נעדכן את העמוד הזה ואת תאריך העדכון בראשו.
+          נוסח קצר מופיע גם במסכי האפליקציה (בית, החזר מס, הגדרות) עם קישור לכאן.
+        </p>
+      </section>
+
+      <section id="contact">
+        <h2>12. יצירת קשר</h2>
+        <p>
+          לשאלות על פרטיות ונגישות אפשר לפנות אל
+          <a href="mailto:accessibility@maaser-yashar.app?subject=%D7%A4%D7%A8%D7%98%D7%99%D7%95%D7%AA%20%D7%9E%D7%A2%D7%A9%D7%A8%20%D7%99%D7%A9%D7%A8" style="color:var(--gold);font-weight:700;text-decoration:none">accessibility@maaser-yashar.app</a>.
+        </p>
+        <p>
+          מסמך זה הוא הסבר שקוף על התנהגות האפליקציה — אינו ייעוץ משפטי.
+        </p>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p><a href="/">חזרה למעשר ישר</a> · <a href="#principles">לראש העמוד</a></p>
+      <p style="margin-top:0.65rem;opacity:0.75">מעשר ישר · הפנקס שלכם, אצלכם</p>
+    </footer>
+  </div>
+</body>
+</html>

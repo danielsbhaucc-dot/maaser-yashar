@@ -5,6 +5,7 @@ import {
   StyleSheet,
   TextInput,
   Pressable,
+  Linking,
 } from 'react-native';
 import { Screen } from '../components/Screen';
 import {
@@ -28,6 +29,8 @@ import { SmartInsights } from '../components/SmartInsights';
 import { settingsSmartInsights } from '../utils/smartInsights';
 import { kindLabel } from '../utils/recurring';
 import { exportLedgerCsv } from '../utils/exportCsv';
+import { wipeAllData } from '../utils/wipeData';
+import { PRIVACY_LINK_LABEL, privacyPageUrl } from '../constants/privacy';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import type { MaaserRate } from '../types';
 
@@ -231,6 +234,27 @@ export default function SettingsScreen() {
       <Banner light text={`${BOT_NAME} מחשב מהנטו: הכנסות פחות ניכויי חובה/עסק — לא הוצאות מחיה`} tone="ok" />
 
       <Glass light strong style={styles.panel}>
+        <FieldLabel>שיתוף בצ'אט עם נועם</FieldLabel>
+        <Text style={styles.recurIntro}>
+          תמיד בלי שם, הערות או תנועות בודדות. אפשר לבחור אם לצרף סיכום סכומי החודש.
+        </Text>
+        <SegmentedRow>
+          <Chip
+            fill
+            label="גם סיכום חודש"
+            selected={profile.chatShareTotals !== false}
+            onPress={() => patchProfile({ chatShareTotals: true, chatConsentDone: true })}
+          />
+          <Chip
+            fill
+            label="רק ההודעה"
+            selected={profile.chatShareTotals === false}
+            onPress={() => patchProfile({ chatShareTotals: false, chatConsentDone: true })}
+          />
+        </SegmentedRow>
+      </Glass>
+
+      <Glass light strong style={styles.panel}>
         <FieldLabel>ייצוא לרו״ח</FieldLabel>
         <Text style={styles.recurIntro}>
           הורדת CSV של הפנקס או הארכיון — קובץ מקומי במכשיר, בלי שליחה לשרת.
@@ -311,6 +335,39 @@ export default function SettingsScreen() {
           }}
         />
       </View>
+
+      <Pressable
+        style={styles.privacyLinkWrap}
+        onPress={() => void Linking.openURL(privacyPageUrl())}
+        accessibilityRole="link"
+        accessibilityLabel={PRIVACY_LINK_LABEL}
+      >
+        <Text style={styles.privacyLink}>{PRIVACY_LINK_LABEL} ‹</Text>
+      </Pressable>
+
+      <Pressable
+        style={styles.dangerWrap}
+        onPress={() =>
+          toast.confirm({
+            title: 'למחוק את כל הנתונים?',
+            message:
+              'יימחקו הפנקס, הפרופיל, ההיסטוריה, הוראות הקבע, שיחות עם נועם והגדרות נגישות. לא ניתן לשחזר.',
+            destructive: true,
+            confirmLabel: 'מחק הכל',
+            cancelLabel: 'ביטול',
+            onConfirm: async () => {
+              await wipeAllData();
+            },
+          })
+        }
+        accessibilityRole="button"
+        accessibilityLabel="מחק את כל הנתונים"
+      >
+        <Text style={styles.dangerTitle}>מחק את כל הנתונים</Text>
+        <Text style={styles.dangerSub}>
+          מחיקה מקומית מהמכשיר — ואז האפליקציה תיפתח כמו בפעם הראשונה
+        </Text>
+      </Pressable>
 
       <Pressable
         style={styles.resetWrap}
@@ -469,6 +526,41 @@ const styles = StyleSheet.create({
   },
   actions: {
     marginBottom: spacing.sm,
+  },
+  privacyLinkWrap: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    paddingVertical: 4,
+  },
+  privacyLink: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    color: colors.gold,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
+    writingDirection: 'rtl',
+  },
+  dangerWrap: {
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: `${colors.danger}66`,
+    backgroundColor: colors.dangerSoft,
+    gap: 4,
+  },
+  dangerTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.danger,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  dangerSub: {
+    ...type.caption,
+    color: colors.sheetMuted,
+    textAlign: 'center',
+    writingDirection: 'rtl',
   },
   resetWrap: {
     marginTop: spacing.md,

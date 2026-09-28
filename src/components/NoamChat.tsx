@@ -11,6 +11,7 @@ import {
   Platform,
   Animated,
   Easing,
+  Linking,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -43,6 +44,7 @@ import { formatRelativeTime } from '../utils/relativeTime';
 import { computeTotals, entriesForPeriod } from '../utils/ledger';
 import { RichMessageText } from './RichMessageText';
 import type { MaaserRate } from '../types';
+import { PRIVACY_LINK_LABEL, privacyPageUrl } from '../constants/privacy';
 
 type ViewMode = 'home' | 'chat' | 'history';
 
@@ -123,7 +125,7 @@ function formatMoney(n: number) {
 }
 
 export default function NoamChat() {
-  const { profile, ledger, addEntries } = useApp();
+  const { profile, ledger, addEntries, patchProfile } = useApp();
   const toast = useToast();
   const insets = useSafeAreaInsets();
   const [open, setOpen] = useState(false);
@@ -138,6 +140,7 @@ export default function NoamChat() {
   const launcherPulse = useRef(new Animated.Value(1)).current;
   const threadsRef = useRef<ChatThread[]>(threads);
   const sendingRef = useRef(false);
+  const pendingSeedRef = useRef<{ text: string; threadId: string } | null>(null);
   const motionOk = useMotionEnabled();
 
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
@@ -239,8 +242,13 @@ export default function NoamChat() {
     setActiveId(id);
     setMode('chat');
     setPending([]);
+    // זרע הודעה רק אחרי הסכמה — אחרת מסך ההסכמה יופיע קודם
     if (seed) {
-      setTimeout(() => void sendText(seed, id), 320);
+      if (profile.chatConsentDone) {
+        setTimeout(() => void sendText(seed, id), 320);
+      } else {
+        pendingSeedRef.current = { text: seed, threadId: id };
+      }
     }
   };
 
@@ -262,9 +270,17 @@ export default function NoamChat() {
     []
   );
 
-  const sendText = async (text: string, threadId?: string) => {
+  const sendText = async (
+    text: string,
+    threadId?: string,
+    opts?: { shareTotals?: boolean }
+  ) => {
     const trimmed = text.trim();
     if (!trimmed || typing || sendingRef.current) return;
+    if (!profile.chatConsentDone && opts?.shareTotals === undefined) {
+      // ממתין למסך הסכמה
+      return;
+    }
     const tid = threadId || activeId;
     if (!tid) return;
 
@@ -296,7 +312,10 @@ export default function NoamChat() {
         role: m.role,
         content: m.content,
       }));
-      const context = buildNoamContext({ profile, ledger, period: currentPeriod() });
+      const share = opts?.shareTotals ?? profile.chatShareTotals;
+      const context = share
+        ? buildNoamContext({ profile, ledger, period: currentPeriod() })
+        : null;
       const { reply, actions } = await sendToNoam({
         messages: apiMsgs,
         context,
@@ -338,6 +357,15 @@ export default function NoamChat() {
     } finally {
       setTyping(false);
       sendingRef.current = false;
+    }
+  };
+
+  const acceptChatConsent = async (shareTotals: boolean) => {
+    await patchProfile({ chatConsentDone: true, chatShareTotals: shareTotals });
+    const pending = pendingSeedRef.current;
+    pendingSeedRef.current = null;
+    if (pending) {
+      setTimeout(() => void sendText(pending.text, pending.threadId, { shareTotals }), 220);
     }
   };
 
@@ -500,6 +528,9 @@ export default function NoamChat() {
                 onApply={() => void applyPendingFixed()}
                 onReject={rejectPending}
                 gender={profile.gender}
+                needsConsent={!profile.chatConsentDone}
+                defaultShareTotals={profile.chatShareTotals !== false}
+                onConsent={(share) => void acceptChatConsent(share)}
               />
             ) : null}
           </KeyboardAvoidingView>
@@ -647,6 +678,9 @@ function ChatPane({
   onApply,
   onReject,
   gender,
+  needsConsent,
+  defaultShareTotals,
+  onConsent,
 }: {
   name: string;
   messages: ChatMessage[];
@@ -663,7 +697,12 @@ function ChatPane({
   onApply: () => void;
   onReject: () => void;
   gender: 'male' | 'female';
+  needsConsent: boolean;
+  defaultShareTotals: boolean;
+  onConsent: (shareTotals: boolean) => void;
 }) {
+  const [shareChoice, setShareChoice] = useState(defaultShareTotals);
+
   return (
     <View style={styles.pane}>
       <LinearGradient
@@ -692,6 +731,48 @@ function ChatPane({
         נועם הוא עוזר AI. הוא יכול לטעות ואינו פוסק הלכה.
       </Text>
 
+      {needsConsent ? (
+        <View style={styles.consentBox}>
+          <Text style={styles.consentTitle}>לפני שמתחילים</Text>
+          <Text style={styles.consentBody}>
+            ההודעות נשלחות לשרת האפליקציה ואז לעיבוד ב־OpenRouter. לא נשלחים שם, הערות
+            או רשימת תנועות בודדות. אפשר לבחור אם לצרף גם סיכום סכומי החודש (חובה / נותר וכו').
+          </Text>
+          <Pressable
+            onPress={() => setShareChoice(true)}
+            style={[styles.consentOpt, shareChoice && styles.consentOptOn]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: shareChoice }}
+          >
+            <Text style={styles.consentOptTxt}>שלח גם את סיכום החודש (מומלץ)</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setShareChoice(false)}
+            style={[styles.consentOpt, !shareChoice && styles.consentOptOn]}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: !shareChoice }}
+          >
+            <Text style={styles.consentOptTxt}>רק את ההודעה שלי</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => onConsent(shareChoice)}
+            style={styles.consentCta}
+            accessibilityRole="button"
+            accessibilityLabel="המשך לצ'אט"
+          >
+            <Text style={styles.consentCtaTxt}>הבנתי, בואו נדבר</Text>
+          </Pressable>
+          <Pressable
+            onPress={() => void Linking.openURL(privacyPageUrl())}
+            accessibilityRole="link"
+            accessibilityLabel={PRIVACY_LINK_LABEL}
+          >
+            <Text style={styles.privacyLink}>{PRIVACY_LINK_LABEL} ‹</Text>
+          </Pressable>
+        </View>
+      ) : null}
+      {!needsConsent ? (
+        <>
       <ScrollView
         ref={scrollRef}
         style={styles.msgScroll}
@@ -770,10 +851,17 @@ function ChatPane({
       ) : null}
 
       <Text style={styles.privacy}>
-        ⚠ השיחה עם נועם שולחת לשרת את ההודעות, השם, וסיכום סכומים/קטגוריות של עד 12 תנועות —
-        לעיבוד AI. אל תכתוב פרטים מזהים מיותרים (כתובת, ת״ז, חשבון בנק).
+        {'⚠ ההודעות נשלחות לשרת לעיבוד AI. לא נשלחים שם, הערות או רשימת תנועות. '}
+        {'סיכום סכומי החודש — רק אם אישרת בהגדרות/בהסכמה.'}
       </Text>
-
+      <Pressable
+        onPress={() => void Linking.openURL(privacyPageUrl())}
+        accessibilityRole="link"
+        accessibilityLabel={PRIVACY_LINK_LABEL}
+        style={styles.privacyLinkBtn}
+      >
+        <Text style={styles.privacyLink}>{PRIVACY_LINK_LABEL} ‹</Text>
+      </Pressable>
       <View style={styles.inputRow}>
         <TextInput
           value={draft}
@@ -796,6 +884,8 @@ function ChatPane({
         </Pressable>
       </View>
       <Text style={styles.inputHint}>{name} · מעשר ישר</Text>
+        </>
+      ) : null}
     </View>
   );
 }
@@ -1101,6 +1191,55 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.separator,
   },
+  consentBox: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    gap: 10,
+  },
+  consentTitle: {
+    fontFamily: fonts.bold,
+    fontSize: 20,
+    color: colors.ink,
+    textAlign: 'center',
+  },
+  consentBody: {
+    ...type.bodySm,
+    color: colors.inkSoft,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 6,
+  },
+  consentOpt: {
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+  },
+  consentOptOn: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primarySoft,
+  },
+  consentOptTxt: {
+    fontFamily: fonts.semi,
+    fontSize: 14,
+    color: colors.ink,
+    textAlign: 'center',
+  },
+  consentCta: {
+    marginTop: 8,
+    borderRadius: radii.lg,
+    backgroundColor: colors.primary,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  consentCtaTxt: {
+    fontFamily: fonts.bold,
+    fontSize: 15,
+    color: colors.primaryOn,
+  },
   headerIconBtn: {
     width: 38,
     height: 38,
@@ -1291,8 +1430,21 @@ const styles = StyleSheet.create({
     color: colors.gold,
     textAlign: 'center',
     paddingHorizontal: spacing.md,
-    marginBottom: 6,
+    marginBottom: 4,
     opacity: 0.9,
+  },
+  privacyLinkBtn: {
+    alignSelf: 'center',
+    marginBottom: 8,
+    paddingVertical: 2,
+    paddingHorizontal: 8,
+  },
+  privacyLink: {
+    fontFamily: fonts.semi,
+    fontSize: 11,
+    color: colors.primary,
+    textAlign: 'center',
+    textDecorationLine: 'underline',
   },
   inputRow: {
     flexDirection: 'row',

@@ -1,3 +1,5 @@
+import { Platform } from 'react-native';
+
 /** נוסח אחיד להצהרת פרטיות קצרה — מקור אמת יחיד לכל המסכים */
 
 export const PRIVACY_SHORT =
@@ -6,24 +8,13 @@ export const PRIVACY_SHORT =
 
 export const PRIVACY_LINK_LABEL = 'מה בדיוק נשמר ומה נשלח';
 
-/** פירוט לדף / מודל הפרטיות */
-export const PRIVACY_DETAIL_SECTIONS = [
-  {
-    title: 'מה נשמר במכשיר בלבד',
-    body:
-      'הפנקס (תנועות, סכומים, הערות), הפרופיל (שם, מגדר, שיעור מעשר), הגדרות נגישות, ' +
-      'היסטוריית חודשים והוראות קבע — נשמרים מקומית במכשיר. אין סנכרון ענן של הפנקס.',
-  },
-  {
-    title: "מה נשלח כשפותחים צ'אט עם נועם",
-    body:
-      'ההודעות בשיחה, השם לתצוגה, המגדר, שיעור המעשר, סיכום סכומים לחודש הנוכחי, ' +
-      'ועד 12 תנועות אחרונות (סוג, קטגוריה, סכום — בלי הערות חופשיות). ' +
-      'הנתונים נשלחים לשרת האפליקציה ואז לעיבוד ב־OpenRouter.',
-  },
-  {
-    title: "מה לא לשלוח בצ'אט",
-    body:
-      'אל תכתבו פרטים מזהים מיותרים: כתובת, ת״ז, מספר חשבון בנק, סיסמאות או מידע רפואי.',
-  },
-] as const;
+export const PRIVACY_PATH = '/privacy';
+
+/** כתובת מלאה לדף הפרטיות הסטטי (עובד גם בלי JS באפליקציה) */
+export function privacyPageUrl(): string {
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    // .html עובד גם ב־Expo מקומי; ב־Netlify גם /privacy מנותב לכאן
+    return `${window.location.origin}/privacy.html`;
+  }
+  return `https://maaser-yashar.netlify.app${PRIVACY_PATH}`;
+}

@@ -43,21 +43,14 @@ export function chatEndpoint(): string {
   return 'https://maaser-yashar.netlify.app/api/chat';
 }
 
-/** הקשר מובנה לשרת — ההנחיה למודל נבנית שם, לא בלקוח */
+/** הקשר מזערי לשרת — בלי שם, בלי הערות, בלי רשימת תנועות */
 export type NoamChatContext = {
-  displayName: string;
-  gender: Gender;
   rate: number;
-  period: string;
-  totals: {
-    income: number;
-    expenses: number;
-    netBase: number;
-    obligation: number;
-    tzedaka: number;
-    remaining: number;
-  };
-  recent: { kind: LedgerKind; category: string; amount: number }[];
+  income: number;
+  expenses: number;
+  tzedaka: number;
+  obligation: number;
+  remaining: number;
 };
 
 export function buildNoamContext(opts: {
@@ -68,42 +61,34 @@ export function buildNoamContext(opts: {
   const period = opts.period || currentPeriod();
   const month = entriesForPeriod(opts.ledger, period);
   const totals = computeTotals(month, opts.profile.rate as MaaserRate);
-  const name = opts.profile.displayName || t(opts.profile.gender, 'חבר', 'חברה');
 
   return {
-    displayName: name.slice(0, 40),
-    gender: (opts.profile.gender as Gender) || 'male',
     rate: opts.profile.rate === 0.2 ? 0.2 : 0.1,
-    period,
-    totals: {
-      income: totals.income,
-      expenses: totals.expenses,
-      netBase: totals.netBase,
-      obligation: totals.obligation,
-      tzedaka: totals.tzedaka,
-      remaining: totals.remaining,
-    },
-    // בלי הערות חופשיות — מצמצם שליחת פרטים מזהים
-    recent: month.slice(0, 12).map((e) => ({
-      kind: e.kind,
-      category: e.category.slice(0, 40),
-      amount: e.amount,
-    })),
+    income: totals.income,
+    expenses: totals.expenses,
+    tzedaka: totals.tzedaka,
+    obligation: totals.obligation,
+    remaining: totals.remaining,
   };
 }
 
 export async function sendToNoam(params: {
   messages: { role: ChatRole; content: string }[];
-  context: NoamChatContext;
+  /** אם undefined — נשלחת רק ההודעה, בלי סיכום חודש */
+  context?: NoamChatContext | null;
 }): Promise<{ reply: string; actions: ProposedEntry[] }> {
   const endpoint = chatEndpoint();
+  const body: Record<string, unknown> = {
+    messages: params.messages,
+  };
+  if (params.context) {
+    body.context = params.context;
+  }
+
   const res = await fetch(endpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      messages: params.messages,
-      context: params.context,
-    }),
+    body: JSON.stringify(body),
   });
 
   const data = await res.json().catch(() => ({}));

@@ -152,87 +152,41 @@ function num(v, max = 1e9) {
   return Math.min(max, Math.round(n * 100) / 100);
 }
 
-/** מנקה הקשר מהלקוח — רק שדות מותרים ומספרים חסומים */
+/** מנקה הקשר מהלקוח — רק חמישה סכומים + שיעור. בלי שם / תנועות / הערות */
 function sanitizeContext(c) {
   const raw = c && typeof c === 'object' ? c : {};
   const totals =
     raw.totals && typeof raw.totals === 'object' ? raw.totals : raw;
-  const recentRaw = Array.isArray(raw.recent) ? raw.recent.slice(0, 12) : [];
   return {
-    displayName:
-      typeof raw.displayName === 'string' ? raw.displayName.trim().slice(0, 40) : '',
-    gender: raw.gender === 'female' ? 'female' : 'male',
     rate:
       typeof raw.rate === 'number' && raw.rate >= 0.01 && raw.rate <= 0.5
         ? raw.rate
         : 0.1,
-    period: typeof raw.period === 'string' ? raw.period.slice(0, 7) : '',
-    totals: {
-      income: num(totals.income),
-      expenses: num(totals.expenses),
-      netBase: num(totals.netBase),
-      obligation: num(totals.obligation),
-      tzedaka: num(totals.tzedaka),
-      remaining: num(totals.remaining),
-    },
-    recent: recentRaw
-      .map((e) => {
-        if (!e || typeof e !== 'object') return null;
-        if (!['income', 'expense', 'tzedaka'].includes(e.kind)) return null;
-        const amount = num(e.amount);
-        if (amount <= 0) return null;
-        return {
-          kind: e.kind,
-          category: String(e.category || 'אחר').slice(0, 40),
-          amount,
-        };
-      })
-      .filter(Boolean),
+    income: num(totals.income ?? raw.income),
+    expenses: num(totals.expenses ?? raw.expenses),
+    tzedaka: num(totals.tzedaka ?? raw.tzedaka),
+    obligation: num(totals.obligation ?? raw.obligation),
+    remaining: num(totals.remaining ?? raw.remaining),
   };
-}
-
-function formatPeriod(period) {
-  const m = String(period || '').match(/^(\d{4})-(\d{2})$/);
-  if (!m) return String(period || '');
-  const months = [
-    'ינואר',
-    'פברואר',
-    'מרץ',
-    'אפריל',
-    'מאי',
-    'יוני',
-    'יולי',
-    'אוגוסט',
-    'ספטמבר',
-    'אוקטובר',
-    'נובמבר',
-    'דצמבר',
-  ];
-  const idx = Number(m[2]) - 1;
-  return `${months[idx] || m[2]} ${m[1]}`;
 }
 
 /** בונה את ההנחיה בשרת בלבד — מתעלם מכל system שהלקוח ישלח */
 function buildSystemPrompt(context) {
-  const ctx = sanitizeContext(context);
-  const gender = ctx.gender;
-  const name = ctx.displayName || (gender === 'female' ? 'חברה' : 'חבר');
-  const rate = Number(ctx.rate) === 0.2 ? 0.2 : 0.1;
+  const hasCtx = context && typeof context === 'object';
+  const ctx = hasCtx ? sanitizeContext(context) : null;
+  const rate = ctx ? (Number(ctx.rate) === 0.2 ? 0.2 : 0.1) : 0.1;
   const ratePct = Math.round(rate * 100);
   const rateLabel = rate === 0.2 ? 'חומש 20%' : 'מעשר 10%';
-  const period = ctx.period;
-  const totals = ctx.totals;
 
-  const recent = ctx.recent
-    .map((e) => {
-      const kindLabel =
-        e.kind === 'income' ? 'הכנסה' : e.kind === 'expense' ? 'הוצאה' : 'צדקה';
-      return `- ${kindLabel} · ${e.category} · ₪${e.amount}`;
-    })
-    .join('\n');
+  const totalsBlock = ctx
+    ? `הקשר מספרי לחודש (בלי שם ובלי תנועות בודדות):
+שיעור ${rateLabel} (${ratePct}%).
+הכנסות ₪${num(ctx.income)} · ניכויים ₪${num(ctx.expenses)}
+חובה ₪${num(ctx.obligation)} · ניתן ₪${num(ctx.tzedaka)} · נותר ₪${num(ctx.remaining)}`
+    : `אין סיכום פנקס בבקשה הזו — רק הודעת המשתמש. אל תמציא מספרים מהפנקס; שאל אם חסר.`;
 
   return `אתה נועם, עוזר AI של האפליקציה "מעשר ישר". יש לך אישיות חמה, ישירה ועם הומור יבש.
-שיחה עם ${name} על מעשר ופנקס. אתה יודע על מה מדברים, בטוח בעצמך, חד.
+שיחה על מעשר ופנקס. אתה יודע על מה מדברים, בטוח בעצמך, חד.
 
 זהות (קריטי):
 - אתה בן/גבר. תמיד על עצמך בלשון זכר: אני יודע, אני פה, אני מציע — אף פעם לא נקבה.
@@ -242,16 +196,16 @@ function buildSystemPrompt(context) {
 - אם שואלים אם מעשר הוא חובה: רבים רואים בו חיוב מנהג או נדר, ויש דעות שונות בפרטים. כדאי לשאול רב.
 
 מילון הפנקס (אל תתיימר שלא להבין):
-- חובה = כמה צריך לתת החודש לפי ${rateLabel} מהנטו. עכשיו: ₪${num(totals.obligation)}.
+- חובה = כמה צריך לתת החודש לפי ${rateLabel} מהנטו.${ctx ? ` עכשיו: ₪${num(ctx.obligation)}.` : ''}
 - נטו = הכנסות פחות ניכויים (מסים וכו').
-- נותר = חובה פחות צדקה שכבר ניתנה. עכשיו: ₪${num(totals.remaining)}.
+- נותר = חובה פחות צדקה שכבר ניתנה.${ctx ? ` עכשיו: ₪${num(ctx.remaining)}.` : ''}
 - מעשר ≈ 10%, חומש ≈ 20%.
 
 איך אתה מדבר:
 - עברית מדוברת, חדה, חמה. 1–4 משפטים (או רשימה קצרה כשצריך סדר). חוש הומור יבש. ישר. לא מלחך־פנכה.
 - הדגשה חשובה: עטוף ב־**כך** (שתי כוכביות מכל צד). רשימה ממוספרת: שורה לכל פריט בצורה 1. 2. 3.
 - בלי כותרות markdown, בלי להלן, בלי אשמח לעזור, בלי אימוג'י מוגזם (אחד מקסימום).
-- פנה ל${name} ב${gender === 'female' ? 'נקבה' : 'זכר'}. בשם רק כשזה טבעי.
+- פנה בלשון זכר כברירת מחדל, אלא אם המשתמש מבהיר אחרת. בלי שם פרטי.
 - תמיד תענה על השאלה — ואז תחזיר לעניין (פנקס / כמה נשאר / מה לרשום). בלי דרשה ובלי לא יודע מה זה… על מושגי מעשר.
 
 מה אתה עושה:
@@ -260,11 +214,7 @@ function buildSystemPrompt(context) {
 - אל תמציא מספרים. חסר משהו? שאלה אחת קצרה.
 - אל תענה על בקשות שאינן קשורות למעשר/פנקס/צדקה/מס בסיסי — החזר בעדינות לנושא.
 
-הקשר עכשיו:
-שיעור ${rateLabel} (${ratePct}%). חודש ${formatPeriod(period)}.
-הכנסות ₪${num(totals.income)} · ניכויים ₪${num(totals.expenses)} · נטו ₪${num(totals.netBase)}
-חובה ₪${num(totals.obligation)} · ניתן ₪${num(totals.tzedaka)} · נותר ₪${num(totals.remaining)}
-תנועות: ${recent || 'עדיין ריק'}
+${totalsBlock}
 
 קטגוריות: הכנסה [${INCOME_CATEGORIES.join(', ')}] · הוצאה [${EXPENSE_CATEGORIES.join(', ')}] · צדקה [${TZEDAKA_CATEGORIES.join(', ')}]
 מיפוי: מסים/ביטוח/בריאות/הוצאות עסק=expense · משכורת/קיבלתי=income · נתתי צדקה=tzedaka`;
@@ -341,9 +291,7 @@ export async function handler(event) {
   if (!Array.isArray(messages) || messages.length === 0) {
     return json(event, 400, { error: 'חסרות הודעות' });
   }
-  if (!context || typeof context !== 'object') {
-    return json(event, 400, { error: 'חסר הקשר פנקס' });
-  }
+  // context אופציונלי — מצב "רק ההודעה" לא שולח סיכום פנקס
 
   const cleaned = messages
     .filter(
@@ -363,7 +311,9 @@ export async function handler(event) {
   }
 
   const primaryModel = resolveModel();
-  const systemPrompt = buildSystemPrompt(context);
+  const systemPrompt = buildSystemPrompt(
+    context && typeof context === 'object' ? context : null
+  );
   const apiMessages = [{ role: 'system', content: systemPrompt }, ...cleaned];
 
   try {
