@@ -6,6 +6,7 @@ import {
   TextInput,
   Pressable,
   Linking,
+  Platform,
 } from 'react-native';
 import { Screen } from '../components/Screen';
 import {
@@ -57,6 +58,11 @@ import {
   reminderSettingsHint,
 } from '../utils/monthlyReminder';
 import { shareApp } from '../utils/shareApp';
+import {
+  CONTACT_EMAIL,
+  CONTACT_PENDING_TEXT,
+  contactMailto,
+} from '../config/contact';
 
 function FieldLabel({ children }: { children: string }) {
   return (
@@ -90,9 +96,25 @@ export default function SettingsScreen() {
     isCustomRate ? formatRatePercent(profile.rate) : ''
   );
   const [rateError, setRateError] = React.useState<string | null>(null);
+  const [versionShort, setVersionShort] = React.useState<string | null>(null);
   const initial = (profile.displayName?.trim()?.[0] || 'מ').toUpperCase();
   const ratePct = formatRatePercent(profile.rate);
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
+
+  React.useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    let cancelled = false;
+    fetch('/version.json', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((v) => {
+        if (cancelled || !v?.commit) return;
+        setVersionShort(String(v.commit).slice(0, 7));
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   React.useEffect(() => {
     const custom =
@@ -805,6 +827,31 @@ export default function SettingsScreen() {
         />
       </Glass>
 
+      <Glass light strong style={styles.panel}>
+        <FieldLabel>יש לך הערה או רעיון?</FieldLabel>
+        {CONTACT_EMAIL ? (
+          <>
+            <Text style={styles.recurIntro}>
+              נשמח לשמוע. בלי מעקב ובלי אנליטיקה.
+            </Text>
+            <PrimaryButton
+              label="שלח משוב במייל"
+              testID="feedback-email"
+              onPress={() => {
+                const href = contactMailto('משוב על מעשר ישר');
+                if (!href) {
+                  toast.info(CONTACT_PENDING_TEXT);
+                  return;
+                }
+                void Linking.openURL(href);
+              }}
+            />
+          </>
+        ) : (
+          <Text style={styles.recurIntro}>{CONTACT_PENDING_TEXT}</Text>
+        )}
+      </Glass>
+
       <Pressable
         style={styles.privacyLinkWrap}
         onPress={() => void Linking.openURL(privacyPageUrl())}
@@ -888,6 +935,12 @@ export default function SettingsScreen() {
           )}
         </Text>
       </Pressable>
+
+      {versionShort ? (
+        <Text style={styles.versionLine} accessibilityLabel={`גרסה ${versionShort}`}>
+          גרסה {versionShort}
+        </Text>
+      ) : null}
     </Screen>
   );
 }
@@ -1095,6 +1148,16 @@ const styles = StyleSheet.create({
     color: colors.primary,
     textAlign: 'center',
     writingDirection: 'rtl',
+  },
+  versionLine: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.inkSoft,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginTop: spacing.sm,
+    marginBottom: spacing.md,
+    opacity: 0.7,
   },
   warnCard: {
     padding: spacing.md,

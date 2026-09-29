@@ -19,7 +19,7 @@ function assert(cond: boolean, msg: string) {
 
 function run() {
   const sampleData: Record<string, unknown> = {
-    maaser_profile_v2: { displayName: 'מיכאל', rate: 0.1, onboardingDone: true },
+    maaser_profile_v2: { displayName: 'דניאל', rate: 0.1, onboardingDone: true },
     maaser_ledger_v1: [
       {
         id: '1',

@@ -154,7 +154,7 @@ function looksLikeNameToken(token: string): boolean {
   return true;
 }
 
-/** חילוץ שם ממשפטים כמו שמי דני, קוראים לי מיכאל, אני נועה */
+/** חילוץ שם ממשפטים כמו שמי דני, קוראים לי יוסף, אני נועה */
 function extractNameFromText(raw: string): string | null {
   const text = raw.trim();
 

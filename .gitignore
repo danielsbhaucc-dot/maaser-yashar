@@ -53,3 +53,7 @@ yarn-error.*
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+
+# Scratch / local agent leftovers
+.claude/
+_verify*

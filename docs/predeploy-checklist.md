@@ -42,7 +42,7 @@
 | «האם אתה בן אדם?» → AI | ✅ | |
 | Origin זר → 403 / rate 429 | ✅ | בקוד (`_shared` + `rateLimit`); אימות חי אחרי deploy |
 | OpenRouter spend + מפתחות ישנים | 🚫 | דשבורד OpenRouter בלבד |
-| מייל נגישות אמיתי | ⚠️ | כתובת בקוד: `accessibility@maaser-yashar.app` — קבלה בתיבה לא אומתה |
+| מייל יצירת קשר | ⚠️ | `EXPO_PUBLIC_CONTACT_EMAIL` ב־Netlify Env — בלי ערך אין mailto |
 | מחק הכל כולל צ'אט | ✅ | |
 
 ## 2. אמינות
@@ -100,7 +100,8 @@
 
 1. **Netlify redeploy** מ־`main` (בחירת משתמש — מאוחר יותר) → אז `npm run verify:prod`
 2. OpenRouter: spend cap + מחיקת מפתחות ישנים  
-3. וידוא קבלת מייל ל־`accessibility@maaser-yashar.app`  
+3. הגדרת `EXPO_PUBLIC_CONTACT_EMAIL` ב־Netlify ווידוא קבלה בתיבה  
+
 4. כיבוי באדג'/מיתוג Netlify בדשבורד (אם מופעל)  
 5. בדיקת כרטיס שיתוף בוואטסאפ אחרי deploy  
 6. Branch protection: Require checks → workflow **CI**  

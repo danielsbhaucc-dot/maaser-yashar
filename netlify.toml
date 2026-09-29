@@ -1,5 +1,5 @@
 [build]
-  command = "npx expo export -p web"
+  command = "npx expo export -p web && node scripts/apply-contact.mjs"
   publish = "dist"
 
 [functions]
@@ -27,6 +27,12 @@
     Content-Security-Policy = "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
     # Report-Only — מתאים ל־Expo web (inline + eval במטרו). אחרי redeploy בדקו Console.
     Content-Security-Policy-Report-Only = "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; connect-src 'self' https:; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+
+[[headers]]
+  for = "/version.json"
+  [headers.values]
+    Cache-Control = "no-cache"
+    Content-Type = "application/json; charset=utf-8"
 
 [[headers]]
   for = "/sw.js"
