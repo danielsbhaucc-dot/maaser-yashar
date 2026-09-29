@@ -10,12 +10,35 @@
     content="מדיניות פרטיות של מעשר ישר — איך נשמר הפנקס במכשיר, מה נשלח כשמדברים עם נועם, ואיך מוחקים הכל."
   />
   <title>פרטיות · מעשר ישר</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Assistant:wght@600;700;800&family=Heebo:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet"
-  />
+  <link rel="preload" href="/fonts/heebo-400.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/heebo-600.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/heebo-700.woff2" as="font" type="font/woff2" crossorigin />
+  <style>
+    @font-face {
+      font-family: Heebo;
+      src: url("/fonts/heebo-400.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+      unicode-range: U+0000-00FF, U+0590-05FF, U+20AA, U+2013-2014, U+2022;
+    }
+    @font-face {
+      font-family: Heebo;
+      src: url("/fonts/heebo-600.woff2") format("woff2");
+      font-weight: 600;
+      font-style: normal;
+      font-display: swap;
+      unicode-range: U+0000-00FF, U+0590-05FF, U+20AA, U+2013-2014, U+2022;
+    }
+    @font-face {
+      font-family: Heebo;
+      src: url("/fonts/heebo-700.woff2") format("woff2");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+      unicode-range: U+0000-00FF, U+0590-05FF, U+20AA, U+2013-2014, U+2022;
+    }
+  </style>
   <style>
     :root {
       --bg: #0b1020;
@@ -43,7 +66,7 @@
       min-height: 100vh;
       color: var(--ink);
       background: var(--bg);
-      font-family: Heebo, Assistant, Arial, sans-serif;
+      font-family: Heebo, Arial, sans-serif;
       line-height: 1.7;
       overflow-x: hidden;
     }
@@ -116,7 +139,7 @@
       border: 1px solid rgba(232, 192, 122, 0.35);
       background: rgba(255, 216, 138, 0.08);
       color: var(--gold);
-      font-family: Assistant, Heebo, sans-serif;
+      font-family: Heebo, sans-serif;
       font-weight: 700;
       font-size: 0.92rem;
       text-decoration: none;
@@ -145,7 +168,7 @@
       place-items: center;
       background: linear-gradient(135deg, #8b9bff, #a78bfa);
       box-shadow: 0 0 0 8px rgba(139, 155, 255, 0.12), 0 18px 40px rgba(102, 119, 240, 0.35);
-      font-family: Assistant, sans-serif;
+      font-family: Heebo, sans-serif;
       font-weight: 800;
       font-size: 1.65rem;
       color: #0b1024;
@@ -157,7 +180,7 @@
     }
     .hero h1 {
       margin: 0;
-      font-family: Assistant, Heebo, sans-serif;
+      font-family: Heebo, sans-serif;
       font-weight: 800;
       font-size: clamp(2.1rem, 7vw, 3.1rem);
       letter-spacing: -0.035em;
@@ -227,7 +250,7 @@
     section:last-of-type { border-bottom: 0; }
     section h2 {
       margin: 0 0 0.85rem;
-      font-family: Assistant, Heebo, sans-serif;
+      font-family: Heebo, sans-serif;
       font-weight: 800;
       font-size: 1.45rem;
       letter-spacing: -0.02em;

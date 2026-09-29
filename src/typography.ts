@@ -1,25 +1,25 @@
 import { TextStyle } from 'react-native';
 
 /**
- * טיפוגרפיה עברית מלאה
- * Display → Assistant (כותרות חזקות בעברית)
- * UI/Body → Heebo (קריאות מעולה)
- * Numbers → Rubik (סכומים)
+ * טיפוגרפיה עברית — שתי משפחות בלבד
+ * UI/Display → Heebo (400 / 600 / 700)
+ * Numbers → Rubik 700
+ * שמות fontFamily נשארים תואמים ל-@font-face / useFonts
  */
 export const fonts = {
-  display: 'Assistant_700Bold',
-  displaySemi: 'Assistant_600SemiBold',
-  displayExtra: 'Assistant_800ExtraBold',
+  display: 'Heebo_700Bold',
+  displaySemi: 'Heebo_600SemiBold',
+  displayExtra: 'Heebo_700Bold',
 
   regular: 'Heebo_400Regular',
-  medium: 'Heebo_500Medium',
+  medium: 'Heebo_600SemiBold',
   semi: 'Heebo_600SemiBold',
   bold: 'Heebo_700Bold',
-  extra: 'Heebo_800ExtraBold',
+  extra: 'Heebo_700Bold',
 
-  num: 'Rubik_600SemiBold',
+  num: 'Rubik_700Bold',
   numBold: 'Rubik_700Bold',
-  numRegular: 'Rubik_400Regular',
+  numRegular: 'Rubik_700Bold',
 };
 
 /** עם dir=rtl / I18nManager RTL — start = ימין בעברית (עובד בווב ובנייד) */

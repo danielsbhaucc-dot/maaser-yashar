@@ -156,7 +156,7 @@ function buildWebCss(s: A11ySettings): string {
   if (s.readableFont || s.dyslexiaFont) {
     const family = s.dyslexiaFont
       ? `"Comic Sans MS", "Arial Rounded MT Bold", "Arial", sans-serif`
-      : `"Arial", "Helvetica Neue", "Heebo", "Assistant", sans-serif`;
+      : `"Arial", "Helvetica Neue", "Heebo", sans-serif`;
     parts.push(`
       #root, #root * {
         font-family: ${family} !important;
@@ -330,7 +330,7 @@ function buildWebCss(s: A11ySettings): string {
       zoom: ${inv} !important;
       transform: none !important;
       font-size: 16px !important;
-      font-family: Heebo, Assistant, Arial, sans-serif !important;
+      font-family: Heebo, Arial, sans-serif !important;
     }
     #maaser-a11y-root * {
       filter: none !important;

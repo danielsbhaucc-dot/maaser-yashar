@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -32,7 +32,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { PinLockProvider, usePinLock } from './src/context/PinLockContext';
 import { ToastProvider, useToast } from './src/context/ToastContext';
-import { NoamChatProvider } from './src/navigation/NoamChatContext';
+import { NoamChatProvider, useNoamChat } from './src/navigation/NoamChatContext';
 import {
   AccessibilityProvider,
   AccessibilityWidget,
@@ -42,7 +42,6 @@ import OnboardingScreen from './src/screens/OnboardingScreen';
 import PinLockScreen from './src/components/PinLockScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import AddEntryModal from './src/components/AddEntryModal';
-import NoamChat from './src/components/NoamChat';
 import { LoadingScreen } from './src/components/LoadingScreen';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
 import PwaInstallBanner from './src/components/PwaInstallBanner';
@@ -51,6 +50,23 @@ import { DIR, rtlDomProps } from './src/rtl';
 import { isNativeRtlActive } from './src/rtlBootstrap';
 import { currentPeriod } from './src/utils/history';
 import { registerWebPwa } from './src/pwa/registerWebPwa';
+
+const NoamChat = React.lazy(() => import('./src/components/NoamChat'));
+
+/** טוען את הצ'אט רק אחרי פתיחה ראשונה */
+function LazyNoamChat() {
+  const { open } = useNoamChat();
+  const [armed, setArmed] = useState(false);
+  useEffect(() => {
+    if (open) setArmed(true);
+  }, [open]);
+  if (!armed) return null;
+  return (
+    <Suspense fallback={null}>
+      <LazyNoamChat />
+    </Suspense>
+  );
+}
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   registerWebPwa();

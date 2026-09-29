@@ -12,6 +12,7 @@
       name="description"
       content="פנקס מעשר כספים חינמי, בלי הרשמה. הנתונים נשמרים אצלך."
     />
+    <meta property="og:image" content="/og.png" />
     <meta name="theme-color" content="#0B1020" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -21,6 +22,69 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" sizes="180x180" />
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
     <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png" />
+    <link
+      rel="preload"
+      href="/fonts/heebo-400.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/heebo-600.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/heebo-700.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <link
+      rel="preload"
+      href="/fonts/rubik-700.woff2"
+      as="font"
+      type="font/woff2"
+      crossorigin
+    />
+    <style id="app-fonts">
+      /* שמות תואמים ל-fontFamily בטיפוגרפיה / RN Web */
+      @font-face {
+        font-family: "Heebo_400Regular";
+        src: url("/fonts/heebo-400.woff2") format("woff2");
+        font-weight: 400;
+        font-style: normal;
+        font-display: swap;
+        unicode-range: U+0000-00FF, U+0590-05FF, U+20AA, U+2013-2014, U+2022;
+      }
+      @font-face {
+        font-family: "Heebo_600SemiBold";
+        src: url("/fonts/heebo-600.woff2") format("woff2");
+        font-weight: 600;
+        font-style: normal;
+        font-display: swap;
+        unicode-range: U+0000-00FF, U+0590-05FF, U+20AA, U+2013-2014, U+2022;
+      }
+      @font-face {
+        font-family: "Heebo_700Bold";
+        src: url("/fonts/heebo-700.woff2") format("woff2");
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+        unicode-range: U+0000-00FF, U+0590-05FF, U+20AA, U+2013-2014, U+2022;
+      }
+      @font-face {
+        font-family: "Rubik_700Bold";
+        src: url("/fonts/rubik-700.woff2") format("woff2");
+        font-weight: 700;
+        font-style: normal;
+        font-display: swap;
+        unicode-range: U+0000-00FF, U+0590-05FF, U+20AA, U+2013-2014, U+2022;
+      }
+    </style>
     <style id="expo-reset">
       html,
       body {
