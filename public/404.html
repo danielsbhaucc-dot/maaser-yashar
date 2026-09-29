@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="color-scheme" content="dark" />
+  <meta name="theme-color" content="#0B1020" />
+  <meta name="robots" content="noindex" />
+  <title>העמוד לא נמצא · מעשר ישר</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="preload" href="/fonts/heebo-400.woff2" as="font" type="font/woff2" crossorigin />
+  <link rel="preload" href="/fonts/heebo-700.woff2" as="font" type="font/woff2" crossorigin />
+  <style>
+    @font-face {
+      font-family: Heebo;
+      src: url("/fonts/heebo-400.woff2") format("woff2");
+      font-weight: 400;
+      font-style: normal;
+      font-display: swap;
+      unicode-range: U+0000-00FF, U+0590-05FF, U+20AA, U+2013-2014, U+2022;
+    }
+    @font-face {
+      font-family: Heebo;
+      src: url("/fonts/heebo-700.woff2") format("woff2");
+      font-weight: 700;
+      font-style: normal;
+      font-display: swap;
+      unicode-range: U+0000-00FF, U+0590-05FF, U+20AA, U+2013-2014, U+2022;
+    }
+    :root {
+      --bg: #0b1020;
+      --bg-mid: #1b1648;
+      --bg-end: #2c1a52;
+      --ink: rgba(255, 255, 255, 0.96);
+      --ink-soft: rgba(255, 255, 255, 0.64);
+      --gold: #ffd88a;
+      --primary: #8b9bff;
+      --ease: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: Heebo, Arial, sans-serif;
+      line-height: 1.7;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+    }
+    .sky {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background: linear-gradient(165deg, var(--bg) 0%, var(--bg-mid) 52%, var(--bg-end) 100%);
+      pointer-events: none;
+    }
+    .orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(48px);
+      opacity: 0.4;
+    }
+    .orb-a {
+      width: min(48vw, 360px);
+      height: min(48vw, 360px);
+      background: #7c6bf0;
+      top: -10%;
+      right: -8%;
+    }
+    .orb-b {
+      width: min(36vw, 280px);
+      height: min(36vw, 280px);
+      background: #4f86d8;
+      bottom: 8%;
+      left: -10%;
+    }
+    .wrap {
+      position: relative;
+      z-index: 1;
+      width: min(100%, 28rem);
+      margin: 0 auto;
+      padding: 2rem 1.5rem;
+      text-align: center;
+    }
+    .code {
+      font-size: clamp(3.5rem, 12vw, 5rem);
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.04em;
+      line-height: 1;
+      margin: 0 0 0.75rem;
+    }
+    h1 {
+      font-size: 1.45rem;
+      font-weight: 700;
+      margin: 0 0 0.65rem;
+    }
+    p {
+      margin: 0 0 1.75rem;
+      color: var(--ink-soft);
+      font-size: 1.02rem;
+    }
+    .home {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      padding: 0.75rem 1.35rem;
+      border-radius: 999px;
+      border: 1px solid rgba(139, 155, 255, 0.45);
+      background: rgba(139, 155, 255, 0.16);
+      color: #e8ecff;
+      font-family: Heebo, sans-serif;
+      font-weight: 700;
+      font-size: 1rem;
+      text-decoration: none;
+      transition: background 0.2s var(--ease), border-color 0.2s var(--ease);
+    }
+    .home:hover,
+    .home:focus-visible {
+      background: rgba(139, 155, 255, 0.28);
+      border-color: rgba(139, 155, 255, 0.7);
+      outline: none;
+    }
+    .brand {
+      display: block;
+      margin-top: 2rem;
+      color: var(--gold);
+      font-weight: 700;
+      font-size: 0.95rem;
+      text-decoration: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="sky" aria-hidden="true">
+    <div class="orb orb-a"></div>
+    <div class="orb orb-b"></div>
+  </div>
+  <main class="wrap">
+    <p class="code" aria-hidden="true">404</p>
+    <h1>העמוד לא נמצא</h1>
+    <p>הכתובת שביקשתם לא קיימת, או שהעמוד הועבר למקום אחר.</p>
+    <a class="home" href="/">חזרה לדף הבית</a>
+    <a class="brand" href="/">מעשר ישר</a>
+  </main>
+</body>
+</html>

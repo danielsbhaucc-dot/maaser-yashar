@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://maaser-yashar.netlify.app/sitemap.xml
