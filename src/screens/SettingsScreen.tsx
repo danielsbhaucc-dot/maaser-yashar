@@ -788,7 +788,7 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   badgeText: {
     fontFamily: fonts.semi,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.gold,
     writingDirection: 'rtl',
   },
@@ -1082,7 +1082,7 @@ const styles = StyleSheet.create({
   },
   recurBtnText: {
     fontFamily: fonts.semi,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.gold,
   },
   recurDelete: {

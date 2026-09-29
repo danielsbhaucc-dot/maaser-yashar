@@ -267,7 +267,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
   },
-  closeTxt: { color: colors.inkSoft, fontSize: 12, fontFamily: fonts.bold },
+  closeTxt: { color: colors.inkSoft, fontSize: 13, fontFamily: fonts.bold },
   actions: {
     flexDirection: 'row',
     gap: 8,

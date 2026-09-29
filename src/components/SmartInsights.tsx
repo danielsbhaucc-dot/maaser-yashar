@@ -145,7 +145,7 @@ const styles = StyleSheet.create({
   },
   badge: {
     fontFamily: fonts.semi,
-    fontSize: 11,
+    fontSize: 13,
     writingDirection: 'rtl',
     textAlign: 'start',
   },

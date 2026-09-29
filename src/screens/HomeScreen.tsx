@@ -1040,7 +1040,7 @@ const styles = StyleSheet.create({
   },
   monthBadgeText: {
     fontFamily: fonts.semi,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.gold,
     writingDirection: 'rtl',
     textAlign: 'center',
@@ -1098,7 +1098,7 @@ const styles = StyleSheet.create({
   },
   listCount: {
     fontFamily: fonts.bold,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.primary,
   },
   emptyCard: { padding: spacing.xl, marginBottom: spacing.md },

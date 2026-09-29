@@ -1296,7 +1296,7 @@ const styles = StyleSheet.create({
   },
   headerSub: {
     fontFamily: fonts.regular,
-    fontSize: 11,
+    fontSize: 13,
     color: 'rgba(255,255,255,0.82)',
     textAlign: 'start',
     writingDirection: 'rtl',
@@ -1331,7 +1331,7 @@ const styles = StyleSheet.create({
   },
   quickPillTxt: {
     fontFamily: fonts.semi,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.inkMuted,
   },
   scroll: { flex: 1 },
@@ -1347,7 +1347,7 @@ const styles = StyleSheet.create({
   },
   activeStripTitle: {
     fontFamily: fonts.semi,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.gold,
     textAlign: 'start',
     writingDirection: 'rtl',
@@ -1367,7 +1367,7 @@ const styles = StyleSheet.create({
   },
   activeChipTxt: {
     fontFamily: fonts.semi,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.inkMuted,
   },
   tipCard: {
@@ -1380,7 +1380,7 @@ const styles = StyleSheet.create({
   },
   tipTxt: {
     fontFamily: fonts.regular,
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 18,
     color: colors.inkMuted,
     textAlign: 'start',
@@ -1396,7 +1396,7 @@ const styles = StyleSheet.create({
   },
   previewLabel: {
     fontFamily: fonts.semi,
-    fontSize: 10,
+    fontSize: 13,
     color: colors.gold,
     textAlign: 'start',
     writingDirection: 'rtl',
@@ -1409,7 +1409,7 @@ const styles = StyleSheet.create({
   },
   previewMeta: {
     fontFamily: fonts.regular,
-    fontSize: 10,
+    fontSize: 13,
     color: colors.inkSoft,
     textAlign: 'start',
     writingDirection: 'rtl',
@@ -1468,7 +1468,7 @@ const styles = StyleSheet.create({
   },
   sectionSub: {
     fontFamily: fonts.regular,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.inkSoft,
     textAlign: 'start',
     writingDirection: 'rtl',
@@ -1502,7 +1502,7 @@ const styles = StyleSheet.create({
   },
   groupLabel: {
     fontFamily: fonts.semi,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.gold,
     textAlign: 'start',
     writingDirection: 'rtl',
@@ -1556,7 +1556,7 @@ const styles = StyleSheet.create({
   tileIconOn: { color: colors.primaryOn },
   tileLabel: {
     fontFamily: fonts.semi,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.inkMuted,
     textAlign: 'center',
     writingDirection: 'rtl',
@@ -1565,12 +1565,12 @@ const styles = StyleSheet.create({
   tileLabelOn: { color: colors.ink },
   tileHint: {
     fontFamily: fonts.regular,
-    fontSize: 9,
+    fontSize: 13,
     color: colors.inkSoft,
     textAlign: 'center',
     marginTop: 2,
   },
-  tileHintOn: { color: 'rgba(255,255,255,0.65)' },
+  tileHintOn: { color: 'rgba(255,255,255,0.74)' },
   dotsRow: { flexDirection: 'row', gap: 3, marginTop: 6 },
   dot: {
     width: 5,
@@ -1619,7 +1619,7 @@ const styles = StyleSheet.create({
   },
   profileSub: {
     fontFamily: fonts.regular,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.inkSoft,
     textAlign: 'start',
     writingDirection: 'rtl',
@@ -1689,7 +1689,7 @@ const styles = StyleSheet.create({
   },
   stepReset: {
     fontFamily: fonts.regular,
-    fontSize: 10,
+    fontSize: 13,
     color: colors.inkSoft,
     marginTop: 2,
   },
@@ -1715,7 +1715,7 @@ const styles = StyleSheet.create({
   },
   segTxt: {
     fontFamily: fonts.semi,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.inkSoft,
   },
   segTxtOn: { color: colors.ink },
@@ -1739,7 +1739,7 @@ const styles = StyleSheet.create({
   },
   hint: {
     fontFamily: fonts.regular,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.inkSoft,
     textAlign: 'start',
     writingDirection: 'rtl',
@@ -1791,7 +1791,7 @@ const styles = StyleSheet.create({
   },
   infoSub: {
     fontFamily: fonts.regular,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.inkSoft,
     textAlign: 'start',
     writingDirection: 'rtl',
@@ -1836,12 +1836,12 @@ const styles = StyleSheet.create({
   },
   footerPillTxt: {
     fontFamily: fonts.semi,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.inkMuted,
   },
   powered: {
     fontFamily: fonts.regular,
-    fontSize: 10,
+    fontSize: 13,
     color: colors.inkSoft,
     textAlign: 'center',
     marginTop: 2,
@@ -1857,7 +1857,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: 'rgba(255,255,255,0.35)',
     ...Platform.select({
-      web: { boxShadow: '0 8px 24px rgba(102, 119, 240, 0.45)' } as object,
+      web: { boxShadow: '0 8px 24px rgba(79, 95, 217, 0.45)' } as object,
       default: { ...shadow.fab },
     }),
   },
@@ -1880,7 +1880,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.bg,
   },
-  fabBadgeTxt: { fontSize: 10, color: colors.primaryOn, fontFamily: fonts.bold },
+  fabBadgeTxt: { fontSize: 13, color: colors.primaryOn, fontFamily: fonts.bold },
   restoreBar: {
     position: 'absolute',
     start: 14,

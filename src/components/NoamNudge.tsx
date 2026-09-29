@@ -78,7 +78,7 @@ const styles = StyleSheet.create({
   body: { flex: 1, gap: 2, minWidth: 0 },
   name: {
     fontFamily: fonts.bold,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.gold,
   },
   text: {

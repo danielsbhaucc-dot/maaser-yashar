@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   msg: {
     fontFamily: fonts.regular,
-    fontSize: 12,
+    fontSize: 13,
     color: '#FDA4AF',
     lineHeight: 18,
   },

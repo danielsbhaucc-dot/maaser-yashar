@@ -234,7 +234,7 @@ const styles = StyleSheet.create({
   },
   numTxt: {
     color: colors.primaryOn,
-    fontSize: 12,
+    fontSize: 13,
     fontFamily: fonts.bold,
     lineHeight: 14,
   },

@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', width: '100%' },
   heroPillText: {
     fontFamily: fonts.semi,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.gold,
     writingDirection: 'rtl',
     textAlign: 'center',

@@ -365,7 +365,7 @@ const styles = StyleSheet.create({
   hero: { alignItems: 'center', width: '100%' },
   badgeText: {
     fontFamily: fonts.semi,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.gold,
     writingDirection: 'rtl',
     textAlign: 'center',

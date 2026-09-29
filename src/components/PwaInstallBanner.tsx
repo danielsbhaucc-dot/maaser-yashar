@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
   },
   sub: {
     fontFamily: fonts.regular,
-    fontSize: 12,
+    fontSize: 13,
     lineHeight: 16,
     color: colors.inkSoft,
     marginTop: 2,

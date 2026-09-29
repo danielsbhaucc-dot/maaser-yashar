@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   primaryBtn: {
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(139, 155, 255, 0.82)',
+    backgroundColor: colors.primaryDark,
     borderRadius: radii.lg,
     paddingVertical: 15,
     paddingHorizontal: 18,

@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   },
   hintBubbleTxt: {
     fontFamily: fonts.semi,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.ink,
     textAlign: 'start',
     writingDirection: 'rtl',
@@ -363,7 +363,7 @@ const styles = StyleSheet.create({
   },
   structLevel: {
     fontFamily: fonts.bold,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.primary,
     backgroundColor: colors.primarySoft,
     paddingHorizontal: 6,

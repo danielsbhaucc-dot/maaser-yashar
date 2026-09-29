@@ -894,7 +894,7 @@ const styles = StyleSheet.create({
   },
   launcherBadgeTxt: {
     fontFamily: fonts.extra,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.inkDark,
   },
 
@@ -1009,7 +1009,7 @@ const styles = StyleSheet.create({
   },
   onlineTxt: {
     fontFamily: fonts.semi,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.inkMuted,
   },
   onlineInline: {
@@ -1146,7 +1146,7 @@ const styles = StyleSheet.create({
   },
   aiDisclosure: {
     fontFamily: fonts.medium,
-    fontSize: 12,
+    fontSize: 13,
     color: colors.gold,
     textAlign: 'center',
     paddingHorizontal: spacing.md,
@@ -1390,7 +1390,7 @@ const styles = StyleSheet.create({
   },
   privacy: {
     fontFamily: fonts.regular,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.gold,
     textAlign: 'center',
     paddingHorizontal: spacing.md,
@@ -1405,7 +1405,7 @@ const styles = StyleSheet.create({
   },
   privacyLink: {
     fontFamily: fonts.semi,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.primary,
     textAlign: 'center',
     textDecorationLine: 'underline',
@@ -1429,7 +1429,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     color: colors.ink,
     fontFamily: fonts.regular,
-    fontSize: 15,
+    fontSize: 16,
     textAlign: 'start',
     writingDirection: 'rtl',
   },

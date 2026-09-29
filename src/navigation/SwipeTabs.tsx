@@ -239,8 +239,8 @@ const styles = StyleSheet.create({
   },
   tabLabel: {
     fontFamily: fonts.medium,
-    fontSize: 12,
-    lineHeight: 14,
+    fontSize: 13,
+    lineHeight: 16,
     color: colors.inkSoft,
     writingDirection: 'rtl',
     textAlign: 'center',
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
     color: colors.gold,
   },
   tabLabelSpacer: {
-    height: 14,
+    height: 16,
   },
   fabNotch: {
     width: 56,

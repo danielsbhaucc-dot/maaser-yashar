@@ -875,7 +875,7 @@ const styles = StyleSheet.create({
   },
   brandMini: {
     fontFamily: fonts.semi,
-    fontSize: 11,
+    fontSize: 13,
     color: colors.gold,
     writingDirection: 'rtl',
   },
@@ -1033,7 +1033,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 12,
     fontFamily: fonts.medium,
-    fontSize: 15,
+    fontSize: 16,
     color: '#fff',
     borderWidth: 1.5,
     borderColor: colors.glassGoldBorder,

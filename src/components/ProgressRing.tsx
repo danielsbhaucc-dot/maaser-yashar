@@ -155,7 +155,7 @@ const styles = StyleSheet.create({
   },
   lbl: {
     fontFamily: fonts.medium,
-    fontSize: 10,
+    fontSize: 13,
     color: colors.inkSoft,
     marginTop: 1,
     textAlign: 'center',

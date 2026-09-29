@@ -85,23 +85,23 @@ export const type = {
 
   bodySm: {
     fontFamily: fonts.regular,
-    fontSize: 13,
-    lineHeight: 21,
+    fontSize: 14,
+    lineHeight: 22,
     ...rtl,
   } satisfies TextStyle,
 
   caption: {
     fontFamily: fonts.medium,
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
     letterSpacing: 0.2,
     ...rtl,
   } satisfies TextStyle,
 
   eyebrow: {
     fontFamily: fonts.extra,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 13,
+    lineHeight: 16,
     letterSpacing: 0.7,
     ...rtl,
   } satisfies TextStyle,
