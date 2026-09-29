@@ -1,4 +1,4 @@
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { Suspense, useRef, useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   NativeScrollEvent,
   LayoutChangeEvent,
   useWindowDimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,16 +18,31 @@ import { colors, fonts } from '../theme';
 import { DIR, ltrDomProps, rtlDomProps } from '../rtl';
 import HomeScreen from '../screens/HomeScreen';
 import HistoryScreen from '../screens/HistoryScreen';
-import TaxScreen from '../screens/TaxScreen';
 import GuideScreen from '../screens/GuideScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { TabNavProvider, type TabKey } from './TabNavContext';
 import { useApp } from '../context/AppContext';
 
+const TaxScreen = React.lazy(() => import('../screens/TaxScreen'));
+
+function TaxScreenGate() {
+  return (
+    <Suspense
+      fallback={
+        <View style={styles.chunkFallback}>
+          <ActivityIndicator color={colors.gold} />
+        </View>
+      }
+    >
+      <TaxScreen />
+    </Suspense>
+  );
+}
+
 const TABS = [
   { key: 'Home' as const, title: 'בית', icon: 'home', iconOut: 'home-outline', Screen: HomeScreen },
   { key: 'History' as const, title: 'היסטוריה', icon: 'time', iconOut: 'time-outline', Screen: HistoryScreen },
-  { key: 'Tax' as const, title: 'החזר מס', icon: 'receipt', iconOut: 'receipt-outline', Screen: TaxScreen },
+  { key: 'Tax' as const, title: 'החזר מס', icon: 'receipt', iconOut: 'receipt-outline', Screen: TaxScreenGate },
   { key: 'Guide' as const, title: 'הנחיות', icon: 'book', iconOut: 'book-outline', Screen: GuideScreen },
   { key: 'Settings' as const, title: 'הגדרות', icon: 'settings', iconOut: 'settings-outline', Screen: SettingsScreen },
 ] as const;
@@ -34,12 +50,14 @@ const TABS = [
 const TAB_KEYS: TabKey[] = TABS.map((t) => t.key);
 /** רוחב מתחתיו מציגים תווית רק לטאב הפעיל */
 const LABEL_ACTIVE_ONLY_MAX = 360;
+const TAX_TAB_INDEX = TABS.findIndex((t) => t.key === 'Tax');
 
 export function SwipeTabs() {
   const scrollRef = useRef<ScrollView>(null);
   const [index, setIndex] = useState(0);
   const [pageWidth, setPageWidth] = useState(0);
   const indexRef = useRef(0);
+  const [taxVisited, setTaxVisited] = useState(false);
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { openAdd } = useApp();
@@ -48,6 +66,10 @@ export function SwipeTabs() {
 
   useEffect(() => {
     indexRef.current = index;
+  }, [index]);
+
+  useEffect(() => {
+    if (index === TAX_TAB_INDEX) setTaxVisited(true);
   }, [index]);
 
   const setIndexSafe = useCallback((i: number) => {
@@ -172,7 +194,7 @@ export function SwipeTabs() {
               collapsable={false}
               {...rtlDomProps}
             >
-              <Screen />
+              {key === 'Tax' && !taxVisited ? null : <Screen />}
             </View>
           ))}
         </ScrollView>
@@ -218,6 +240,11 @@ const styles = StyleSheet.create({
   pager: { flex: 1, width: '100%' },
   page: { flex: 1, height: '100%', overflow: 'hidden' },
   pageFlex: { flex: 1 },
+  chunkFallback: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   tabBar: {
     position: 'absolute',
     height: 64,
