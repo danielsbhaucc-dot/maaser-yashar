@@ -602,7 +602,7 @@ export default function HomeScreen() {
 
       <View style={styles.actions}>
         <Action label="הכנסה" color={colors.income} onPress={() => openAdd('income', period)} />
-        <Action label="ניכוי" color={colors.expense} onPress={() => openAdd('expense', period)} />
+        <Action label="ניכוי מהבסיס" color={colors.expense} onPress={() => openAdd('expense', period)} />
         <Action label="צדקה" color={colors.tzedaka} onPress={() => openAdd('tzedaka', period)} primary />
       </View>
 
@@ -730,7 +730,7 @@ function LedgerRow({
     : isTz
       ? 'rgba(255, 216, 138, 0.14)'
       : 'rgba(240, 168, 184, 0.12)';
-  const kindLabel = isIn ? 'הכנסה' : isTz ? 'צדקה' : 'ניכוי';
+  const kindLabel = isIn ? 'הכנסה' : isTz ? 'צדקה' : 'ניכוי מהבסיס';
   const sign = isIn ? '+' : '−';
   const time = formatRelativeTime(entry.date ?? entry.createdAt);
   const note = displayNote(entry.note);

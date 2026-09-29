@@ -171,7 +171,7 @@ function StorageAlertBridge() {
 
 function entryKindLabel(kind: 'income' | 'expense' | 'tzedaka'): string {
   if (kind === 'income') return 'הכנסה';
-  if (kind === 'expense') return 'ניכוי';
+  if (kind === 'expense') return 'ניכוי מהבסיס';
   return 'צדקה';
 }
 

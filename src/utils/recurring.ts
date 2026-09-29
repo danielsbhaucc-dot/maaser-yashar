@@ -196,6 +196,6 @@ export function applyRecurringRules(
 
 export function kindLabel(kind: LedgerKind): string {
   if (kind === 'income') return 'הכנסה';
-  if (kind === 'expense') return 'ניכוי';
+  if (kind === 'expense') return 'ניכוי מהבסיס';
   return 'צדקה';
 }

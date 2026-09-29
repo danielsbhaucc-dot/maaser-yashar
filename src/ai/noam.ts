@@ -113,15 +113,26 @@ export async function sendToNoam(params: {
     throw new Error(msg);
   }
 
+  /** N-06: expense רק לקטגוריות ניכוי שמותר ל־AI להציע */
+  const AI_EXPENSE = new Set([
+    'מס הכנסה',
+    'ביטוח לאומי',
+    'מס בריאות',
+    'הוצאות עסק',
+    'הוצאות שכירות',
+  ]);
+
   const actions = Array.isArray(data.actions)
-    ? (data.actions as ProposedEntry[]).filter(
-        (a) =>
-          a?.type === 'add_entry' &&
-          ['income', 'expense', 'tzedaka'].includes(a.kind) &&
-          Number.isFinite(Number(a.amount)) &&
-          Number(a.amount) > 0 &&
-          Number(a.amount) < 1e8
-      )
+    ? (data.actions as ProposedEntry[]).filter((a) => {
+        if (a?.type !== 'add_entry') return false;
+        if (!['income', 'expense', 'tzedaka'].includes(a.kind)) return false;
+        if (!Number.isFinite(Number(a.amount))) return false;
+        if (!(Number(a.amount) > 0) || Number(a.amount) >= 1e8) return false;
+        if (a.kind === 'expense' && !AI_EXPENSE.has(String(a.category || ''))) {
+          return false;
+        }
+        return true;
+      })
     : [];
 
   return {
@@ -141,7 +152,7 @@ export function messagesForModel(
 
 export function kindLabel(kind: LedgerKind, gender?: Gender): string {
   if (kind === 'income') return 'הכנסה';
-  if (kind === 'expense') return 'ניכוי';
+  if (kind === 'expense') return 'ניכוי מהבסיס';
   return t(gender, 'צדקה שניתנה', 'צדקה שניתנה');
 }
 

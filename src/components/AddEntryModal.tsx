@@ -63,7 +63,7 @@ const KIND_META: Record<
     on: '#062028',
   },
   expense: {
-    label: 'ניכוי',
+    label: 'ניכוי מהבסיס',
     color: colors.danger,
     soft: colors.dangerSoft,
     on: '#2A1018',
@@ -249,12 +249,12 @@ export default function AddEntryModal({
       ? kind === 'income'
         ? 'שמור הוראת קבע · הכנסה'
         : kind === 'expense'
-          ? 'שמור הוראת קבע · ניכוי'
+          ? 'שמור הוראת קבע · ניכוי מהבסיס'
           : 'שמור הוראת קבע · צדקה'
       : kind === 'income'
         ? 'הוסף הכנסה'
         : kind === 'expense'
-          ? 'הוסף ניכוי'
+          ? 'הוסף ניכוי מהבסיס'
           : 'רשום צדקה';
 
   return (

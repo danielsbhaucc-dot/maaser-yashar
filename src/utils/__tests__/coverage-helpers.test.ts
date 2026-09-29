@@ -166,7 +166,7 @@ describe('recurring helpers', () => {
 
   it('kindLabel covers kinds', () => {
     expect(kindLabel('income')).toBe('הכנסה');
-    expect(kindLabel('expense')).toBe('ניכוי');
+    expect(kindLabel('expense')).toBe('ניכוי מהבסיס');
     expect(kindLabel('tzedaka')).toBe('צדקה');
   });
 

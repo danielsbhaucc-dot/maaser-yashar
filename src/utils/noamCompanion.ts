@@ -155,8 +155,8 @@ export function noamSaveMonthToast(name: string, g: Gender, periodLabel: string)
 export function noamBannerTip(g: Gender): string {
   return t(
     g,
-    `${BOT_NAME}: הכנסה מוסיפה · ניכוי מוריד מהבסיס · צדקה על החובה — ואני בצ'אט אם מתבלבלים`,
-    `${BOT_NAME}: הכנסה מוסיפה · ניכוי מוריד מהבסיס · צדקה על החובה — ואני בצ'אט אם מתבלבלות`
+    `${BOT_NAME}: הכנסה מוסיפה · ניכוי מהבסיס מוריד · צדקה על החובה — ואני בצ'אט אם מתבלבלים`,
+    `${BOT_NAME}: הכנסה מוסיפה · ניכוי מהבסיס מוריד · צדקה על החובה — ואני בצ'אט אם מתבלבלות`
   );
 }
 

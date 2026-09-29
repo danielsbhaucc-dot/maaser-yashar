@@ -231,7 +231,7 @@ function sumKind(entries: LedgerEntry[], kind: LedgerKind, cat?: string | string
 
 /**
  * ממפה את הפנקס לשדות calculateMaaser הקיים.
- * kind expense = ניכוי מהבסיס (גם אם התווית במסך היא «ניכוי»).
+ * kind expense = ניכוי מהבסיס (תווית המסך: «ניכוי מהבסיס»).
  */
 export function buildMaaserInputs(
   entries: LedgerEntry[],
