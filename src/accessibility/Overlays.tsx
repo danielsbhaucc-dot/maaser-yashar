@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useA11y } from './AccessibilityContext';
 import { colors, fonts } from '../theme';
 import { DIR } from '../rtl';
+import { dialogDomProps, useDialogFocus } from '../hooks/useDialogFocus';
 
 function usePointerY(enabled: boolean) {
   const [y, setY] = useState(160);
@@ -197,14 +198,18 @@ export function ScreenReaderHintsOverlay() {
 export function PageStructureModal() {
   const { settings, setSetting } = useA11y();
   const insets = useSafeAreaInsets();
-  const [headings, setHeadings] = useState<{ text: string; level: number }[]>([]);
+  const [headings, setHeadings] = useState<{ text: string; level: number; el?: Element }[]>([]);
+  const dialogId = 'maaser-a11y-page-structure';
+  const onClose = () => setSetting('pageStructure', false);
+
+  useDialogFocus({ open: settings.pageStructure, onClose, dialogId });
 
   useEffect(() => {
     if (!settings.pageStructure) return;
     if (Platform.OS === 'web' && typeof document !== 'undefined') {
       const nodes = Array.from(
         document.querySelectorAll(
-          'h1,h2,h3,h4,[aria-level], [accessibilityrole="header"], [role="header"]'
+          'h1,h2,h3,h4,[aria-level],[accessibilityrole="header"],[role="header"],[role="heading"]'
         )
       );
       const list = nodes
@@ -213,7 +218,11 @@ export function PageStructureModal() {
           const level = tag.startsWith('h')
             ? parseInt(tag[1], 10)
             : Number(n.getAttribute('aria-level') || 2);
-          return { text: (n.textContent || '').trim().slice(0, 80), level };
+          return {
+            text: (n.textContent || '').trim().slice(0, 80),
+            level,
+            el: n,
+          };
         })
         .filter((h) => h.text.length > 0);
       setHeadings(
@@ -241,35 +250,51 @@ export function PageStructureModal() {
   if (!settings.pageStructure) return null;
 
   return (
-    <Modal
-      visible
-      transparent
-      animationType="fade"
-      onRequestClose={() => setSetting('pageStructure', false)}
-    >
+    <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View style={[styles.structBackdrop, DIR]}>
-        <View style={[styles.structCard, { paddingBottom: insets.bottom + 16 }]}>
+        <View
+          nativeID={dialogId}
+          {...dialogDomProps}
+          style={[styles.structCard, { paddingBottom: insets.bottom + 16 }]}
+          accessibilityViewIsModal
+          accessibilityLabel="מבנה העמוד"
+        >
           <View style={styles.structHead}>
-            <Text style={styles.structTitle}>מבנה העמוד</Text>
-          <Pressable
-            onPress={() => setSetting('pageStructure', false)}
-            accessibilityRole="button"
-            accessibilityLabel="סגור מבנה עמוד"
-            hitSlop={4}
-            style={styles.structClose}
-          >
+            <Text style={styles.structTitle} accessibilityRole="header">
+              מבנה העמוד
+            </Text>
+            <Pressable
+              onPress={onClose}
+              accessibilityRole="button"
+              accessibilityLabel="סגור מבנה עמוד"
+              hitSlop={4}
+              style={styles.structClose}
+            >
               <Text style={styles.structCloseTxt}>✕</Text>
             </Pressable>
           </View>
           <ScrollView style={{ maxHeight: 360 }}>
             {headings.map((h, i) => (
-              <View
+              <Pressable
                 key={`${h.text}-${i}`}
                 style={[styles.structRow, { paddingRight: 8 + h.level * 10 }]}
+                accessibilityRole="button"
+                accessibilityLabel={`כותרת רמה ${h.level}: ${h.text}`}
+                onPress={() => {
+                  if (h.el && h.el instanceof HTMLElement) {
+                    try {
+                      h.el.focus({ preventScroll: false });
+                      h.el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    } catch {
+                      // ignore
+                    }
+                    onClose();
+                  }
+                }}
               >
                 <Text style={styles.structLevel}>H{h.level}</Text>
                 <Text style={styles.structText}>{h.text}</Text>
-              </View>
+              </Pressable>
             ))}
           </ScrollView>
         </View>

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,7 @@ import { colors, fonts, radii, shadow } from '../theme';
 import { DIR } from '../rtl';
 import { NATIVE_DRIVER } from '../utils/motion';
 import { fontScale, listActiveChips, smartTips } from './effects';
+import { dialogDomProps, useDialogFocus } from '../hooks/useDialogFocus';
 import {
   PageStructureModal,
   ReadingGuideOverlay,
@@ -415,6 +416,16 @@ export function AccessibilityWidget() {
     'fontSize' | 'lineHeight' | 'letterSpacing' | 'wordSpacing'
   >('fontSize');
 
+  const closePanel = useCallback(() => {
+    a11y.closePanel();
+  }, [a11y]);
+
+  useDialogFocus({
+    open: settings.panelOpen,
+    onClose: closePanel,
+    dialogId: 'maaser-a11y-root',
+  });
+
   const toggleSec = (id: string) => {
     if (!settings.stopAnimations && !settings.reduceMotion) {
       LayoutAnimation.configureNext(animConfig);
@@ -498,8 +509,10 @@ export function AccessibilityWidget() {
   const panel = (
     <View
       nativeID="maaser-a11y-root"
+      {...dialogDomProps}
       style={[styles.panelWrap, DIR, { paddingTop: insets.top + 6 }]}
       accessibilityViewIsModal
+      accessibilityLabel="תפריט נגישות"
     >
       <View style={styles.panel}>
         {Platform.OS !== 'web' ? (
@@ -1226,16 +1239,27 @@ function DocModal({
   onClose: () => void;
   bottomInset: number;
 }) {
+  const dialogId = `maaser-a11y-doc-${title.replace(/\s+/g, '-')}`;
+  useDialogFocus({ open: visible, onClose, dialogId });
+
   return (
-    <Modal visible={visible} animationType="slide" transparent>
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={[styles.docBackdrop, DIR]}>
-        <View style={[styles.docCard, { paddingBottom: bottomInset + 16 }]}>
+        <View
+          nativeID={dialogId}
+          {...dialogDomProps}
+          style={[styles.docCard, { paddingBottom: bottomInset + 16 }]}
+          accessibilityViewIsModal
+          accessibilityLabel={title}
+        >
           <LinearGradient
             colors={['rgba(42,37,88,0.98)', 'rgba(18,24,44,0.99)']}
             style={StyleSheet.absoluteFill}
           />
           <View style={styles.docHead}>
-            <Text style={styles.docTitle}>{title}</Text>
+            <Text style={styles.docTitle} accessibilityRole="header">
+              {title}
+            </Text>
             <Pressable
               onPress={onClose}
               style={styles.headerBtn}

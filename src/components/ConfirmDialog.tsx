@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useId, useRef } from 'react';
 import {
   Modal,
   View,
@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
+import { dialogDomProps, useDialogFocus } from '../hooks/useDialogFocus';
 
 export type ConfirmDialogProps = {
   visible: boolean;
@@ -23,7 +24,7 @@ export type ConfirmDialogProps = {
 
 /**
  * חלון אישור ממורכז עם רקע מעומעם — למחיקות ופעולות הרסניות.
- * תומך Esc ב־web ומוכרז כ־dialog.
+ * תומך Esc, מלכודת פוקוס והחזרת פוקוס ב־web; מוכרז כ־dialog.
  */
 export function ConfirmDialog({
   visible,
@@ -37,18 +38,14 @@ export function ConfirmDialog({
 }: ConfirmDialogProps) {
   const cancelRef = useRef<View>(null);
   const busy = useRef(false);
+  const reactId = useId().replace(/:/g, '');
+  const dialogId = `maaser-confirm-${reactId}`;
 
-  useEffect(() => {
-    if (!visible || Platform.OS !== 'web') return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        onCancel();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [visible, onCancel]);
+  const handleCancel = useCallback(() => {
+    onCancel();
+  }, [onCancel]);
+
+  useDialogFocus({ open: visible, onClose: handleCancel, dialogId });
 
   const handleConfirm = async () => {
     if (busy.current) return;
@@ -65,29 +62,33 @@ export function ConfirmDialog({
       visible={visible}
       transparent
       animationType="fade"
-      onRequestClose={onCancel}
+      onRequestClose={handleCancel}
       statusBarTranslucent
     >
       <View style={[styles.root, DIR]} {...rtlDomProps}>
         <Pressable
           style={styles.backdrop}
-          onPress={onCancel}
+          onPress={handleCancel}
           accessibilityRole="button"
           accessibilityLabel="סגור"
         />
         <View
+          nativeID={dialogId}
+          {...dialogDomProps}
           style={styles.dialog}
-          accessibilityRole="dialog"
+          accessibilityRole="summary"
           accessibilityViewIsModal
           accessibilityLabel={title}
         >
-          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            {title}
+          </Text>
           {message ? <Text style={styles.message}>{message}</Text> : null}
           <View style={styles.actions}>
             <Pressable
               ref={cancelRef}
               style={[styles.btn, styles.btnCancel]}
-              onPress={onCancel}
+              onPress={handleCancel}
               accessibilityRole="button"
               accessibilityLabel={cancelLabel}
             >

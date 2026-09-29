@@ -6,7 +6,7 @@ import { rtlDomProps, DIR } from '../rtl';
 
 /**
  * עוטף את תוכן האפליקציה ומחיל התאמות נגישות ברמת השורש.
- * ב־web רוב האפקטים (כולל גודל טקסט דרך zoom) מגיעים מ־CSS.
+ * ב־web רוב האפקטים (כולל גודל טקסט דרך zoom) מגיעים מ־CSS ב־effects.ts.
  * ב־native — scale על השורש כדי ש־fontSize בפיקסלים יגדל בפועל.
  */
 export function AccessibilityRoot({ children }: { children: React.ReactNode }) {
@@ -21,8 +21,16 @@ export function AccessibilityRoot({ children }: { children: React.ReactNode }) {
           : null
       : null;
 
+  const motionStyle =
+    Platform.OS !== 'web' && (settings.stopAnimations || settings.reduceMotion)
+      ? ({ cursor: undefined } as object)
+      : null;
+
   return (
-    <View style={[styles.flex, DIR, rootA11yStyle(settings), satStyle]} {...rtlDomProps}>
+    <View
+      style={[styles.flex, DIR, rootA11yStyle(settings), satStyle, motionStyle]}
+      {...rtlDomProps}
+    >
       {children}
     </View>
   );

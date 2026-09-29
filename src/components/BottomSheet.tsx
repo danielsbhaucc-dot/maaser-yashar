@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useId, useRef } from 'react';
 import {
   Modal,
   View,
@@ -16,6 +16,7 @@ import { GlassCloseButton } from './Glass';
 import { colors, fonts, spacing, type } from '../theme';
 import { DIR } from '../rtl';
 import { NATIVE_DRIVER } from '../utils/motion';
+import { dialogDomProps, useDialogFocus } from '../hooks/useDialogFocus';
 
 const SCREEN_H = Dimensions.get('window').height;
 const DISMISS_Y = 110;
@@ -34,6 +35,27 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
   const translateY = useRef(new Animated.Value(0)).current;
   const backdrop = useRef(new Animated.Value(0)).current;
   const safeBottom = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12) + 12;
+  const reactId = useId().replace(/:/g, '');
+  const dialogId = `maaser-sheet-${reactId}`;
+
+  const dismiss = useCallback(() => {
+    Animated.parallel([
+      Animated.timing(translateY, {
+        toValue: SCREEN_H * 0.55,
+        duration: 220,
+        useNativeDriver: NATIVE_DRIVER,
+      }),
+      Animated.timing(backdrop, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: NATIVE_DRIVER,
+      }),
+    ]).start(({ finished }) => {
+      if (finished) onClose();
+    });
+  }, [backdrop, onClose, translateY]);
+
+  useDialogFocus({ open: visible, onClose: dismiss, dialogId });
 
   useEffect(() => {
     if (visible) {
@@ -54,23 +76,6 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
       ]).start();
     }
   }, [visible, translateY, backdrop]);
-
-  const dismiss = () => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: SCREEN_H * 0.55,
-        duration: 220,
-        useNativeDriver: NATIVE_DRIVER,
-      }),
-      Animated.timing(backdrop, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: NATIVE_DRIVER,
-      }),
-    ]).start(({ finished }) => {
-      if (finished) onClose();
-    });
-  };
 
   const pan = useRef(
     PanResponder.create({
@@ -120,11 +125,14 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
           pointerEvents="box-none"
         >
           <Animated.View
+            nativeID={dialogId}
+            {...dialogDomProps}
             style={[
               styles.sheet,
               { transform: [{ translateY }], paddingBottom: safeBottom },
             ]}
             {...pan.panHandlers}
+            accessibilityRole="summary"
             accessibilityViewIsModal
             accessibilityLabel={title || 'חלון'}
           >

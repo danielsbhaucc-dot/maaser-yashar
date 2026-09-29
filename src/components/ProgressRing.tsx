@@ -17,6 +17,10 @@ type Props = {
   trackColor?: string;
   /** הצג ✔ כשהיתרה כוסתה */
   celebrate?: boolean;
+  /** תווית קורא־מסך מלאה (למשל יתרה/חובה דינמיים). כשמועבר — מחליף את ברירת המחדל */
+  accessibilityLabel?: string;
+  /** כשההורה כבר מכריז — מסתירים את הטבעת מעץ הנגישות */
+  accessibilityHidden?: boolean;
 };
 
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -29,6 +33,8 @@ export function ProgressRing({
   color = colors.primary,
   trackColor = 'rgba(255,255,255,0.12)',
   celebrate = false,
+  accessibilityLabel: a11yLabel,
+  accessibilityHidden = false,
 }: Props) {
   const motionOk = useMotionEnabled();
   const pct =
@@ -90,18 +96,22 @@ export function ProgressRing({
           ? 'אין חובה'
           : 'ריק';
 
+  const defaultLabel = celebrate
+    ? 'החודש כוסה'
+    : ring.kind === 'progress'
+      ? `${pct} אחוז ניתן`
+      : ring.kind === 'none'
+        ? 'אין חובה החודש'
+        : 'חודש ריק';
+
   return (
     <View
       style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}
-      accessibilityLabel={
-        celebrate
-          ? 'החודש כוסה'
-          : ring.kind === 'progress'
-            ? `${pct} אחוז ניתן`
-            : ring.kind === 'none'
-              ? 'אין חובה החודש'
-              : 'חודש ריק'
-      }
+      accessible={!accessibilityHidden}
+      accessibilityRole="progressbar"
+      accessibilityLabel={accessibilityHidden ? undefined : a11yLabel ?? defaultLabel}
+      accessibilityElementsHidden={accessibilityHidden}
+      importantForAccessibility={accessibilityHidden ? 'no-hide-descendants' : 'yes'}
     >
       <Svg width={size} height={size} style={StyleSheet.absoluteFill}>
         <Circle

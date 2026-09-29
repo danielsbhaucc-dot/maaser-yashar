@@ -446,7 +446,14 @@ export default function HomeScreen() {
         dark
         gold
         style={styles.balanceCard}
-        accessibilityLabel={`יתרה לתת ${formatMoney(totals.remaining)}, מתוך חובה ${formatMoney(totals.obligation)}`}
+        accessibilityRole="summary"
+        accessibilityLabel={
+          celebrateDone
+            ? `החודש כוסה. חובה ${formatMoney(totals.obligation)}`
+            : totals.obligation <= 0
+              ? ringStatusLine || 'אין חובה החודש'
+              : `יתרה לתת ${formatMoney(totals.remaining)} מתוך חובה של ${formatMoney(totals.obligation)}`
+        }
       >
         {isEmptyMonth ? (
           <View style={styles.emptyHome}>
@@ -486,6 +493,14 @@ export default function HomeScreen() {
                 ring={ring}
                 color={colors.gold}
                 celebrate={celebrateDone || savedFlash}
+                accessibilityHidden
+                accessibilityLabel={
+                  celebrateDone || savedFlash
+                    ? `החודש כוסה. חובה ${formatMoney(totals.obligation)}`
+                    : totals.obligation <= 0
+                      ? ringStatusLine || 'אין חובה החודש'
+                      : `יתרה לתת ${formatMoney(totals.remaining)} מתוך חובה של ${formatMoney(totals.obligation)}`
+                }
               />
             </View>
             {/* 3) כרטיסי סיכום */}
@@ -700,40 +715,49 @@ function LedgerRow({
   const sign = isIn ? '+' : '−';
   const time = formatRelativeTime(entry.date ?? entry.createdAt);
   const note = displayNote(entry.note);
+  const rowLabel = [entry.category || kindLabel, formatMoney(entry.amount), time]
+    .filter(Boolean)
+    .join(', ');
 
   return (
-    <Pressable
-      onPress={onPress}
-      onLongPress={onDelete}
-      style={[styles.row, { backgroundColor: softBg }, !isLast && styles.rowBorder]}
-      accessibilityRole="button"
-      accessibilityLabel={`${kindLabel}, ${entry.category}, ${sign}${formatMoney(entry.amount)}${note ? `, ${note}` : ''}`}
-      accessibilityHint={onPress ? 'לחיצה לעריכה, לחיצה ארוכה למחיקה' : 'לחיצה ארוכה למחיקה'}
-    >
-      <View style={[styles.rowAccent, { backgroundColor: color }]} />
-      <View style={styles.rowMid}>
-        <View style={styles.rowTop}>
-          <Text style={styles.rowCat} numberOfLines={1}>
-            {entry.category}
-          </Text>
-          <Text style={[styles.rowAmount, { color }]} numberOfLines={1}>
-            {sign}
-            {formatMoney(entry.amount)}
-          </Text>
+    <View style={[styles.row, { backgroundColor: softBg }, !isLast && styles.rowBorder]}>
+      <Pressable
+        onPress={onPress}
+        onLongPress={onDelete}
+        style={styles.rowMain}
+        accessibilityRole="button"
+        accessibilityLabel={rowLabel}
+        accessibilityHint={onPress ? 'Enter לעריכה' : undefined}
+      >
+        <View style={[styles.rowAccent, { backgroundColor: color }]} />
+        <View style={styles.rowMid}>
+          <View style={styles.rowTop}>
+            <Text style={styles.rowCat} numberOfLines={1}>
+              {entry.category}
+            </Text>
+            <Text style={[styles.rowAmount, { color }]} numberOfLines={1}>
+              {sign}
+              {formatMoney(entry.amount)}
+            </Text>
+          </View>
+          <View style={styles.rowBottom}>
+            <Text style={styles.rowNote} numberOfLines={1}>
+              {note || kindLabel}
+            </Text>
+            <Text style={styles.rowDate} numberOfLines={1}>
+              {time}
+            </Text>
+          </View>
         </View>
-        <View style={styles.rowBottom}>
-          <Text style={styles.rowNote} numberOfLines={1}>
-            {note || kindLabel}
-          </Text>
-          <Text style={styles.rowDate} numberOfLines={1}>
-            {time}
-          </Text>
-        </View>
-      </View>
+      </Pressable>
       <View style={styles.rowDeleteCol}>
-        <DeleteButton onPress={onDelete} size={28} />
+        <DeleteButton
+          onPress={onDelete}
+          size={28}
+          accessibilityLabel={`מחק ${entry.category || kindLabel}`}
+        />
       </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -1128,6 +1152,13 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     gap: 10,
     minHeight: 56,
+  },
+  rowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    minWidth: 0,
   },
   rowBorder: {
     borderBottomWidth: StyleSheet.hairlineWidth,

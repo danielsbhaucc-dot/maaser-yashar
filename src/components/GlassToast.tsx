@@ -161,6 +161,8 @@ function ToastCard({
           <Pressable
             style={[styles.btn, styles.btnGhost]}
             onPress={() => item.onCancel?.()}
+            accessibilityRole="button"
+            accessibilityLabel={item.cancelLabel ?? 'ביטול'}
           >
             <Text style={styles.btnGhostTxt}>{item.cancelLabel ?? 'ביטול'}</Text>
           </Pressable>
