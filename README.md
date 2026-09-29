@@ -11,6 +11,22 @@ npx expo start
 
 לאחר מכן סרקו QR ב-Expo Go, או לחצו `w` לדפדפן.
 
+## רגרסיה לנועם (N-19)
+
+לפני **כל שינוי בפרומפט או במודל**, הריצו:
+
+```bash
+OPENROUTER_API_KEY=sk-... npm run test:noam
+```
+
+או מול סביבת preview/prod:
+
+```bash
+CHAT_API_URL=https://your-preview.netlify.app/api/chat npm run test:noam
+```
+
+הסקריפט מפיק PASS/FAIL לכל מקרה מ־`scripts/fixtures/chapter7-noam.json` ושומר תשובות ב־`scripts/fixtures/chapter7-last-run.json`.
+
 ## מסכים
 
 1. **מעשר** — הכנסות, ניכויי מס, שיטות הלכתיות, מעשר/חומש, יתרה לתת

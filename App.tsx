@@ -4,6 +4,7 @@ import {
   StyleSheet,
   Platform,
   I18nManager,
+  useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { reloadAppAsync } from 'expo';
@@ -36,6 +37,9 @@ import { currentPeriod } from './src/utils/history';
 import { registerWebPwa } from './src/pwa/registerWebPwa';
 import { APP_URL } from './src/utils/monthlyReminderCore';
 
+/** N-17: דסקטופ רחב — פנקס + צ'אט זה לצד זה (~480 + ~400) */
+const DESKTOP_CHAT_BREAKPOINT = 1000;
+
 /** Deep-link paths for tabs (SwipeTabs syncs history; config documents the routes) */
 const linking = {
   prefixes: [APP_URL, 'https://maaser-yashar.netlify.app', 'http://localhost:8081'],
@@ -50,7 +54,7 @@ const linking = {
   },
 };
 
-const NoamChat = React.lazy(() => import('./src/components/NoamChat'));
+const LazyNoamChatModule = React.lazy(() => import('./src/components/NoamChat'));
 
 /** טוען את הצ'אט רק אחרי פתיחה ראשונה */
 function LazyNoamChat() {
@@ -62,8 +66,27 @@ function LazyNoamChat() {
   if (!armed) return null;
   return (
     <Suspense fallback={null}>
-      <LazyNoamChat />
+      <LazyNoamChatModule />
     </Suspense>
+  );
+}
+
+/** N-17: מעטפת — בדסקטופ פתוח הצ'אט יושב ליד עמודת הפנקס */
+function AppChrome({ children }: { children: React.ReactNode }) {
+  const { open } = useNoamChat();
+  const { width } = useWindowDimensions();
+  const sideBySide = Platform.OS === 'web' && width >= DESKTOP_CHAT_BREAKPOINT && open;
+
+  return (
+    <View
+      style={[styles.appRoot, DIR, sideBySide && styles.appRootWithDock]}
+      {...rtlDomProps}
+    >
+      <View style={[styles.phoneFrame, sideBySide && styles.phoneFrameDocked, DIR]} {...rtlDomProps}>
+        {children}
+      </View>
+      <LazyNoamChat />
+    </View>
   );
 }
 
@@ -401,7 +424,6 @@ function Root() {
     <AccessibilityRoot>
       <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
         <SwipeTabs />
-        <NoamChat />
         <GlobalAddModal />
         <PwaInstallBanner />
         <AccessibilityWidget />
@@ -428,31 +450,29 @@ export default function App() {
     <ErrorBoundary>
       <GestureHandlerRootView style={[styles.flex, DIR]} {...rtlDomProps}>
         <SafeAreaProvider>
-          <View style={[styles.appRoot, DIR]} {...rtlDomProps}>
-            <View style={[styles.phoneFrame, DIR]} {...rtlDomProps}>
-              <AppProvider>
-                <ToastProvider>
-                  <NoamChatProvider>
-                    <PinLockProvider>
-                      <AccessibilityProvider>
-                        <NavigationContainer
-                          theme={navTheme}
-                          linking={linking}
-                          documentTitle={{
-                            enabled: true,
-                            formatter: () => documentTitleFromLocation(),
-                          }}
-                        >
-                          <StatusBar style="light" />
-                          <Root />
-                        </NavigationContainer>
-                      </AccessibilityProvider>
-                    </PinLockProvider>
-                  </NoamChatProvider>
-                </ToastProvider>
-              </AppProvider>
-            </View>
-          </View>
+          <AppProvider>
+            <ToastProvider>
+              <NoamChatProvider>
+                <PinLockProvider>
+                  <AccessibilityProvider>
+                    <AppChrome>
+                      <NavigationContainer
+                        theme={navTheme}
+                        linking={linking}
+                        documentTitle={{
+                          enabled: true,
+                          formatter: () => documentTitleFromLocation(),
+                        }}
+                      >
+                        <StatusBar style="light" />
+                        <Root />
+                      </NavigationContainer>
+                    </AppChrome>
+                  </AccessibilityProvider>
+                </PinLockProvider>
+              </NoamChatProvider>
+            </ToastProvider>
+          </AppProvider>
         </SafeAreaProvider>
       </GestureHandlerRootView>
     </ErrorBoundary>
@@ -469,6 +489,16 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     alignItems: 'center',
   },
+  /** N-17: פנקס + צ'אט זה לצד זה ב־≥1000px */
+  appRootWithDock: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'stretch',
+    gap: 12,
+    paddingHorizontal: 12,
+    maxWidth: 920,
+    alignSelf: 'center',
+  },
   /** מובייל־פירסט: על דסקטופ נשארים ברוחב טלפון ממורכז */
   phoneFrame: {
     flex: 1,
@@ -477,6 +507,13 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     overflow: 'hidden',
     backgroundColor: colors.bg,
+  },
+  phoneFrameDocked: {
+    flexGrow: 0,
+    flexShrink: 0,
+    width: 480,
+    maxWidth: 480,
+    alignSelf: 'stretch',
   },
   mainShell: { flex: 1, width: '100%' },
 });

@@ -54,7 +54,6 @@ const MAX_TOKENS = 280;
 const TEMPERATURE = 0.4;
 /** N-18: timeout לניסיון בודד — משאיר מקום ל־fallback בתוך ~20ש׳ */
 const UPSTREAM_TIMEOUT_MS = 12_000;
-const HANDLER_BUDGET_MS = 20_000;
 
 function resolveModel() {
   const fromEnv = (process.env.OPENROUTER_MODEL || '').trim();

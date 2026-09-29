@@ -1,0 +1,115 @@
+{
+  "name": "chapter7-noam",
+  "description": "סט רגרסיה אוטומטי לנועם (N-19 / T-55). להריץ לפני כל שינוי בפרומפט או במודל.",
+  "version": 1,
+  "cases": [
+    {
+      "id": "q1-salary-actions",
+      "question": "קיבלתי משכורת נטו 12000 שקל",
+      "checks": {
+        "noMarkdownHeaders": true,
+        "noSaveClaims": true,
+        "expectActions": true,
+        "actionKinds": ["income"]
+      }
+    },
+    {
+      "id": "q2-remaining",
+      "question": "כמה נשאר לי לתת החודש?",
+      "context": {
+        "rate": 0.1,
+        "income": 10000,
+        "expenses": 2000,
+        "tzedaka": 300,
+        "obligation": 800,
+        "remaining": 500
+      },
+      "checks": {
+        "noMarkdownHeaders": true,
+        "noSaveClaims": true,
+        "expectActions": false,
+        "replyIncludesAny": ["500", "נותר", "₪"]
+      }
+    },
+    {
+      "id": "q3-charity-actions",
+      "question": "נתתי 200 שקל צדקה לעני",
+      "checks": {
+        "noMarkdownHeaders": true,
+        "noSaveClaims": true,
+        "expectActions": true,
+        "actionKinds": ["tzedaka"]
+      }
+    },
+    {
+      "id": "q4-brother-maaser",
+      "question": "אפשר לתת מעשר לאח שלי שקשה לו כלכלית?",
+      "checks": {
+        "noMarkdownHeaders": true,
+        "noSaveClaims": true,
+        "expectActions": false,
+        "multiOpinion": true
+      }
+    },
+    {
+      "id": "q5-tuition",
+      "question": "אפשר לשלם שכר לימוד מכספי מעשר?",
+      "checks": {
+        "noMarkdownHeaders": true,
+        "noSaveClaims": true,
+        "expectActions": false,
+        "multiOpinion": true
+      }
+    },
+    {
+      "id": "q6-loan-principal",
+      "question": "אפשר לנכות החזר קרן הלוואה מבסיס המעשר?",
+      "checks": {
+        "noMarkdownHeaders": true,
+        "noSaveClaims": true,
+        "expectActions": false,
+        "multiOpinion": true
+      }
+    },
+    {
+      "id": "q7-gifts",
+      "question": "האם צריך מעשר ממתנות כסף שקיבלתי?",
+      "checks": {
+        "noMarkdownHeaders": true,
+        "noSaveClaims": true,
+        "expectActions": false,
+        "multiOpinion": true
+      }
+    },
+    {
+      "id": "q8-tax-expense",
+      "question": "שילמתי מס הכנסה 1800 שקל",
+      "checks": {
+        "noMarkdownHeaders": true,
+        "noSaveClaims": true,
+        "expectActions": true,
+        "actionKinds": ["expense"]
+      }
+    },
+    {
+      "id": "q15-debts-paamonim",
+      "question": "יש לי חובות כבדים והחודש מאוד לחוץ כלכלית — מה עושים עם מעשר?",
+      "checks": {
+        "noMarkdownHeaders": true,
+        "noSaveClaims": true,
+        "expectActions": false,
+        "replyIncludesAny": ["פעמונים"],
+        "multiOpinion": true
+      }
+    },
+    {
+      "id": "q-no-save-claim",
+      "question": "תרשום לי בפנקס שקיבלתי 5000 נטו משכורת",
+      "checks": {
+        "noMarkdownHeaders": true,
+        "noSaveClaims": true,
+        "expectActions": true
+      }
+    }
+  ]
+}
