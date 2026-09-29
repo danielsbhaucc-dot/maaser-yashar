@@ -23,7 +23,9 @@ import { NATIVE_DRIVER } from '../utils/motion';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { BOT_NAME, t } from '../utils/copy';
+import { NOAM_AI_DISCLOSURE_LINE } from '../constants/noamDisclosure';
 import { currentPeriod } from '../utils/history';
+import { createEntry } from '../utils/ledger';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import {
@@ -143,7 +145,17 @@ export default function NoamChat() {
   const threadsRef = useRef<ChatThread[]>(threads);
   const sendingRef = useRef(false);
   const pendingSeedRef = useRef<{ text: string; threadId: string } | null>(null);
+  /** N-03: תמיד הפנקס העדכני — גם מיד אחרי אישור כרטיס / מחיקה בבית */
+  const ledgerRef = useRef(ledger);
+  const profileRef = useRef(profile);
   const motionOk = useMotionEnabled();
+
+  useEffect(() => {
+    ledgerRef.current = ledger;
+  }, [ledger]);
+  useEffect(() => {
+    profileRef.current = profile;
+  }, [profile]);
 
   const setOpen = (v: boolean) => {
     if (v) openChat();
@@ -293,9 +305,16 @@ export default function NoamChat() {
       const fresh = withUser.find((x) => x.id === tid)!;
       // N-02: הודעות system מהאפליקציה לא חוזרות למודל כנועם
       const apiMsgs = messagesForModel(fresh.messages);
-      const share = opts?.shareTotals ?? profile.chatShareTotals;
+      // N-03: context מהפנקס החי (refs) — מקור אמת יחיד בכל בקשה
+      const liveProfile = profileRef.current;
+      const liveLedger = ledgerRef.current;
+      const share = opts?.shareTotals ?? liveProfile.chatShareTotals;
       const context = share
-        ? buildNoamContext({ profile, ledger, period: currentPeriod() })
+        ? buildNoamContext({
+            profile: liveProfile,
+            ledger: liveLedger,
+            period: currentPeriod(),
+          })
         : null;
       const { reply, actions } = await sendToNoam({
         messages: apiMsgs,
@@ -372,29 +391,46 @@ export default function NoamChat() {
     setApplying(true);
     try {
       const period = currentPeriod();
+      const noteBase = `נועם · צ'אט`;
+      const created = batch.map((a) =>
+        createEntry({
+          period,
+          kind: a.kind,
+          category: a.category,
+          amount: a.amount,
+          note: a.note || noteBase,
+        })
+      );
       await addEntries(
         batch.map((a) => ({
           period,
           kind: a.kind,
           category: a.category,
           amount: a.amount,
-          note: a.note || `נועם · צ'אט`,
+          note: a.note || noteBase,
         }))
       );
+      // N-03: עדכון מיידי של refs — הבקשה הבאה שולחת סכומים אחרי האישור
+      const nextLedger = [...created, ...ledgerRef.current];
+      ledgerRef.current = nextLedger;
+      const afterCtx = buildNoamContext({
+        profile: profileRef.current,
+        ledger: nextLedger,
+        period,
+      });
       toast.success('נרשם בפנקס ✦', entriesLabel(batch.length));
       setPending([]);
       if (activeId) {
         // N-02: שורת מערכת מהאפליקציה — לא נשלחת למודל כהודעת נועם
-        const sysContent = batch
-          .map(
-            (a) =>
-              `נוסף לפנקס: ${kindLabel(a.kind, profile.gender)} · ${a.category} · ${formatMoney(a.amount)}`
-          )
-          .join('\n');
+        const lines = batch.map(
+          (a) =>
+            `נוסף לפנקס: ${kindLabel(a.kind, profile.gender)} · ${a.category} · ${formatMoney(a.amount)}`
+        );
+        lines.push(`נותר עכשיו לפי הפנקס: ${formatMoney(afterCtx.remaining)}`);
         const sysMsg: ChatMessage = {
           id: msgId(),
           role: 'system',
-          content: sysContent,
+          content: lines.join('\n'),
           createdAt: new Date().toISOString(),
         };
         patchThread(activeId, (cur) => ({
@@ -693,9 +729,7 @@ function ChatPane({
         </View>
       </LinearGradient>
 
-      <Text style={styles.aiDisclosure}>
-        נועם הוא עוזר AI. הוא יכול לטעות ואינו פוסק הלכה.
-      </Text>
+      <Text style={styles.aiDisclosure}>{NOAM_AI_DISCLOSURE_LINE}</Text>
 
       {needsConsent ? (
         <View style={styles.consentBox}>

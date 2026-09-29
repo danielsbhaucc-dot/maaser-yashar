@@ -20,6 +20,7 @@ import { useMotionEnabled } from '../hooks/useMotionEnabled';
 import { NATIVE_DRIVER } from '../utils/motion';
 import { useApp } from '../context/AppContext';
 import { BOT_NAME, type Gender, t } from '../utils/copy';
+import { NOAM_AI_DISCLOSURE_LINE } from '../constants/noamDisclosure';
 import {
   ASK_NAME,
   EXPLAIN,
@@ -486,13 +487,15 @@ export default function OnboardingScreen() {
           <View style={styles.headerText}>
             <Text style={styles.botName}>{BOT_NAME}</Text>
             <Text style={styles.botMeta}>
-              {thinking ? 'מקליד…' : 'החבר שלך למעשר · עכשיו פעיל ✦'}
+              {thinking ? 'מקליד…' : 'העוזר ה-AI של מעשר ישר · עכשיו פעיל ✦'}
             </Text>
           </View>
           <GlassPill gold>
             <Text style={styles.brandMini}>מעשר ישר</Text>
           </GlassPill>
         </View>
+
+        <Text style={styles.aiDisclosure}>{NOAM_AI_DISCLOSURE_LINE}</Text>
 
         {step === 4 ? (
           <Animated.View
@@ -872,6 +875,19 @@ const styles = StyleSheet.create({
     marginTop: 2,
     writingDirection: 'rtl',
     textAlign: 'start',
+  },
+  aiDisclosure: {
+    fontFamily: fonts.medium,
+    fontSize: 12,
+    color: colors.gold,
+    textAlign: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    marginHorizontal: spacing.md,
+    marginBottom: 4,
+    backgroundColor: 'rgba(255, 216, 138, 0.10)',
+    borderRadius: radii.md,
+    writingDirection: 'rtl',
   },
   brandMini: {
     fontFamily: fonts.semi,

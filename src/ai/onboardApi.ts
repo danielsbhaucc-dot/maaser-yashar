@@ -1,4 +1,5 @@
 import { BOT_NAME, t, type Gender } from '../utils/copy';
+import { NOAM_AI_DISCLOSURE_FIRST_PERSON } from '../constants/noamDisclosure';
 
 export type OnboardIntent = 'name' | 'skip_name' | 'gibberish' | 'question' | 'other';
 
@@ -121,15 +122,22 @@ function isRealQuestion(raw: string): boolean {
 
   if (/מין|בן או בת|גבר או אישה|אתה בן|אתה גבר/.test(t)) return true;
 
+  if (/מלאכותי|בוט|מודל|GPT|Llama|בינה/.test(t)) return true;
+
   return false;
 }
 
 function questionReply(raw: string): string {
   if (/מין|בן או בת|גבר או אישה|אתה בן|אתה גבר|את בת/.test(raw)) {
-    return `בן. גבר — קוראים לי ${BOT_NAME}, עוזר AI של מעשר ישר. עכשיו חזרה אלייך: איך קוראים לך?`;
+    return `בן. גבר — קוראים לי ${BOT_NAME}, העוזר ה-AI של מעשר ישר. עכשיו חזרה אלייך: איך קוראים לך?`;
   }
-  if (/מי אתה|מי את\b|מי זה נועם|בן אדם|בוט|AI|בינה/.test(raw)) {
-    return `אני ${BOT_NAME} — עוזר AI של האפליקציה. אני יכול לטעות ואיני פוסק הלכה. איך קוראים לך?`;
+  // N-04 / T-05: תשובה קבועה לשאלות זהות / בוט / מודל
+  if (
+    /מי אתה|מי את\b|מי זה נועם|בן אדם|מלאכותי|בוט|AI|בינה|מודל|GPT|Llama|llama/i.test(
+      raw
+    )
+  ) {
+    return `${NOAM_AI_DISCLOSURE_FIRST_PERSON} איך קוראים לך?`;
   }
   if (/חובה/.test(raw)) {
     return `חובה = כמה צריך לתת החודש לפי המעשר/חומש מהנטו. נחשב יחד בפנקס. קודם — שם פרטי?`;
@@ -140,7 +148,7 @@ function questionReply(raw: string): string {
   if (/מעשר|10%/.test(raw)) {
     return `מעשר קלאסי = עשירית מהנטו (אחרי מסים). זו החובה שנסכם בפנקס. קודם — איך לקרוא לך?`;
   }
-  return `אני ${BOT_NAME}. מעשר = בדרך כלל 10% מהנטו לצדקה; חומש = 20%. אפשר לשאול עוד — וגם לזרוק שם פרטי כדי שנתחיל.`;
+  return `אני ${BOT_NAME}, העוזר ה-AI של מעשר ישר. מעשר = בדרך כלל 10% מהנטו לצדקה; חומש = 20%. אפשר לשאול עוד — וגם לזרוק שם פרטי כדי שנתחיל.`;
 }
 
 /** זיהוי מקומי בלבד — בלי קריאת רשת. מקור האמת להיכרות. */
