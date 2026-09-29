@@ -10,25 +10,8 @@ import { reloadAppAsync } from 'expo';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { NavigationContainer, DarkTheme } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import {
-  useFonts,
-  Rubik_400Regular,
-  Rubik_600SemiBold,
-  Rubik_700Bold,
-} from '@expo-google-fonts/rubik';
-import {
-  Assistant_600SemiBold,
-  Assistant_700Bold,
-  Assistant_800ExtraBold,
-} from '@expo-google-fonts/assistant';
-import {
-  Heebo_400Regular,
-  Heebo_500Medium,
-  Heebo_600SemiBold,
-  Heebo_700Bold,
-  Heebo_800ExtraBold,
-} from '@expo-google-fonts/heebo';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { useAppFonts } from './src/fonts';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { PinLockProvider, usePinLock } from './src/context/PinLockContext';
 import { ToastProvider, useToast } from './src/context/ToastContext';
@@ -73,6 +56,7 @@ if (Platform.OS === 'web' && typeof document !== 'undefined') {
   // html: נגישות. ה־RTL האמיתי של RN-web מגיע מ־dir על View (ראה rtlDomProps).
   document.documentElement.lang = 'he';
   document.documentElement.dir = 'rtl';
+  document.title = 'מעשר ישר';
   document.documentElement.style.overflowX = 'hidden';
   document.documentElement.style.width = '100%';
   document.body.style.backgroundColor = colors.bg;
@@ -412,25 +396,15 @@ function Root() {
 }
 
 export default function App() {
-  const [fontsLoaded, fontError] = useFonts({
-    Rubik_400Regular,
-    Rubik_600SemiBold,
-    Rubik_700Bold,
-    Assistant_600SemiBold,
-    Assistant_700Bold,
-    Assistant_800ExtraBold,
-    Heebo_400Regular,
-    Heebo_500Medium,
-    Heebo_600SemiBold,
-    Heebo_700Bold,
-    Heebo_800ExtraBold,
-  });
+  // Web: CSS preload + font-display:swap — לא חוסמים רינדור.
+  // Native: useFonts רק ל-Heebo 400/600/700 + Rubik 700.
+  const [fontsLoaded, fontError] = useAppFonts();
 
   if (fontError) {
     console.warn('Font load error', fontError);
   }
 
-  if (!fontsLoaded && !fontError) {
+  if (Platform.OS !== 'web' && !fontsLoaded && !fontError) {
     return <LoadingScreen variant="boot" message="מעשר ישר נטען…" />;
   }
 
@@ -445,7 +419,13 @@ export default function App() {
                   <NoamChatProvider>
                     <PinLockProvider>
                       <AccessibilityProvider>
-                        <NavigationContainer theme={navTheme}>
+                        <NavigationContainer
+                          theme={navTheme}
+                          documentTitle={{
+                            enabled: true,
+                            formatter: () => 'מעשר ישר',
+                          }}
+                        >
                           <StatusBar style="light" />
                           <Root />
                         </NavigationContainer>

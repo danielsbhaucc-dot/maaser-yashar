@@ -33,7 +33,9 @@
     "@types/react": "~19.2.2",
     "@vitest/coverage-v8": "^4.1.11",
     "typescript": "~6.0.3",
-    "vitest": "^4.1.11"
+    "vitest": "^4.1.11",
+    "@playwright/test": "^1.56.1",
+    "serve": "^14.2.5"
   },
   "scripts": {
     "start": "expo start",
@@ -46,7 +48,8 @@
     "deploy:netlify": "expo export -p web && netlify deploy --dir=dist --prod",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test"
   },
   "private": true
 }
