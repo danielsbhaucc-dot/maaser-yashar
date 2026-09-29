@@ -317,8 +317,8 @@
         </p>
       </section>
 
-      <!-- T-62: שורת סקירת רב — מוצגת רק אחרי RABBI_REVIEW.approved + name -->
-      <p id="rabbi-review" class="callout" hidden dir="rtl"></p>
+      <!-- T-62: שורת סקירת רב — מאושר / או סימון «בתהליך» -->
+      <p id="rabbi-review" class="callout" dir="rtl"></p>
     </main>
 
     <footer class="footer">
@@ -334,8 +334,10 @@
       if (!el) return;
       var name = (RABBI_REVIEW.name || "").trim();
       if (RABBI_REVIEW.approved && name) {
-        el.hidden = false;
         el.textContent = "התוכן ההלכתי נסקר על ידי הרב " + name;
+      } else {
+        el.textContent =
+          "התוכן ההלכתי ממתין לסקירת רב — עדיין לא אושר להצגה כמאושר.";
       }
     })();
   </script>

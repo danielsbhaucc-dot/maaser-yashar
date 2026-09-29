@@ -31,6 +31,7 @@ import {
   buildNoamContext,
   kindLabel,
   loadThreads,
+  messagesForModel,
   msgId,
   newThreadId,
   saveThreads,
@@ -290,10 +291,8 @@ export default function NoamChat() {
 
     try {
       const fresh = withUser.find((x) => x.id === tid)!;
-      const apiMsgs = fresh.messages.map((m) => ({
-        role: m.role,
-        content: m.content,
-      }));
+      // N-02: הודעות system מהאפליקציה לא חוזרות למודל כנועם
+      const apiMsgs = messagesForModel(fresh.messages);
       const share = opts?.shareTotals ?? profile.chatShareTotals;
       const context = share
         ? buildNoamContext({ profile, ledger, period: currentPeriod() })
@@ -385,19 +384,22 @@ export default function NoamChat() {
       toast.success('נרשם בפנקס ✦', entriesLabel(batch.length));
       setPending([]);
       if (activeId) {
-        const botMsg: ChatMessage = {
+        // N-02: שורת מערכת מהאפליקציה — לא נשלחת למודל כהודעת נועם
+        const sysContent = batch
+          .map(
+            (a) =>
+              `נוסף לפנקס: ${kindLabel(a.kind, profile.gender)} · ${a.category} · ${formatMoney(a.amount)}`
+          )
+          .join('\n');
+        const sysMsg: ChatMessage = {
           id: msgId(),
-          role: 'assistant',
-          content: t(
-            profile.gender,
-            `סגור. ${entriesLabel(batch.length)} בפנקס. רוצה שנבדוק כמה נשאר לתת?`,
-            `סגור. ${entriesLabel(batch.length)} בפנקס. רוצה שנבדוק כמה נשאר לתת?`
-          ),
+          role: 'system',
+          content: sysContent,
           createdAt: new Date().toISOString(),
         };
         patchThread(activeId, (cur) => ({
           ...cur,
-          messages: [...cur.messages, botMsg],
+          messages: [...cur.messages, sysMsg],
         }));
       }
     } catch {
@@ -752,6 +754,13 @@ function ChatPane({
         </View>
 
         {messages.map((m) => {
+          if (m.role === 'system') {
+            return (
+              <View key={m.id} style={styles.systemRow} accessibilityRole="text">
+                <Text style={styles.systemTxt}>{m.content}</Text>
+              </View>
+            );
+          }
           const isMe = m.role === 'user';
           return (
             <View
@@ -775,36 +784,37 @@ function ChatPane({
         })}
 
         {typing ? <TypingDots /> : null}
-
-        {pending.length > 0 ? (
-          <View style={styles.proposeCard}>
-            <Text style={styles.proposeTitle}>להוסיף לפנקס?</Text>
-            {pending.map((a, i) => (
-              <Text key={`${a.kind}-${i}`} style={styles.proposeLine}>
-                · {kindLabel(a.kind, gender)} · {a.category} · {formatMoney(a.amount)}
-              </Text>
-            ))}
-            <View style={styles.proposeActions}>
-              <Pressable
-                onPress={onApply}
-                disabled={applying}
-                style={[styles.proposeYes, applying && { opacity: 0.6 }]}
-              >
-                {applying ? (
-                  <InlineLoader color={colors.primaryOn} size={16} label="מוסיף תנועות" />
-                ) : (
-                  <Text style={styles.proposeYesTxt}>אשר והוסף</Text>
-                )}
-              </Pressable>
-              <Pressable onPress={onReject} style={styles.proposeNo}>
-                <Text style={styles.proposeNoTxt}>לא עכשיו</Text>
-              </Pressable>
-            </View>
-          </View>
-        ) : null}
       </ScrollView>
 
-      {!typing && messages.length <= 2 ? (
+      {/* N-01: כרטיס אישור מעל השדה — לא נגלל מחוץ למסך */}
+      {pending.length > 0 ? (
+        <View style={styles.proposeCardSticky}>
+          <Text style={styles.proposeTitle}>להוסיף לפנקס?</Text>
+          {pending.map((a, i) => (
+            <Text key={`${a.kind}-${i}`} style={styles.proposeLine}>
+              · {kindLabel(a.kind, gender)} · {a.category} · {formatMoney(a.amount)}
+            </Text>
+          ))}
+          <View style={styles.proposeActions}>
+            <Pressable
+              onPress={onApply}
+              disabled={applying}
+              style={[styles.proposeYes, applying && { opacity: 0.6 }]}
+            >
+              {applying ? (
+                <InlineLoader color={colors.primaryOn} size={16} label="מוסיף תנועות" />
+              ) : (
+                <Text style={styles.proposeYesTxt}>אשר והוסף</Text>
+              )}
+            </Pressable>
+            <Pressable onPress={onReject} style={styles.proposeNo}>
+              <Text style={styles.proposeNoTxt}>לא עכשיו</Text>
+            </Pressable>
+          </View>
+        </View>
+      ) : null}
+
+      {!typing && messages.length <= 2 && pending.length === 0 ? (
         <View style={styles.quickRow}>
           {QUICK_STARTS.slice(2).map((q) => (
             <Pressable key={q} onPress={() => onQuick(q)} style={styles.quickChip}>
@@ -1317,8 +1327,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
 
-  proposeCard: {
-    marginTop: 4,
+  systemRow: {
+    alignSelf: 'center',
+    maxWidth: '92%',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radii.lg,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.glassBorder,
+  },
+  systemTxt: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    color: colors.inkMuted,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+  },
+  proposeCardSticky: {
+    marginHorizontal: spacing.md,
+    marginBottom: 6,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.glassGoldBorder,

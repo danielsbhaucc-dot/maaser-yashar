@@ -177,11 +177,27 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
       const trimmed = (text || '').replace(/\s+/g, ' ').trim();
       if (!trimmed) return;
       if (!force && !settings.textToSpeech && !settings.clickToSpeak) return;
-      Speech.stop();
-      Speech.speak(trimmed.slice(0, 600), {
-        language: 'he-IL',
-        rate: speechRateValue(settings),
-      });
+      const payload = trimmed.slice(0, 600);
+      const rate = speechRateValue(settings);
+      const speakNow = () => {
+        Speech.stop();
+        Speech.speak(payload, { language: 'he-IL', rate });
+      };
+      try {
+        speakNow();
+      } catch {
+        // ignore
+      }
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
+        const voices = window.speechSynthesis.getVoices?.() || [];
+        if (voices.length === 0) {
+          const once = () => {
+            window.speechSynthesis.removeEventListener('voiceschanged', once);
+            speakNow();
+          };
+          window.speechSynthesis.addEventListener('voiceschanged', once);
+        }
+      }
     },
     [settings]
   );

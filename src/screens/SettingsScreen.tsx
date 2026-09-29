@@ -365,7 +365,7 @@ export default function SettingsScreen() {
 
         <Text style={styles.advOptTitle}>מתנות כסף</Text>
         <Text style={styles.advOptHint}>
-          רוב הפוסקים מחייבים מעשר ממתנות כסף; יש פוטרים. שאלו רב.
+          רבים מחייבים מעשר ממתנות כסף; יש פוטרים. שאלו רב.
         </Text>
         <SegmentedRow>
           <Chip
@@ -415,7 +415,7 @@ export default function SettingsScreen() {
 
         <Text style={styles.advOptTitle}>ירושה</Text>
         <Text style={styles.advOptHint}>
-          רוב הפוסקים: אין מעשר על ירושה; יש מחמירים. שאלו רב.
+          רבים פוטרים ירושה ממעשר; יש מחמירים. שאלו רב.
         </Text>
         <SegmentedRow>
           <Chip

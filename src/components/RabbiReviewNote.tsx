@@ -1,11 +1,12 @@
 import React from 'react';
 import { Text, StyleSheet, StyleProp, TextStyle, View, ViewStyle } from 'react-native';
-import { rabbiReviewLine } from '../constants/rabbiReview';
+import { RABBI_REVIEW, rabbiReviewLine } from '../constants/rabbiReview';
 import { colors, fonts, spacing, type } from '../theme';
 
 /**
- * מציג את שורת «נסקר על ידי הרב …» רק כש־RABBI_REVIEW.approved === true
- * ויש שם. בלי אישור — לא מציג כלום (T-62).
+ * מציג שורת סקירת רב:
+ * — אחרי אישור: «נסקר על ידי הרב …»
+ * — לפני אישור: סימון ברור שהסקירה עדיין בתהליך (T-62 / pre-deploy).
  */
 export function RabbiReviewNote({
   style,
@@ -15,10 +16,20 @@ export function RabbiReviewNote({
   textStyle?: StyleProp<TextStyle>;
 }) {
   const line = rabbiReviewLine();
-  if (!line) return null;
+  const text =
+    line ??
+    (!RABBI_REVIEW.approved
+      ? 'התוכן ההלכתי ממתין לסקירת רב — עדיין לא אושר להצגה כמאושר.'
+      : null);
+  if (!text) return null;
   return (
     <View style={[styles.wrap, style]} accessibilityRole="text">
-      <Text style={[styles.text, textStyle]}>{line}</Text>
+      <Text
+        style={[styles.text, !line && styles.pending, textStyle]}
+        testID="rabbi-review-note"
+      >
+        {text}
+      </Text>
     </View>
   );
 }
@@ -37,5 +48,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     writingDirection: 'rtl',
     lineHeight: 20,
+  },
+  pending: {
+    color: colors.inkSoft,
   },
 });

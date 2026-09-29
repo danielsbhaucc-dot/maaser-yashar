@@ -276,6 +276,7 @@ function Stepper({
       <View style={styles.stepperRow}>
         <Pressable
           onPress={onDec}
+          accessibilityRole="button"
           accessibilityLabel={`הקטן ${label}`}
           style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
         >
@@ -283,6 +284,7 @@ function Stepper({
         </Pressable>
         <Pressable
           onPress={onReset}
+          accessibilityRole="button"
           style={styles.stepValue}
           accessibilityLabel={`איפוס ${label}`}
         >
@@ -291,6 +293,7 @@ function Stepper({
         </Pressable>
         <Pressable
           onPress={onInc}
+          accessibilityRole="button"
           accessibilityLabel={`הגדל ${label}`}
           style={({ pressed }) => [styles.stepBtn, pressed && styles.stepBtnPressed]}
         >
@@ -530,6 +533,7 @@ export default function AccessibilityPanel() {
           <Pressable
             onPress={a11y.resetAll}
             style={styles.quickPill}
+            accessibilityRole="button"
             accessibilityLabel="איפוס הגדרות"
           >
             <Text style={styles.quickPillTxt}>↺ איפוס</Text>
@@ -537,6 +541,7 @@ export default function AccessibilityPanel() {
           <Pressable
             onPress={() => setStatementOpen(true)}
             style={styles.quickPill}
+            accessibilityRole="button"
             accessibilityLabel="הצהרת נגישות"
           >
             <Text style={styles.quickPillTxt}>▤ הצהרה</Text>
@@ -544,6 +549,7 @@ export default function AccessibilityPanel() {
           <Pressable
             onPress={a11y.closePanel}
             style={styles.quickPill}
+            accessibilityRole="button"
             accessibilityLabel="סגור תפריט נגישות"
           >
             <Text style={styles.quickPillTxt}>× סגור</Text>
@@ -572,6 +578,7 @@ export default function AccessibilityPanel() {
                       else a11y.patch(chip.clear);
                     }}
                     style={styles.activeChip}
+                    accessibilityRole="button"
                     accessibilityLabel={`בטל ${chip.label}`}
                   >
                     <Text style={styles.activeChipTxt}>× {chip.label}</Text>
@@ -607,6 +614,7 @@ export default function AccessibilityPanel() {
                     key={p.id}
                     onPress={() => a11y.setProfile(on ? 'none' : p.id)}
                     style={[styles.profileCard, on && styles.profileCardOn]}
+                    accessibilityRole="button"
                     accessibilityState={{ selected: on }}
                     accessibilityLabel={`${p.title}. ${p.subtitle}`}
                   >
@@ -861,6 +869,7 @@ export default function AccessibilityPanel() {
                     true
                   )
                 }
+                accessibilityRole="button"
                 accessibilityLabel="הקרא הודעת בדיקה"
               >
                 <LinearGradient
@@ -1041,6 +1050,8 @@ export default function AccessibilityPanel() {
                       { backgroundColor: c },
                       active && styles.swatchOn,
                     ]}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
                     accessibilityLabel={`צבע ${c}`}
                   />
                 );
@@ -1051,6 +1062,7 @@ export default function AccessibilityPanel() {
                 a11y.patch({ colorBg: null, colorText: null, colorHeadings: null })
               }
               style={styles.linkBtn}
+              accessibilityRole="button"
               accessibilityLabel="איפוס צבעים"
             >
               <Text style={styles.linkBtnTxt}>↺  איפוס צבעים</Text>
@@ -1102,6 +1114,7 @@ export default function AccessibilityPanel() {
           <Pressable
             onPress={a11y.resetAll}
             style={styles.resetBtn}
+            accessibilityRole="button"
             accessibilityLabel="איפוס כל ההתאמות"
           >
             <LinearGradient
@@ -1115,6 +1128,7 @@ export default function AccessibilityPanel() {
             <Pressable
               onPress={() => setStatementOpen(true)}
               style={styles.footerPill}
+              accessibilityRole="button"
               accessibilityLabel="הצהרת נגישות"
             >
               <Text style={styles.footerPillTxt}>▤  הצהרת נגישות</Text>
@@ -1122,6 +1136,7 @@ export default function AccessibilityPanel() {
             <Pressable
               onPress={a11y.hideWidget}
               style={styles.footerPill}
+              accessibilityRole="button"
               accessibilityLabel="הסתר תפריט נגישות"
             >
               <Text style={styles.footerPillTxt}>−  הסתר תפריט</Text>
@@ -1229,12 +1244,14 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     backgroundColor: colors.overlay,
+    zIndex: 1,
   },
   panelWrap: {
     width: '100%',
     maxWidth: PANEL_W,
     height: '100%',
     zIndex: 2,
+    elevation: 8,
   },
   panel: {
     flex: 1,
@@ -1311,6 +1328,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
     alignItems: 'center',
+    ...Platform.select({
+      web: { cursor: 'pointer' } as object,
+      default: {},
+    }),
   },
   quickPillTxt: {
     fontFamily: fonts.semi,
@@ -1506,8 +1527,10 @@ const styles = StyleSheet.create({
   },
   tile: {
     width: '31%',
-    flexGrow: 1,
+    flexGrow: 0,
+    flexShrink: 0,
     minWidth: 96,
+    maxWidth: '33%',
     backgroundColor: colors.surfaceMuted,
     borderRadius: 14,
     paddingVertical: 12,
@@ -1516,6 +1539,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
     minHeight: 96,
+    ...Platform.select({
+      web: { cursor: 'pointer' } as object,
+      default: {},
+    }),
   },
   tileActive: {
     backgroundColor: colors.primarySoft,
@@ -1566,13 +1593,19 @@ const styles = StyleSheet.create({
   dotOn: { backgroundColor: colors.gold },
   profileCard: {
     width: '48%',
-    flexGrow: 1,
+    flexGrow: 0,
+    flexShrink: 0,
+    maxWidth: '49%',
     backgroundColor: colors.surfaceMuted,
     borderRadius: 14,
     padding: 12,
     borderWidth: 1,
     borderColor: colors.glassBorder,
     minHeight: 108,
+    ...Platform.select({
+      web: { cursor: 'pointer' } as object,
+      default: {},
+    }),
   },
   profileCardOn: {
     backgroundColor: colors.primarySoft,
@@ -1658,6 +1691,10 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(139,155,255,0.45)',
     alignItems: 'center',
     justifyContent: 'center',
+    ...Platform.select({
+      web: { cursor: 'pointer' } as object,
+      default: {},
+    }),
   },
   stepBtnPressed: { opacity: 0.8 },
   stepBtnTxt: {
@@ -1717,6 +1754,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.25)',
+    ...Platform.select({
+      web: { cursor: 'pointer' } as object,
+      default: {},
+    }),
   },
   swatchOn: {
     borderWidth: 3,

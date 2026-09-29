@@ -51,13 +51,20 @@ export function ReadingGuideOverlay() {
 
   return (
     <View
-      pointerEvents={Platform.OS === 'web' ? 'none' : 'box-none'}
+      pointerEvents="box-none"
       style={StyleSheet.absoluteFill}
-      onTouchMove={Platform.OS === 'web' ? undefined : onTouchMove}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
       <View style={[styles.guide, { top: y - 18 }]} pointerEvents="none" />
+      {/* רצועת מעקב שקופה — רק היא קולטת מגע; שאר המסך נשאר לחיץ */}
+      {Platform.OS !== 'web' ? (
+        <View
+          style={[styles.trackBand, { top: y - 28 }]}
+          onTouchMove={onTouchMove}
+          accessibilityElementsHidden
+        />
+      ) : null}
     </View>
   );
 }
@@ -72,24 +79,34 @@ export function ReadingMaskOverlay() {
   const band = 72;
   return (
     <View
-      pointerEvents={Platform.OS === 'web' ? 'none' : 'box-none'}
+      pointerEvents="box-none"
       style={StyleSheet.absoluteFill}
-      onTouchMove={Platform.OS === 'web' ? undefined : onTouchMove}
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <View style={[styles.maskPart, { top: 0, height: Math.max(0, y - band / 2) }]} />
+      <View
+        style={[styles.maskPart, { top: 0, height: Math.max(0, y - band / 2) }]}
+        pointerEvents="none"
+      />
       <View
         style={[
           styles.maskPart,
           { top: y + band / 2, bottom: 0, height: undefined },
         ]}
+        pointerEvents="none"
       />
+      {Platform.OS !== 'web' ? (
+        <View
+          style={[styles.trackBand, { top: y - band / 2, height: band }]}
+          onTouchMove={onTouchMove}
+          accessibilityElementsHidden
+        />
+      ) : null}
     </View>
   );
 }
 
-/** לחיצה על טקסט מקריאה אותו (Web) */
+/** לחיצה על טקסט מקריאה אותו (Web) — בלי לחסום כפתורים / קישורים / טאבים */
 export function ClickToSpeakOverlay() {
   const { settings, speak, stopSpeak } = useA11y();
 
@@ -97,14 +114,65 @@ export function ClickToSpeakOverlay() {
     const on = settings.clickToSpeak || settings.textToSpeech;
     if (!on || Platform.OS !== 'web' || typeof document === 'undefined') return;
 
+    const isInteractive = (el: HTMLElement | null): boolean => {
+      let node: HTMLElement | null = el;
+      while (node && node !== document.body) {
+        const tag = (node.tagName || '').toLowerCase();
+        if (
+          tag === 'button' ||
+          tag === 'a' ||
+          tag === 'input' ||
+          tag === 'textarea' ||
+          tag === 'select' ||
+          tag === 'summary' ||
+          tag === 'label'
+        ) {
+          return true;
+        }
+        const role = node.getAttribute('role') || node.getAttribute('accessibilityrole') || '';
+        if (
+          role === 'button' ||
+          role === 'link' ||
+          role === 'tab' ||
+          role === 'menuitem' ||
+          role === 'switch' ||
+          role === 'checkbox' ||
+          role === 'radio' ||
+          role === 'textbox' ||
+          role === 'combobox' ||
+          role === 'slider'
+        ) {
+          return true;
+        }
+        if (node.isContentEditable) return true;
+        node = node.parentElement;
+      }
+      return false;
+    };
+
     const onClick = (e: MouseEvent) => {
       const root = document.getElementById('maaser-a11y-root');
       if (root && root.contains(e.target as Node)) return;
 
       const el = e.target as HTMLElement | null;
       if (!el) return;
-      const tag = (el.tagName || '').toLowerCase();
-      if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+
+      // חשוב: לא stopPropagation / preventDefault — אחרת נחסמים Pressable וטאבים
+      if (isInteractive(el)) {
+        if (settings.textToSpeech && !settings.clickToSpeak) {
+          const sel = window.getSelection?.()?.toString()?.trim();
+          if (sel && sel.length > 1) speak(sel);
+        }
+        return;
+      }
+
+      if (!settings.clickToSpeak && settings.textToSpeech) {
+        const sel = window.getSelection?.()?.toString()?.trim();
+        if (sel && sel.length > 1) speak(sel);
+        return;
+      }
+
+      if (!settings.clickToSpeak) return;
 
       const label =
         el.getAttribute?.('aria-label') ||
@@ -112,18 +180,7 @@ export function ClickToSpeakOverlay() {
         '';
       const text = (label || el.innerText || el.textContent || '').trim();
       if (text.length < 2) return;
-      if (!settings.clickToSpeak && settings.textToSpeech) {
-        // במצב TTS בלבד — רק אם יש בחירת טקסט
-        const sel = window.getSelection?.()?.toString()?.trim();
-        if (sel && sel.length > 1) {
-          speak(sel);
-        }
-        return;
-      }
-      if (settings.clickToSpeak) {
-        e.stopPropagation();
-        speak(text.slice(0, 400));
-      }
+      speak(text.slice(0, 400));
     };
 
     document.addEventListener('click', onClick, true);
@@ -314,6 +371,14 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderColor: 'rgba(202, 138, 4, 0.85)',
     zIndex: 9000,
+  },
+  trackBand: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    height: 56,
+    backgroundColor: 'transparent',
+    zIndex: 9001,
   },
   maskPart: {
     position: 'absolute',

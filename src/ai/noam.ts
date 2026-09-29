@@ -6,7 +6,8 @@ import { resolvePeriodTotals } from '../utils/totalsAdvanced';
 import { currentPeriod } from '../utils/history';
 import type { UserProfile } from '../utils/profile';
 
-export type ChatRole = 'user' | 'assistant';
+/** system = שורת אפליקציה (N-02) — לא נשלחת למודל כהודעת נועם */
+export type ChatRole = 'user' | 'assistant' | 'system';
 
 export type ChatMessage = {
   id: string;
@@ -117,14 +118,25 @@ export async function sendToNoam(params: {
         (a) =>
           a?.type === 'add_entry' &&
           ['income', 'expense', 'tzedaka'].includes(a.kind) &&
-          Number(a.amount) > 0
+          Number.isFinite(Number(a.amount)) &&
+          Number(a.amount) > 0 &&
+          Number(a.amount) < 1e8
       )
     : [];
 
   return {
     reply: String(data.reply || '').trim() || '…',
-    actions,
+    actions: actions.slice(0, 3),
   };
+}
+
+/** הודעות שנשלחות למודל — בלי system מהאפליקציה */
+export function messagesForModel(
+  messages: ChatMessage[]
+): { role: 'user' | 'assistant'; content: string }[] {
+  return messages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 }
 
 export function kindLabel(kind: LedgerKind, gender?: Gender): string {

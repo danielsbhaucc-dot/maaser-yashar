@@ -157,7 +157,7 @@ export function calculateMaaser(inputs: MaaserInputs): MaaserResult {
         label: 'ירושה (פטורה — שיטה נפוצה)',
         amount: inheritance,
         kind: 'exempt',
-        note: 'רוב הפוסקים: אין מעשר על ירושה, ויש מחמירים',
+        note: 'רבים פוטרים ירושה ממעשר, ויש מחמירים',
       });
     }
   }

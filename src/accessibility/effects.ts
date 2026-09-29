@@ -273,12 +273,12 @@ function buildWebCss(s: A11ySettings): string {
 
   if (s.lowTransparency) {
     parts.push(`
-      #root * {
+      #root *, #root *::before, #root *::after {
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
-      /* זכוכית כהה → רקע אטום יותר תואם עיצוב */
-      #root [style*="backdrop"], #root [class*="glass"] {
+      /* רקעי זכוכית שקופים → אטומים יותר */
+      #root [style*="rgba(12"], #root [style*="rgba(11"], #root [style*="rgba(18"] {
         opacity: 1 !important;
       }
     `);
