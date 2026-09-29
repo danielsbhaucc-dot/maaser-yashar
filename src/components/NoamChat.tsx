@@ -12,6 +12,9 @@ import {
   Animated,
   Easing,
   Linking,
+  useWindowDimensions,
+  AppState,
+  type AppStateStatus,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,15 +25,16 @@ import { useMotionEnabled } from '../hooks/useMotionEnabled';
 import { NATIVE_DRIVER } from '../utils/motion';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
-import { BOT_NAME, t } from '../utils/copy';
+import { BOT_NAME, friendWord, t } from '../utils/copy';
 import { NOAM_AI_DISCLOSURE_LINE } from '../constants/noamDisclosure';
-import { currentPeriod } from '../utils/history';
+import { currentPeriod, defaultDateFor, formatPeriod } from '../utils/history';
 import { createEntry } from '../utils/ledger';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import {
   QUICK_STARTS,
   buildNoamContext,
+  clearAllThreads,
   kindLabel,
   loadThreads,
   messagesForModel,
@@ -53,6 +57,10 @@ import { useNoamChat } from '../navigation/NoamChatContext';
 
 type ViewMode = 'home' | 'chat' | 'history';
 
+/** N-17: דסקטופ — פאנל צד ~400px ליד עמודת האפליקציה */
+const DESKTOP_BREAKPOINT = 1000;
+const DESKTOP_CHAT_WIDTH = 400;
+
 function NoamAvatar({ size = 56, glow }: { size?: number; glow?: boolean }) {
   return (
     <View style={[styles.avatarOuter, { width: size + 8, height: size + 8, borderRadius: (size + 8) / 2 }, glow && styles.avatarGlow]}>
@@ -69,7 +77,7 @@ function NoamAvatar({ size = 56, glow }: { size?: number; glow?: boolean }) {
   );
 }
 
-function TypingDots() {
+function TypingDots({ slowHint }: { slowHint?: boolean }) {
   const run = useMotionEnabled();
   const a = useRef(new Animated.Value(0)).current;
   const b = useRef(new Animated.Value(0)).current;
@@ -114,12 +122,18 @@ function TypingDots() {
   });
 
   return (
-    <View style={styles.typingRow} accessibilityLabel={`${BOT_NAME} מקליד`}>
+    <View style={styles.typingRow} accessibilityLabel={slowHint ? 'רק רגע…' : `${BOT_NAME} מקליד`}>
       <NoamAvatar size={28} />
       <View style={styles.typingBubble}>
-        <Animated.View style={[styles.dot, lift(a)]} />
-        <Animated.View style={[styles.dot, lift(b)]} />
-        <Animated.View style={[styles.dot, lift(c)]} />
+        {slowHint ? (
+          <Text style={styles.typingHint}>רק רגע…</Text>
+        ) : (
+          <>
+            <Animated.View style={[styles.dot, lift(a)]} />
+            <Animated.View style={[styles.dot, lift(b)]} />
+            <Animated.View style={[styles.dot, lift(c)]} />
+          </>
+        )}
       </View>
     </View>
   );
@@ -129,18 +143,62 @@ function formatMoney(n: number) {
   return `₪${Math.round(n).toLocaleString('he-IL')}`;
 }
 
+/** N-17: פס סכומים קבוע — אותם מספרים כמו במסך הבית */
+function TotalsBar({
+  obligation,
+  tzedaka,
+  remaining,
+}: {
+  obligation: number;
+  tzedaka: number;
+  remaining: number;
+}) {
+  return (
+    <View
+      style={styles.totalsBar}
+      accessibilityRole="summary"
+      accessibilityLabel={`חובה ${formatMoney(obligation)}, ניתן ${formatMoney(tzedaka)}, נותר ${formatMoney(remaining)}`}
+    >
+      <View style={styles.totalsCell}>
+        <Text style={styles.totalsLabel}>חובה</Text>
+        <Text style={styles.totalsValue} testID="chat-obligation">
+          {formatMoney(obligation)}
+        </Text>
+      </View>
+      <View style={styles.totalsSep} />
+      <View style={styles.totalsCell}>
+        <Text style={styles.totalsLabel}>ניתן</Text>
+        <Text style={styles.totalsValue} testID="chat-tzedaka">
+          {formatMoney(tzedaka)}
+        </Text>
+      </View>
+      <View style={styles.totalsSep} />
+      <View style={styles.totalsCell}>
+        <Text style={styles.totalsLabel}>נותר</Text>
+        <Text style={[styles.totalsValue, styles.totalsRemain]} testID="chat-remaining">
+          {formatMoney(remaining)}
+        </Text>
+      </View>
+    </View>
+  );
+}
+
 export default function NoamChat() {
   const { profile, ledger, addEntries, patchProfile } = useApp();
   const toast = useToast();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth } = useWindowDimensions();
   const { open, openChat, closeChat } = useNoamChat();
   const [mode, setMode] = useState<ViewMode>('home');
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [typing, setTyping] = useState(false);
+  const [slowHint, setSlowHint] = useState(false);
   const [pending, setPending] = useState<ProposedEntry[]>([]);
   const [applying, setApplying] = useState(false);
+  /** N-17 מובייל: חצי מסך שניתן להרחבה */
+  const [sheetExpanded, setSheetExpanded] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
   const threadsRef = useRef<ChatThread[]>(threads);
   const sendingRef = useRef(false);
@@ -150,6 +208,9 @@ export default function NoamChat() {
   const profileRef = useRef(profile);
   const motionOk = useMotionEnabled();
 
+  const isDesktopDock =
+    Platform.OS === 'web' && windowWidth >= DESKTOP_BREAKPOINT;
+
   useEffect(() => {
     ledgerRef.current = ledger;
   }, [ledger]);
@@ -157,25 +218,84 @@ export default function NoamChat() {
     profileRef.current = profile;
   }, [profile]);
 
+  /** N-18: אחרי 5ש׳ בלי תשובה — «רק רגע…» */
+  useEffect(() => {
+    if (!typing) {
+      setSlowHint(false);
+      return;
+    }
+    const tmr = setTimeout(() => setSlowHint(true), 5000);
+    return () => clearTimeout(tmr);
+  }, [typing]);
+
   const setOpen = (v: boolean) => {
     if (v) openChat();
     else closeChat();
   };
 
-  const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
+  const name = profile.displayName || friendWord(profile.gender);
   const active = useMemo(
     () => threads.find((th) => th.id === activeId) || null,
     [threads, activeId]
   );
   const messages = active?.messages ?? [];
 
+  /** N-17: סכומים חיים מהפנקס — מתעדכנים אחרי אישור כרטיס */
+  const liveTotals = useMemo(() => {
+    const period = currentPeriod();
+    return resolvePeriodTotals(
+      ledger,
+      period,
+      profile,
+      !!profile.carryForwardSurplus
+    );
+  }, [ledger, profile]);
+
   useEffect(() => {
     threadsRef.current = threads;
   }, [threads]);
 
   useEffect(() => {
-    loadThreads().then(setThreads);
+    loadThreads().then((list) => {
+      if (profileRef.current.saveChatHistory === false) {
+        setThreads([]);
+        void clearAllThreads();
+        return;
+      }
+      setThreads(list);
+    });
   }, []);
+
+  /** N-16: כשכיבוי שמירה — מנקים בסגירת חלון / רקע */
+  useEffect(() => {
+    const saveOn = profile.saveChatHistory !== false;
+    if (saveOn) return;
+
+    const wipe = () => {
+      threadsRef.current = [];
+      setThreads([]);
+      setActiveId(null);
+      void clearAllThreads();
+    };
+
+    const onAppState = (next: AppStateStatus) => {
+      if (next === 'background' || next === 'inactive') wipe();
+    };
+    const sub = AppState.addEventListener('change', onAppState);
+
+    if (Platform.OS === 'web' && typeof window !== 'undefined') {
+      const onHide = () => wipe();
+      window.addEventListener('pagehide', onHide);
+      window.addEventListener('beforeunload', onHide);
+      return () => {
+        sub.remove();
+        window.removeEventListener('pagehide', onHide);
+        window.removeEventListener('beforeunload', onHide);
+      };
+    }
+
+    return () => sub.remove();
+  }, [profile.saveChatHistory]);
 
   useEffect(() => {
     if (!open || mode !== 'chat') return;
@@ -186,23 +306,65 @@ export default function NoamChat() {
     return () => clearTimeout(tmr);
   }, [messages, typing, pending, open, mode, motionOk]);
 
+  useEffect(() => {
+    if (!open) setSheetExpanded(false);
+  }, [open]);
+
   const persist = useCallback(async (next: ChatThread[]) => {
     threadsRef.current = next;
     setThreads(next);
+    if (profileRef.current.saveChatHistory === false) {
+      await clearAllThreads();
+      return;
+    }
     await saveThreads(next);
   }, []);
 
-  const openMessenger = () => {
-    setOpen(true);
-    setMode('home');
-    setPending([]);
-  };
+  const deleteThread = useCallback(
+    (id: string) => {
+      toast.confirm({
+        title: 'למחוק את השיחה?',
+        message: 'השיחה תימחק מהמכשיר ולא תופיע אחרי רענון.',
+        confirmLabel: 'מחק',
+        onConfirm: async () => {
+          const next = threadsRef.current.filter((th) => th.id !== id);
+          if (activeId === id) {
+            setActiveId(null);
+            setMode('history');
+          }
+          await persist(next);
+          toast.info('השיחה נמחקה');
+        },
+      });
+    },
+    [activeId, persist, toast]
+  );
+
+  const deleteAllThreads = useCallback(() => {
+    toast.confirm({
+      title: 'למחוק את כל השיחות?',
+      message: 'כל היסטוריית הצ׳אט עם נועם תימחק מהמכשיר.',
+      confirmLabel: 'מחק הכל',
+      onConfirm: async () => {
+        setActiveId(null);
+        setMode('history');
+        await persist([]);
+        toast.info('כל השיחות נמחקו');
+      },
+    });
+  }, [persist, toast]);
 
   const closeMessenger = () => {
     setOpen(false);
     setTyping(false);
     setDraft('');
     sendingRef.current = false;
+    if (profileRef.current.saveChatHistory === false) {
+      threadsRef.current = [];
+      setThreads([]);
+      setActiveId(null);
+      void clearAllThreads();
+    }
   };
 
   const startNewChat = (seed?: string) => {
@@ -259,7 +421,11 @@ export default function NoamChat() {
       const next = list.map((th) => (th.id === threadId ? updater(th) : th));
       threadsRef.current = next;
       setThreads(next);
-      void saveThreads(next);
+      if (profileRef.current.saveChatHistory === false) {
+        void clearAllThreads();
+      } else {
+        void saveThreads(next);
+      }
       return next;
     },
     []
@@ -342,10 +508,11 @@ export default function NoamChat() {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'שגיאה לא ידועה';
       const offline = msg === 'אין חיבור';
+      const retry = msg === 'נסה שוב' || /נסה שוב/i.test(msg);
       const botMsg: ChatMessage = {
         id: msgId(),
         role: 'assistant',
-        content: offline ? 'אין חיבור' : `אופס — ${msg}`,
+        content: offline ? 'אין חיבור' : retry ? 'נסה שוב' : `אופס — ${msg}`,
         createdAt: new Date().toISOString(),
       };
       patchThread(tid, (cur) => {
@@ -391,42 +558,40 @@ export default function NoamChat() {
     const batch = [...pending];
     setApplying(true);
     try {
-      const period = currentPeriod();
+      const fallbackPeriod = currentPeriod();
       const noteBase = `נועם · צ'אט`;
-      const created = batch.map((a) =>
-        createEntry({
+      const payloads = batch.map((a) => {
+        const period =
+          a.period && /^\d{4}-(0[1-9]|1[0-2])$/.test(a.period)
+            ? a.period
+            : fallbackPeriod;
+        return {
           period,
           kind: a.kind,
           category: a.category,
           amount: a.amount,
           note: a.note || noteBase,
-        })
-      );
-      await addEntries(
-        batch.map((a) => ({
-          period,
-          kind: a.kind,
-          category: a.category,
-          amount: a.amount,
-          note: a.note || noteBase,
-        }))
-      );
+          date: defaultDateFor(period),
+        };
+      });
+      const created = payloads.map((p) => createEntry(p));
+      await addEntries(payloads);
       // N-03: עדכון מיידי של refs — הבקשה הבאה שולחת סכומים אחרי האישור
       const nextLedger = [...created, ...ledgerRef.current];
       ledgerRef.current = nextLedger;
       const afterCtx = buildNoamContext({
         profile: profileRef.current,
         ledger: nextLedger,
-        period,
+        period: fallbackPeriod,
       });
       toast.success('נרשם בפנקס ✦', entriesLabel(batch.length));
       setPending([]);
       if (activeId) {
         // N-02: שורת מערכת מהאפליקציה — לא נשלחת למודל כהודעת נועם
-        const lines = batch.map(
-          (a) =>
-            `נוסף לפנקס: ${kindLabel(a.kind, profile.gender)} · ${a.category} · ${formatMoney(a.amount)}`
-        );
+        const lines = batch.map((a, i) => {
+          const p = payloads[i].period;
+          return `נוסף לפנקס: ${kindLabel(a.kind, profile.gender)} · ${a.category} · ${formatMoney(a.amount)} · נרשם ל: ${formatPeriod(p)}`;
+        });
         lines.push(`נותר עכשיו לפי הפנקס: ${formatMoney(afterCtx.remaining)}`);
         const sysMsg: ChatMessage = {
           id: msgId(),
@@ -448,98 +613,141 @@ export default function NoamChat() {
 
   if (!profile.onboardingDone) return null;
 
-  return (
-    <>
-      <Modal
-        visible={open}
-        animationType="slide"
-        transparent
-        onRequestClose={closeMessenger}
-        statusBarTranslucent
+  const sheetBody = (
+    <KeyboardAvoidingView
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[
+        styles.sheet,
+        isDesktopDock
+          ? styles.sheetDock
+          : {
+              paddingBottom: Math.max(insets.bottom, 10),
+              maxHeight: sheetExpanded ? '94%' : '52%',
+              minHeight: sheetExpanded ? '72%' : '48%',
+              maxWidth: 480,
+              width: '100%',
+              alignSelf: 'center',
+            },
+      ]}
+    >
+      {Platform.OS !== 'web' ? (
+        <BlurView
+          intensity={Platform.OS === 'ios' ? 50 : 28}
+          tint="systemChromeMaterialDark"
+          style={StyleSheet.absoluteFill}
+        />
+      ) : null}
+      <View
+        style={[
+          styles.sheetGlass,
+          Platform.OS === 'web'
+            ? ({
+                backdropFilter: 'blur(28px)',
+                WebkitBackdropFilter: 'blur(28px)',
+              } as object)
+            : null,
+        ]}
+      />
+
+      {!isDesktopDock ? (
+        <Pressable
+          onPress={() => setSheetExpanded((v) => !v)}
+          style={styles.expandHandle}
+          accessibilityRole="button"
+          accessibilityLabel={sheetExpanded ? 'הקטן את חלון הצ׳אט' : 'הרחב את חלון הצ׳אט'}
+        >
+          <View style={styles.expandPill} />
+          <Text style={styles.expandHint}>
+            {sheetExpanded ? 'הקטן' : 'הרחב'}
+          </Text>
+        </Pressable>
+      ) : null}
+
+      <TotalsBar
+        obligation={liveTotals.obligation}
+        tzedaka={liveTotals.tzedaka}
+        remaining={liveTotals.remaining}
+      />
+
+      {mode === 'home' ? (
+        <HomePane
+          name={name}
+          gender={profile.gender}
+          onClose={closeMessenger}
+          onNew={() => startNewChat()}
+          onHistory={() => setMode('history')}
+          onQuick={(q) => startNewChat(q)}
+        />
+      ) : null}
+
+      {mode === 'history' ? (
+        <HistoryPane
+          threads={threads}
+          onClose={closeMessenger}
+          onBack={() => setMode('home')}
+          onOpen={openThread}
+          onNew={() => startNewChat()}
+          onDelete={deleteThread}
+          onDeleteAll={deleteAllThreads}
+        />
+      ) : null}
+
+      {mode === 'chat' ? (
+        <ChatPane
+          name={name}
+          messages={messages}
+          draft={draft}
+          setDraft={setDraft}
+          typing={typing}
+          slowHint={slowHint}
+          pending={pending}
+          applying={applying}
+          scrollRef={scrollRef}
+          onClose={closeMessenger}
+          onBack={() => {
+            setMode('home');
+            setPending([]);
+          }}
+          onSend={() => void sendText(draft)}
+          onQuick={(q) => void sendText(q)}
+          onApply={() => void applyPendingFixed()}
+          onReject={rejectPending}
+          gender={profile.gender}
+          needsConsent={!profile.chatConsentDone}
+          defaultShareTotals={profile.chatShareTotals !== false}
+          onConsent={(share) => void acceptChatConsent(share)}
+        />
+      ) : null}
+    </KeyboardAvoidingView>
+  );
+
+  // N-17 דסקטופ: פאנל צד בלי Modal שמכסה את הפנקס
+  if (isDesktopDock) {
+    if (!open) return null;
+    return (
+      <View
+        style={[styles.dockRoot, DIR]}
+        {...rtlDomProps}
+        accessibilityViewIsModal
       >
-        <View style={[styles.modalRoot, DIR]} {...rtlDomProps}>
-          <Pressable style={styles.backdrop} onPress={closeMessenger} />
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-            style={[
-              styles.sheet,
-              {
-                paddingBottom: Math.max(insets.bottom, 10),
-                maxWidth: 480,
-                width: '100%',
-                alignSelf: 'center',
-              },
-            ]}
-          >
-            {Platform.OS !== 'web' ? (
-              <BlurView
-                intensity={Platform.OS === 'ios' ? 50 : 28}
-                tint="systemChromeMaterialDark"
-                style={StyleSheet.absoluteFill}
-              />
-            ) : null}
-            <View
-              style={[
-                styles.sheetGlass,
-                Platform.OS === 'web'
-                  ? ({
-                      backdropFilter: 'blur(28px)',
-                      WebkitBackdropFilter: 'blur(28px)',
-                    } as object)
-                  : null,
-              ]}
-            />
+        {sheetBody}
+      </View>
+    );
+  }
 
-            {mode === 'home' ? (
-              <HomePane
-                name={name}
-                gender={profile.gender}
-                onClose={closeMessenger}
-                onNew={() => startNewChat()}
-                onHistory={() => setMode('history')}
-                onQuick={(q) => startNewChat(q)}
-              />
-            ) : null}
-
-            {mode === 'history' ? (
-              <HistoryPane
-                threads={threads}
-                onClose={closeMessenger}
-                onBack={() => setMode('home')}
-                onOpen={openThread}
-                onNew={() => startNewChat()}
-              />
-            ) : null}
-
-            {mode === 'chat' ? (
-              <ChatPane
-                name={name}
-                messages={messages}
-                draft={draft}
-                setDraft={setDraft}
-                typing={typing}
-                pending={pending}
-                applying={applying}
-                scrollRef={scrollRef}
-                onClose={closeMessenger}
-                onBack={() => {
-                  setMode('home');
-                  setPending([]);
-                }}
-                onSend={() => void sendText(draft)}
-                onQuick={(q) => void sendText(q)}
-                onApply={() => void applyPendingFixed()}
-                onReject={rejectPending}
-                gender={profile.gender}
-                needsConsent={!profile.chatConsentDone}
-                defaultShareTotals={profile.chatShareTotals !== false}
-                onConsent={(share) => void acceptChatConsent(share)}
-              />
-            ) : null}
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
-    </>
+  return (
+    <Modal
+      visible={open}
+      animationType="slide"
+      transparent
+      onRequestClose={closeMessenger}
+      statusBarTranslucent
+    >
+      <View style={[styles.modalRoot, DIR]} {...rtlDomProps}>
+        <Pressable style={styles.backdrop} onPress={closeMessenger} />
+        {sheetBody}
+      </View>
+    </Modal>
   );
 }
 
@@ -552,7 +760,7 @@ function HomePane({
   onQuick,
 }: {
   name: string;
-  gender: 'male' | 'female';
+  gender: 'male' | 'female' | 'unspecified';
   onClose: () => void;
   onNew: () => void;
   onHistory: () => void;
@@ -622,12 +830,16 @@ function HistoryPane({
   onBack,
   onOpen,
   onNew,
+  onDelete,
+  onDeleteAll,
 }: {
   threads: ChatThread[];
   onClose: () => void;
   onBack: () => void;
   onOpen: (id: string) => void;
   onNew: () => void;
+  onDelete: (id: string) => void;
+  onDeleteAll: () => void;
 }) {
   return (
     <View style={styles.pane}>
@@ -646,18 +858,43 @@ function HistoryPane({
           <Text style={styles.emptyHist}>עדיין אין שיחות. יאללה — שיחה ראשונה.</Text>
         ) : (
           threads.map((th) => (
-            <Pressable key={th.id} onPress={() => onOpen(th.id)} style={styles.histRow}>
-              <NoamAvatar size={36} />
-              <View style={styles.histMeta}>
-                <Text style={styles.histTitle} numberOfLines={1}>
-                  {th.title}
-                </Text>
-                <Text style={styles.histDate}>{formatRelativeTime(th.updatedAt)}</Text>
-              </View>
-            </Pressable>
+            <View key={th.id} style={styles.histRow}>
+              <Pressable
+                onPress={() => onOpen(th.id)}
+                style={styles.histRowMain}
+                accessibilityRole="button"
+                accessibilityLabel={th.title}
+              >
+                <NoamAvatar size={36} />
+                <View style={styles.histMeta}>
+                  <Text style={styles.histTitle} numberOfLines={1}>
+                    {th.title}
+                  </Text>
+                  <Text style={styles.histDate}>{formatRelativeTime(th.updatedAt)}</Text>
+                </View>
+              </Pressable>
+              <Pressable
+                onPress={() => onDelete(th.id)}
+                style={styles.histDeleteBtn}
+                accessibilityRole="button"
+                accessibilityLabel={`מחק שיחה ${th.title}`}
+              >
+                <Text style={styles.histDeleteTxt}>מחק</Text>
+              </Pressable>
+            </View>
           ))
         )}
       </ScrollView>
+      {threads.length > 0 ? (
+        <Pressable
+          onPress={onDeleteAll}
+          style={styles.deleteAllBtn}
+          accessibilityRole="button"
+          accessibilityLabel="מחק את כל השיחות"
+        >
+          <Text style={styles.deleteAllTxt}>מחק את כל השיחות</Text>
+        </Pressable>
+      ) : null}
       <Pressable onPress={onNew} style={styles.cta}>
         <Text style={styles.ctaTxt}>שיחה חדשה</Text>
       </Pressable>
@@ -671,6 +908,7 @@ function ChatPane({
   draft,
   setDraft,
   typing,
+  slowHint,
   pending,
   applying,
   scrollRef,
@@ -690,6 +928,7 @@ function ChatPane({
   draft: string;
   setDraft: (s: string) => void;
   typing: boolean;
+  slowHint: boolean;
   pending: ProposedEntry[];
   applying: boolean;
   scrollRef: React.RefObject<ScrollView | null>;
@@ -699,12 +938,27 @@ function ChatPane({
   onQuick: (q: string) => void;
   onApply: () => void;
   onReject: () => void;
-  gender: 'male' | 'female';
+  gender: 'male' | 'female' | 'unspecified';
   needsConsent: boolean;
   defaultShareTotals: boolean;
   onConsent: (shareTotals: boolean) => void;
 }) {
   const [shareChoice, setShareChoice] = useState(defaultShareTotals);
+
+  /** N-17: Enter שולח, Shift+Enter שורה חדשה */
+  const onComposerKey = (e: {
+    nativeEvent?: { key?: string; shiftKey?: boolean };
+    key?: string;
+    shiftKey?: boolean;
+    preventDefault?: () => void;
+  }) => {
+    const key = e?.nativeEvent?.key ?? e?.key;
+    const shift = e?.nativeEvent?.shiftKey ?? e?.shiftKey;
+    if (key === 'Enter' && !shift) {
+      e.preventDefault?.();
+      onSend();
+    }
+  };
 
   return (
     <View style={styles.pane}>
@@ -818,18 +1072,25 @@ function ChatPane({
           );
         })}
 
-        {typing ? <TypingDots /> : null}
+        {typing ? <TypingDots slowHint={slowHint} /> : null}
       </ScrollView>
 
       {/* N-01: כרטיס אישור מעל השדה — לא נגלל מחוץ למסך */}
       {pending.length > 0 ? (
         <View style={styles.proposeCardSticky}>
           <Text style={styles.proposeTitle}>להוסיף לפנקס?</Text>
-          {pending.map((a, i) => (
-            <Text key={`${a.kind}-${i}`} style={styles.proposeLine}>
-              · {kindLabel(a.kind, gender)} · {a.category} · {formatMoney(a.amount)}
-            </Text>
-          ))}
+          {pending.map((a, i) => {
+            const p =
+              a.period && /^\d{4}-(0[1-9]|1[0-2])$/.test(a.period)
+                ? a.period
+                : currentPeriod();
+            return (
+              <Text key={`${a.kind}-${i}`} style={styles.proposeLine}>
+                · {kindLabel(a.kind, gender)} · {a.category} · {formatMoney(a.amount)}
+                {'\n'}נרשם ל: {formatPeriod(p)}
+              </Text>
+            );
+          })}
           <View style={styles.proposeActions}>
             <Pressable
               onPress={onApply}
@@ -882,6 +1143,9 @@ function ChatPane({
           maxLength={2000}
           onSubmitEditing={onSend}
           blurOnSubmit={false}
+          returnKeyType="send"
+          // @ts-expect-error RN-web Enter/Shift+Enter
+          onKeyDown={Platform.OS === 'web' ? onComposerKey : undefined}
         />
         <Pressable
           onPress={onSend}
@@ -892,7 +1156,9 @@ function ChatPane({
           <Text style={styles.sendGlyph}>➤</Text>
         </Pressable>
       </View>
-      <Text style={styles.inputHint}>{name} · מעשר ישר</Text>
+      <Text style={styles.inputHint}>
+        {name} · Enter לשליחה · Shift+Enter לשורה חדשה
+      </Text>
         </>
       ) : null}
     </View>
@@ -900,6 +1166,82 @@ function ChatPane({
 }
 
 const styles = StyleSheet.create({
+  dockRoot: {
+    width: DESKTOP_CHAT_WIDTH,
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: 'stretch',
+    maxHeight: '100%',
+    borderRadius: radii.xxl,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: colors.glassBorder,
+    backgroundColor: 'rgba(14,18,34,0.92)',
+  },
+  sheetDock: {
+    flex: 1,
+    maxHeight: '100%',
+    minHeight: 0,
+    width: '100%',
+    maxWidth: DESKTOP_CHAT_WIDTH,
+    borderRadius: 0,
+    marginHorizontal: 0,
+  },
+  expandHandle: {
+    alignItems: 'center',
+    paddingTop: 8,
+    paddingBottom: 4,
+    gap: 4,
+  },
+  expandPill: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(255,255,255,0.35)',
+  },
+  expandHint: {
+    fontFamily: fonts.semi,
+    fontSize: 12,
+    color: colors.inkSoft,
+  },
+  totalsBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    paddingVertical: 8,
+    paddingHorizontal: spacing.sm,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.separator,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+  },
+  totalsCell: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
+  },
+  totalsLabel: {
+    fontFamily: fonts.semi,
+    fontSize: 11,
+    color: colors.inkSoft,
+  },
+  totalsValue: {
+    fontFamily: fonts.bold,
+    fontSize: 14,
+    color: colors.ink,
+  },
+  totalsRemain: {
+    color: colors.gold,
+  },
+  totalsSep: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    backgroundColor: colors.separator,
+  },
+  typingHint: {
+    fontFamily: fonts.semi,
+    fontSize: 14,
+    color: colors.inkMuted,
+  },
   launcherWrap: {
     position: 'absolute',
     end: 14,
@@ -1533,14 +1875,22 @@ const styles = StyleSheet.create({
   histRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    padding: spacing.md,
+    gap: 8,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
     borderRadius: radii.lg,
     borderWidth: 1,
     borderColor: colors.glassBorder,
     backgroundColor: 'rgba(255,255,255,0.05)',
   },
-  histMeta: { flex: 1 },
+  histRowMain: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    minWidth: 0,
+  },
+  histMeta: { flex: 1, minWidth: 0 },
   histTitle: {
     fontFamily: fonts.semi,
     fontSize: 15,
@@ -1552,5 +1902,34 @@ const styles = StyleSheet.create({
     color: colors.inkSoft,
     textAlign: 'start',
     marginTop: 2,
+  },
+  histDeleteBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(220,80,100,0.45)',
+    backgroundColor: 'rgba(220,80,100,0.18)',
+  },
+  histDeleteTxt: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    color: '#FCA5A5',
+  },
+  deleteAllBtn: {
+    marginHorizontal: spacing.md,
+    marginBottom: 8,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(220,80,100,0.4)',
+    backgroundColor: 'rgba(220,80,100,0.12)',
+  },
+  deleteAllTxt: {
+    fontFamily: fonts.semi,
+    fontSize: 14,
+    color: '#FCA5A5',
+    writingDirection: 'rtl',
   },
 });

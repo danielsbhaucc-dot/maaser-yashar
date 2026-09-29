@@ -1,5 +1,5 @@
 /**
- * Unit tests for N-01 / N-02 / N-11 chat helpers (validActions, SAVE_CLAIM, markdown strip).
+ * Unit tests for N-01 / N-02 / N-09 / N-10 / N-11 chat helpers.
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -7,6 +7,8 @@ import {
   stripSaveClaims,
   stripMarkdownHeadings,
   textSuggestsEntry,
+  gateProposedActions,
+  isEntryClarifyingQuestion,
 } from '../../../netlify/functions/chatSafety.mjs';
 
 describe('validActions (N-01)', () => {
@@ -128,5 +130,81 @@ describe('textSuggestsEntry (N-01 retry)', () => {
 
   it('ignores plain chat without amounts', () => {
     expect(textSuggestsEntry('כמה נשאר לתת החודש?')).toBe(false);
+  });
+
+  it('does not retry on N-09 clarifying questions', () => {
+    expect(isEntryClarifyingQuestion('נטו או ברוטו?')).toBe(true);
+    expect(textSuggestsEntry('קיבלתי משכורת 9800 — נטו או ברוטו?')).toBe(false);
+  });
+});
+
+describe('gateProposedActions (N-09 / N-10)', () => {
+  it('blocks income without net/gross', () => {
+    const g = gateProposedActions(
+      [
+        {
+          type: 'add_entry',
+          kind: 'income',
+          amount: 9800,
+          category: 'משכורת',
+          note: '',
+        },
+      ],
+      [{ role: 'user', content: 'קיבלתי משכורת 9,800' }]
+    );
+    expect(g.actions).toEqual([]);
+    expect(g.reason).toBe('net_gross');
+  });
+
+  it('allows after net + exchange rate', () => {
+    const g = gateProposedActions(
+      [
+        {
+          type: 'add_entry',
+          kind: 'income',
+          amount: 18500,
+          category: 'משכורת',
+          note: 'נטו',
+        },
+      ],
+      [
+        { role: 'user', content: 'קיבלתי משכורת 5000 דולר' },
+        { role: 'user', content: 'נטו, שער 3.7' },
+      ]
+    );
+    expect(g.actions).toHaveLength(1);
+    expect(g.actions[0].amount).toBe(18500);
+  });
+
+  it('keeps prior-month entry when period is set', () => {
+    const g = gateProposedActions(
+      [
+        {
+          type: 'add_entry',
+          kind: 'tzedaka',
+          amount: 100,
+          category: 'צדקה / מעשר',
+          note: '',
+          period: '2026-08',
+        },
+      ],
+      [{ role: 'user', content: 'תרשום לי תרומה של 100 ש"ח בחודש שעבר' }]
+    );
+    expect(g.actions).toHaveLength(1);
+    expect(g.actions[0].period).toBe('2026-08');
+  });
+
+  it('keeps optional period on validActions', () => {
+    const out = validActions([
+      {
+        type: 'add_entry',
+        kind: 'tzedaka',
+        amount: 100,
+        category: 'צדקה / מעשר',
+        note: '',
+        period: '2026-08',
+      },
+    ]);
+    expect(out[0].period).toBe('2026-08');
   });
 });
