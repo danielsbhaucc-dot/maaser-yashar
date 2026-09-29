@@ -8,6 +8,8 @@
  * N-04: גילוי AI עקבי (בלי הכחשת מודל).
  * N-05: עמידות להזרקה + קנרי + max_tokens.
  * N-06: הגבלת ניכויים.
+ * N-07: מחלוקות הלכתיות — תבנית «יש דעות» + הפניה לרב (ממתין לביקורת רב).
+ * N-08: חובות/מצוקה — אמפתיה, פעמונים, ער״ן רק במצוקה, בלי פירוט סכומים.
  */
 
 import {
@@ -27,6 +29,11 @@ import {
   validActions,
 } from './chatSafety.mjs';
 import { reconcileReplyWithContext } from './chatLedger.mjs';
+import {
+  N07_DISPUTED_TOPICS_BLOCK,
+  N08_DEBT_DISTRESS_BLOCK,
+  NOAM_HALAKHA_REVIEW_STATUS,
+} from './chatHalakha.mjs';
 
 const FALLBACK_MODEL = 'meta-llama/llama-3.1-8b-instruct';
 const UPSTREAM_URL = 'https://openrouter.ai/api/v1/chat/completions';
@@ -314,6 +321,11 @@ ${emptyLedger ? 'מצב: אין תנועות החודש בפנקס (כל הסכ�
   אל תכחיש שאתה AI או מודל. אל תאמר «אני אדם» / «לא בוט» / «לא AI» / «לא מודל».
 - אתה לא פוסק הלכה. בשאלה הלכתית, ענה בזהירות והפנה לרב במשפט אחד.
 - אם שואלים אם מעשר הוא חובה: רבים רואים בו חיוב מנהג או נדר, ויש דעות שונות בפרטים. כדאי לשאול רב.
+- סטטוס סקירת רב לתוכן ההלכתי בנועם: ${NOAM_HALAKHA_REVIEW_STATUS}.
+
+${N07_DISPUTED_TOPICS_BLOCK}
+
+${N08_DEBT_DISTRESS_BLOCK}
 
 מקור אמת יחיד — סעיף 6.2 / N-03 (קריטי):
 - אובייקט <<<LEDGER_DATA>>> בבקשה הזו הוא מקור האמת היחיד לסכומי הפנקס (הכנסות, ניכויים, חובה, ניתן, נותר).
