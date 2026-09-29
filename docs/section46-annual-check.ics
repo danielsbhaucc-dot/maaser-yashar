@@ -1,0 +1,15 @@
+BEGIN:VCALENDAR
+VERSION:2.0
+PRODID:-//maaser-yashar//section46-annual//HE
+CALSCALE:GREGORIAN
+METHOD:PUBLISH
+BEGIN:VEVENT
+UID:section46-annual-check@maaser-yashar.netlify.app
+DTSTAMP:20260929T090000Z
+DTSTART;VALUE=DATE:20270105
+RRULE:FREQ=YEARLY;BYMONTH=1;BYMONTHDAY=5
+SUMMARY:מעשר ישר: בדיקת קבועי סעיף 46 (מינימום / תקרה / שיעור)
+DESCRIPTION:תזכורת שנתית (ינואר): לבדוק מול רשות המסים / כל זכות את מינימום התרומה\, התקרה המוחלטת ושיעור הזיכוי (יחיד/חברה).\nעדכנו ב־src/utils/taxCalc.ts את minDonationByYear\, absoluteCapByYear ו־verifiedAtByYear.\nמקורות:\nhttps://www.kolzchut.org.il/he/%D7%96%D7%99%D7%9B%D7%95%D7%99_%D7%9E%D7%9E%D7%A1_%D7%94%D7%9B%D7%A0%D7%A1%D7%94_%D7%91%D7%A9%D7%9C_%D7%AA%D7%A8%D7%95%D7%9E%D7%94_(%D7%A1%D7%A2%D7%99%D7%A3_46)\nhttps://www.misim.gov.il/gmishur46/frmFirstPage.aspx\nhttps://www.gov.il/he/departments/israel_tax_authority
+URL:https://www.kolzchut.org.il/he/%D7%96%D7%99%D7%9B%D7%95%D7%99_%D7%9E%D7%9E%D7%A1_%D7%94%D7%9B%D7%A0%D7%A1%D7%94_%D7%91%D7%A9%D7%9C_%D7%AA%D7%A8%D7%95%D7%9E%D7%94_(%D7%A1%D7%A2%D7%99%D7%A3_46)
+END:VEVENT
+END:VCALENDAR

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { computeTotals, createEntry, entriesForPeriod } from '../ledger';
 import { formatMoney, parseMoney } from '../money';
-import { calculateSection46, getAbsoluteCap, getMinDonation, SECTION_46 } from '../taxCalc';
+import { calculateSection46, getAbsoluteCap, getMinDonation, getSection46Freshness, SECTION_46 } from '../taxCalc';
 import {
   applyRecurringRules,
   createRecurringRule,
@@ -123,6 +123,25 @@ describe('taxCalc edges', () => {
     expect(getAbsoluteCap(2026)).toBe(SECTION_46.absoluteCapByYear[2026]);
     expect(getMinDonation(1999)).toBe(207);
     expect(getAbsoluteCap(1999)).toBe(10_354_816);
+  });
+
+  it('section 46 freshness verified vs unverified (T-63)', () => {
+    const verified = getSection46Freshness(2026);
+    expect(verified.kind).toBe('verified');
+    if (verified.kind === 'verified') {
+      expect(verified.verifiedAt).toBe(SECTION_46.verifiedAtByYear[2026]);
+      expect(verified.label).toContain('מעודכנים לשנת 2026');
+      expect(verified.label).toContain('רשות המסים');
+    }
+
+    const unverified = getSection46Freshness(2027);
+    expect(unverified.kind).toBe('unverified');
+    if (unverified.kind === 'unverified') {
+      expect(unverified.displayYear).toBe(SECTION_46.fallbackVerifiedYear);
+      expect(unverified.label).toBe(
+        `טרם עודכן, מוצג לפי ${SECTION_46.fallbackVerifiedYear}`
+      );
+    }
   });
 });
 

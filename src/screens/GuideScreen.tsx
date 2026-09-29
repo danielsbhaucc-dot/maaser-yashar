@@ -4,6 +4,7 @@ import { Screen } from '../components/Screen';
 import { Banner, SectionHeader } from '../components/ui';
 import { Glass, GlassNumber, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
+import { RabbiReviewNote } from '../components/RabbiReviewNote';
 import { SmartInsights } from '../components/SmartInsights';
 import { HALACHA_GUIDE, TAX_GUIDE_STEPS } from '../constants/guides';
 import { colors, fonts, spacing, type } from '../theme';
@@ -99,6 +100,7 @@ export default function GuideScreen() {
       </Glass>
 
       <SectionHeader title="מעשר — שאלות ותשובות" />
+      <RabbiReviewNote />
       <Accordion
         items={HALACHA_GUIDE.map((item, i) => ({
           id: `halacha-${i}`,

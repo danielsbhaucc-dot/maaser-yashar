@@ -16,7 +16,12 @@ import { Glass, GlassNumber, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
 import { SmartInsights } from '../components/SmartInsights';
 import { colors, fonts, spacing, type } from '../theme';
-import { calculateSection46, SECTION_46, getMinDonation } from '../utils/taxCalc';
+import {
+  calculateSection46,
+  SECTION_46,
+  getMinDonation,
+  getSection46Freshness,
+} from '../utils/taxCalc';
 import { useApp } from '../context/AppContext';
 import { BOT_NAME, t } from '../utils/copy';
 import { noamTaxHero } from '../utils/noamCompanion';
@@ -117,6 +122,8 @@ export default function TaxScreen() {
 
   const effectiveCredit =
     taxPaid > 0 ? Math.min(result.creditAmount, taxPaid) : result.creditAmount;
+
+  const freshness = useMemo(() => getSection46Freshness(taxYear), [taxYear]);
 
   const insights = useMemo(
     () =>
@@ -226,6 +233,15 @@ export default function TaxScreen() {
                 taxPaid <= 0 ? ' · אומדן בלי תקרת מס ששולם' : ''
               }`}
             />
+            <Text
+              style={[
+                styles.freshnessText,
+                freshness.kind === 'unverified' && styles.freshnessWarn,
+              ]}
+              accessibilityLabel={freshness.label}
+            >
+              {freshness.label}
+            </Text>
           </>
         ) : (
           <Glass light gold style={styles.infoGlass}>
@@ -236,6 +252,16 @@ export default function TaxScreen() {
             {!knowsIncome ? (
               <Text style={[styles.noteText, { marginTop: spacing.md }]}>{UNSURE_INCOME_NOTE}</Text>
             ) : null}
+            <Text
+              style={[
+                styles.freshnessText,
+                styles.freshnessInCard,
+                freshness.kind === 'unverified' && styles.freshnessWarn,
+              ]}
+              accessibilityLabel={freshness.label}
+            >
+              {freshness.label}
+            </Text>
           </Glass>
         )}
       </View>
@@ -313,6 +339,16 @@ export default function TaxScreen() {
           תקרה <Text style={styles.metaEm}>{formatMoney(result.absoluteCap)}</Text>
           {' · '}
           רטרו עד <Text style={styles.metaEm}>{SECTION_46.retroactiveYears} שנים</Text>
+        </Text>
+        <Text
+          style={[
+            styles.freshnessText,
+            styles.freshnessInCard,
+            freshness.kind === 'unverified' && styles.freshnessWarn,
+          ]}
+          accessibilityLabel={freshness.label}
+        >
+          {freshness.label}
         </Text>
       </Glass>
 
@@ -428,5 +464,20 @@ const styles = StyleSheet.create({
   metaEm: {
     fontFamily: fonts.bold,
     color: colors.goldDeep,
+  },
+  freshnessText: {
+    ...type.caption,
+    color: colors.sheetMuted,
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginTop: spacing.sm,
+    lineHeight: 20,
+  },
+  freshnessInCard: {
+    marginTop: spacing.md,
+  },
+  freshnessWarn: {
+    color: colors.goldDeep,
+    fontFamily: fonts.semi,
   },
 });

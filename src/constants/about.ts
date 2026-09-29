@@ -1,5 +1,7 @@
 import { Platform } from 'react-native';
 
+export { RABBI_REVIEW, rabbiReviewLine } from './rabbiReview';
+
 export const ABOUT_LINK_LABEL = 'מי עומד מאחורי מעשר ישר';
 
 export const ABOUT_PATH = '/about';

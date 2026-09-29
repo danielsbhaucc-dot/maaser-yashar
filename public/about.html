@@ -316,6 +316,9 @@
           <a class="inline" href="mailto:accessibility@maaser-yashar.app?subject=%D7%90%D7%95%D7%93%D7%95%D7%AA%20%D7%9E%D7%A2%D7%A9%D7%A8%20%D7%99%D7%A9%D7%A8">accessibility@maaser-yashar.app</a>
         </p>
       </section>
+
+      <!-- T-62: שורת סקירת רב — מוצגת רק אחרי RABBI_REVIEW.approved + name -->
+      <p id="rabbi-review" class="callout" hidden dir="rtl"></p>
     </main>
 
     <footer class="footer">
@@ -323,5 +326,18 @@
       <p style="margin-top:0.65rem;opacity:0.75">מעשר ישר · פרויקט התנדבותי</p>
     </footer>
   </div>
+  <script>
+    // סנכרנו עם src/constants/rabbiReview.ts — אל תסמנו approved בלי הסכמת הרב.
+    var RABBI_REVIEW = { approved: false, name: "" };
+    (function () {
+      var el = document.getElementById("rabbi-review");
+      if (!el) return;
+      var name = (RABBI_REVIEW.name || "").trim();
+      if (RABBI_REVIEW.approved && name) {
+        el.hidden = false;
+        el.textContent = "התוכן ההלכתי נסקר על ידי הרב " + name;
+      }
+    })();
+  </script>
 </body>
 </html>

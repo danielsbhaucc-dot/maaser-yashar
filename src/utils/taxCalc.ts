@@ -1,6 +1,10 @@
 import type { Tax46Inputs, Tax46Result } from '../types';
 
-/** נתוני סעיף 46 — לפי כל זכות / רשות המסים (2024–2027 מוקפאים) */
+/**
+ * נתוני סעיף 46 — לפי כל זכות / רשות המסים (2024–2027 מוקפאים).
+ * `verifiedAtByYear`: תאריך ISO (YYYY-MM-DD) של בדיקה מול מקור רשמי, או null אם טרם נבדק.
+ * תזכורת שנתית: docs/section46-annual-check.ics
+ */
 export const SECTION_46 = {
   individualCreditRate: 0.35,
   companyCreditRate: 0.3,
@@ -24,9 +28,64 @@ export const SECTION_46 = {
     2026: 10_354_816,
     2027: 10_354_816,
   } as Record<number, number>,
+  /**
+   * מתי המספרים של אותה שנה נבדקו מול פרסום ציבורי (כל זכות / רשות המסים).
+   * null = טרם נבדק לשנה זו — בממשק מוצג לפי שנת fallback.
+   * 2026: אושר מול נתונים ציבוריים בהקפאה 2024–2027 בעת הוספת השדה (T-63).
+   */
+  verifiedAtByYear: {
+    2020: null,
+    2021: null,
+    2022: null,
+    2023: null,
+    2024: null,
+    2025: null,
+    2026: '2026-09-29',
+    2027: null,
+  } as Record<number, string | null>,
+  /** שנה שממנה מציגים מספרים כששנה נבחרת טרם נבדקה */
+  fallbackVerifiedYear: 2026,
   incomeCapPercent: 0.3,
   retroactiveYears: 6,
 };
+
+export type Section46Freshness =
+  | { kind: 'verified'; year: number; verifiedAt: string; label: string }
+  | { kind: 'unverified'; year: number; displayYear: number; label: string };
+
+function formatVerifiedDateHe(isoDate: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate.trim());
+  if (!m) return isoDate;
+  const d = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  if (Number.isNaN(d.getTime())) return isoDate;
+  return d.toLocaleDateString('he-IL', {
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+}
+
+/** שורת עדכניות להצגה ליד אומדן סעיף 46 (RTL). */
+export function getSection46Freshness(year: number): Section46Freshness {
+  const verifiedAt = SECTION_46.verifiedAtByYear[year] ?? null;
+  if (verifiedAt) {
+    const dateHe = formatVerifiedDateHe(verifiedAt);
+    return {
+      kind: 'verified',
+      year,
+      verifiedAt,
+      label: `המספרים מעודכנים לשנת ${year} (נבדקו מול רשות המסים ב־${dateHe})`,
+    };
+  }
+  const displayYear = SECTION_46.fallbackVerifiedYear;
+  return {
+    kind: 'unverified',
+    year,
+    displayYear,
+    label: `טרם עודכן, מוצג לפי ${displayYear}`,
+  };
+}
 
 export function getMinDonation(year: number): number {
   return SECTION_46.minDonationByYear[year] ?? 207;
