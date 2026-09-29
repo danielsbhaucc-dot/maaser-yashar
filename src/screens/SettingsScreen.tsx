@@ -209,6 +209,12 @@ export default function SettingsScreen() {
             selected={profile.gender === 'female'}
             onPress={() => patchProfile({ gender: 'female' as Gender })}
           />
+          <Chip
+            fill
+            label="לא צוין"
+            selected={profile.gender === 'unspecified'}
+            onPress={() => patchProfile({ gender: 'unspecified' as Gender })}
+          />
         </SegmentedRow>
 
         <View style={styles.divider} />
@@ -217,17 +223,45 @@ export default function SettingsScreen() {
         <SegmentedRow>
           <Chip
             fill
-            label={t(profile.gender, 'רווק', 'רווקה')}
+            label={t(profile.gender, 'רווק', 'רווקה', 'רווק/ה')}
             selected={profile.maritalStatus === 'single'}
             onPress={() => patchProfile({ maritalStatus: 'single', includeSpouse: false })}
           />
           <Chip
             fill
-            label={t(profile.gender, 'נשוי', 'נשואה')}
+            label={t(profile.gender, 'נשוי', 'נשואה', 'נשוי/אה')}
             selected={profile.maritalStatus === 'married'}
             onPress={() => patchProfile({ maritalStatus: 'married' })}
           />
         </SegmentedRow>
+        <View style={styles.nestedSeg}>
+          <SegmentedRow>
+            <Chip
+              fill
+              label={t(profile.gender, 'גרוש', 'גרושה', 'גרוש/ה')}
+              selected={profile.maritalStatus === 'divorced'}
+              onPress={() =>
+                patchProfile({ maritalStatus: 'divorced', includeSpouse: false })
+              }
+            />
+            <Chip
+              fill
+              label={t(profile.gender, 'אלמן', 'אלמנה', 'אלמן/ה')}
+              selected={profile.maritalStatus === 'widowed'}
+              onPress={() =>
+                patchProfile({ maritalStatus: 'widowed', includeSpouse: false })
+              }
+            />
+            <Chip
+              fill
+              label="לא צוין"
+              selected={profile.maritalStatus === 'unknown'}
+              onPress={() =>
+                patchProfile({ maritalStatus: 'unknown', includeSpouse: false })
+              }
+            />
+          </SegmentedRow>
+        </View>
         {profile.maritalStatus === 'married' ? (
           <View style={styles.nestedSeg}>
             <SegmentedRow>
@@ -528,6 +562,39 @@ export default function SettingsScreen() {
             label="רק ההודעה"
             selected={profile.chatShareTotals === false}
             onPress={() => patchProfile({ chatShareTotals: false, chatConsentDone: true })}
+          />
+        </SegmentedRow>
+        <View style={styles.divider} />
+        <FieldLabel>שמירת היסטוריית שיחות</FieldLabel>
+        <Text style={styles.recurIntro}>
+          כבוי = השיחות נמחקות בסגירת החלון/מסך ולא נשמרות אחרי רענון.
+        </Text>
+        <SegmentedRow>
+          <Chip
+            fill
+            label="שמור"
+            selected={profile.saveChatHistory !== false}
+            onPress={() => patchProfile({ saveChatHistory: true })}
+          />
+          <Chip
+            fill
+            label="לא לשמור"
+            selected={profile.saveChatHistory === false}
+            onPress={() => {
+              if (profile.saveChatHistory === false) return;
+              toast.confirm({
+                title: 'לכבות שמירת שיחות?',
+                message: 'השיחות הקיימות יימחקו מהמכשיר עכשיו.',
+                confirmLabel: 'מחק ואל תשמור',
+                cancelLabel: 'ביטול',
+                onConfirm: async () => {
+                  patchProfile({ saveChatHistory: false });
+                  const { clearAllThreads } = await import('../ai/noam');
+                  await clearAllThreads();
+                  toast.info('היסטוריית השיחות נמחקה');
+                },
+              });
+            }}
           />
         </SegmentedRow>
       </Glass>

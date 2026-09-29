@@ -28,11 +28,11 @@ export type OnboardResult = {
 /** שדות שאפשר לסרב עליהם בהיכרות (M19) */
 export type RefuseField = 'name' | 'gender' | 'marital' | 'rate';
 
-/** ברירות מחדל אחרי סירוב מאושר (M19) */
+/** ברירות מחדל אחרי סירוב מאושר (N-15: מגדר/משפחה להשלמה בהגדרות) */
 export const ONBOARD_DEFAULTS = {
-  displayName: 'חבר',
+  displayName: '',
   gender: 'unspecified' as Gender,
-  maritalStatus: 'single' as MaritalStatus,
+  maritalStatus: 'unknown' as MaritalStatus,
   rate: 0.1 as MaaserRate,
 } as const;
 
@@ -51,9 +51,9 @@ export function refuseAskSureMessage(field: RefuseField): string {
     case 'name':
       return 'בטוחים שרוצים בלי שם? אם כן — כתבו «כן», ואז נאשר בכפתור.';
     case 'gender':
-      return 'בטוחים שמדלגים על מגדר? נדבר בלשון רבים (אתם). אם כן — כתבו «כן», ואז נאשר בכפתור.';
+      return 'בטוחים שמדלגים על מגדר? נדבר בלשון ניטרלית. אם כן — כתבו «כן», ואז נאשר בכפתור.';
     case 'marital':
-      return 'בטוחים שמדלגים על מצב משפחתי? נניח רווק כברירת מחדל. אם כן — כתבו «כן», ואז נאשר בכפתור.';
+      return 'בטוחים שמדלגים על מצב משפחתי? אפשר להשלים בהגדרות. אם כן — כתבו «כן», ואז נאשר בכפתור.';
     case 'rate':
       return 'בטוחים שמדלגים על שיעור? נניח מעשר 10%. אם כן — כתבו «כן», ואז נאשר בכפתור.';
   }
@@ -62,11 +62,11 @@ export function refuseAskSureMessage(field: RefuseField): string {
 export function refuseConfirmPrompt(field: RefuseField): string {
   switch (field) {
     case 'name':
-      return `כדי לאשר — לחצו על הכפתור למטה. אקרא לכם «${ONBOARD_DEFAULTS.displayName}» בינתיים (אפשר לשנות בהגדרות).`;
+      return 'כדי לאשר — לחצו על הכפתור למטה. בלי שם אישי בינתיים (אפשר לשנות בהגדרות).';
     case 'gender':
-      return 'כדי לאשר — לחצו על הכפתור למטה. מעכשיו בלשון רבים, עד שתעדכנו מגדר.';
+      return 'כדי לאשר — לחצו על הכפתור למטה. מעכשיו בלשון ניטרלית, עד שתעדכנו מגדר.';
     case 'marital':
-      return 'כדי לאשר — לחצו על הכפתור למטה. נמשיך עם רווק כברירת מחדל.';
+      return 'כדי לאשר — לחצו על הכפתור למטה. נמשיך בלי מצב משפחתי — אפשר לעדכן בהגדרות.';
     case 'rate':
       return 'כדי לאשר — לחצו על הכפתור למטה. ננעל מעשר 10%.';
   }
@@ -75,11 +75,11 @@ export function refuseConfirmPrompt(field: RefuseField): string {
 export function refuseButtonLabel(field: RefuseField): string {
   switch (field) {
     case 'name':
-      return `כן, בלי שם — קוראים לי ${ONBOARD_DEFAULTS.displayName}`;
+      return 'כן, ממשיכים בלי שם';
     case 'gender':
-      return 'כן, לשון רבים (אתם)';
+      return 'כן, פנייה ניטרלית';
     case 'marital':
-      return 'כן, ברירת מחדל — רווק';
+      return 'כן, מדלגים על מצב משפחתי';
     case 'rate':
       return 'כן, מעשר 10%';
   }
@@ -236,9 +236,9 @@ export function parseGenderPhrase(raw: string): Gender | null {
   if (/^(נקבה|אישה|בת|female|woman|girl|f)$/i.test(t) || /\b(אני )?(אישה|נקבה)\b/i.test(t)) {
     return 'female';
   }
-  /** בחירה מפורשת בלשון רבים — לא סירוב (סירוב→skip_step→כפתור, M19) */
+  // N-15: מעדיפים לא לומר / ניטרלי מפורש (לא «דלג» — זה skip_step ב־M19)
   if (
-    /^(ניטרל(י)?|בלי מגדר|לשון רבים|אתם|רבים|unspecified|neutral|non-?binary)$/i.test(
+    /מעדיפ[היו]?ם?\s*לא|לא רוצה (להגיד|למסור|לומר)|prefer not|don'?t want to say|לא להגיד|^(ניטרל(י)?|בלי מגדר|לשון רבים|אתם|רבים|unspecified|neutral|non-?binary)$/i.test(
       t
     )
   ) {
@@ -376,7 +376,7 @@ export function localOnboardParse(text: string): OnboardResult {
 
 /**
  * פרסור לפי שלב ההיכרות (N-15 + M19).
- * דילוג/סירוב → skip_step (המסך מריץ «בטוחים?» + כפתור אישור).
+ * דילוג כללי → skip_step; «מעדיפים לא לומר» במגדר → gender=unspecified.
  */
 export function parseOnboardStep(step: number, text: string): OnboardResult {
   const raw = text.trim();
@@ -387,11 +387,6 @@ export function parseOnboardStep(step: number, text: string): OnboardResult {
 
   if (isRateExplainPhrase(raw) && step >= 3) {
     return { intent: 'rate_explain', name: null, reply: '' };
-  }
-
-  /** סירוב לפני בחירה — כדי ש«דלג» לא יוחל מיד כ־gender/marital */
-  if (isSkipPhrase(raw)) {
-    return { intent: 'skip_step', name: null, reply: '' };
   }
 
   if (step === 1) {
@@ -421,6 +416,11 @@ export function parseOnboardStep(step: number, text: string): OnboardResult {
     }
   }
 
+  /** סירוב/דילוג כללי — אחרי ניסיון לפרסר בחירה מפורשת */
+  if (isSkipPhrase(raw)) {
+    return { intent: 'skip_step', name: null, reply: '' };
+  }
+
   if (isRealQuestion(raw) || isRateExplainPhrase(raw)) {
     if (isRateExplainPhrase(raw)) {
       return { intent: 'rate_explain', name: null, reply: '' };
@@ -440,7 +440,7 @@ export function parseOnboardStep(step: number, text: string): OnboardResult {
   };
 }
 
-/** המשך אחרי דילוג על שם — לשון רבים + שם ברירת מחדל (N-14 / M19) */
+/** המשך אחרי דילוג על שם — פנייה ניטרלית עד בחירת מגדר (N-14) */
 export function skipNameContinue(_g?: Gender): string {
-  return `סבבה — אקרא לכם «${ONBOARD_DEFAULTS.displayName}» בינתיים. אפשר לעדכן בהגדרות.\n\nעכשיו שאלה קטנה…`;
+  return `סבבה, ממשיכים בלי שם. אפשר לעדכן בהגדרות מתי שרוצים.\n\nעכשיו שאלה קטנה…`;
 }

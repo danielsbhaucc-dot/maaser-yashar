@@ -29,6 +29,11 @@ export interface UserProfile {
    * false = רק ההודעה, בלי context.
    */
   chatShareTotals: boolean;
+  /**
+   * שמירת היסטוריית שיחות עם נועם ב־localStorage.
+   * false = לא נשמר; נמחק בסגירת החלון/מסך (N-16).
+   */
+  saveChatHistory: boolean;
   /** האם המשתמש כבר אישר את מסך הסכמת הצ'אט */
   chatConsentDone: boolean;
   /** חישוב מעשר מתקדם — מופעל כברירת מחדל */
@@ -49,12 +54,13 @@ export interface UserProfile {
 export const defaultProfile = (): UserProfile => ({
   onboardingDone: false,
   displayName: '',
-  gender: 'male',
-  maritalStatus: 'single',
+  gender: 'unspecified',
+  maritalStatus: 'unknown',
   includeSpouse: false,
   rate: 0.1,
   joinedAt: undefined,
   chatShareTotals: true,
+  saveChatHistory: true,
   chatConsentDone: false,
   advanced: defaultAdvancedSettings(),
   carryForwardSurplus: false,

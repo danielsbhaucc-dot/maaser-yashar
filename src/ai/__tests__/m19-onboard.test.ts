@@ -22,9 +22,9 @@ import { friendWord, t } from '../../utils/copy';
 
 describe('M19 onboard defaults', () => {
   it('locks friendly defaults for refusal', () => {
-    expect(ONBOARD_DEFAULTS.displayName).toBe('חבר');
+    expect(ONBOARD_DEFAULTS.displayName).toBe('');
     expect(ONBOARD_DEFAULTS.gender).toBe('unspecified');
-    expect(ONBOARD_DEFAULTS.maritalStatus).toBe('single');
+    expect(ONBOARD_DEFAULTS.maritalStatus).toBe('unknown');
     expect(ONBOARD_DEFAULTS.rate).toBe(0.1);
     expect(MAX_ONBOARD_CLARIFY).toBeGreaterThanOrEqual(2);
   });
@@ -42,8 +42,8 @@ describe('M19 onboard defaults', () => {
       expect(refuseAskSureMessage(field).length).toBeGreaterThan(10);
       expect(refuseButtonLabel(field).length).toBeGreaterThan(4);
     }
-    expect(refuseButtonLabel('name')).toContain('חבר');
-    expect(refuseButtonLabel('gender')).toMatch(/רבים|אתם/);
+    expect(refuseButtonLabel('name')).toMatch(/בלי שם|ממשיכים/);
+    expect(refuseButtonLabel('gender')).toMatch(/ניטרל/);
     expect(refuseButtonLabel('rate')).toMatch(/10%/);
   });
 });
@@ -94,15 +94,15 @@ describe('M19 parseOnboardStep refusal vs choice', () => {
     expect(parseOnboardStep(3, 'מעשר').rate).toBe(0.1);
   });
 
-  it('skip name continue uses plural + default name', () => {
-    expect(skipNameContinue()).toContain(ONBOARD_DEFAULTS.displayName);
-    expect(skipNameContinue()).toMatch(/לכם|בינתיים/);
+  it('skip name continue is gender-neutral', () => {
+    expect(skipNameContinue()).toMatch(/בלי שם|הגדרות/);
+    expect(skipNameContinue()).not.toMatch(/חבר בינתיים|ממשיכות/);
   });
 });
 
 describe('M19 plural address helpers', () => {
-  it('friendWord defaults to חבר when gender unspecified', () => {
-    expect(friendWord('unspecified')).toBe('חבר');
+  it('friendWord uses inclusive form when gender unspecified', () => {
+    expect(friendWord('unspecified')).toBe('חבר/ה');
     expect(friendWord('male')).toBe('חבר');
     expect(friendWord('female')).toBe('חברה');
   });

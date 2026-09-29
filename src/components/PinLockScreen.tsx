@@ -17,11 +17,11 @@ import { colors, fonts, radii, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import { PrimaryButton } from './ui';
 
-function messageFor(result: PinAttempt, gender: 'male' | 'female'): string {
+function messageFor(result: PinAttempt, gender: 'male' | 'female' | 'unspecified'): string {
   if (result === 'format') return 'הקוד צריך 4 עד 6 ספרות';
   if (result === 'wrong') return 'הקוד לא נכון';
   if (result === 'unavailable') return 'אי אפשר להפעיל נעילה במכשיר הזה';
-  return t(gender, 'נסו שוב', 'נסי שוב');
+  return t(gender, 'נסו שוב', 'נסי שוב', 'נסו שוב');
 }
 
 export default function PinLockScreen() {

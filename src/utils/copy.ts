@@ -29,11 +29,11 @@ export function hello(profile: Pick<UserProfile, 'displayName' | 'gender'>) {
   return `היי ${name} 👋`;
 }
 
-/** שם ידידותי כשאין שם — «חבר» תואם טון המוצר (M19) */
+/** שם ידידותי כשאין שם — ניטרלי עד בחירת מגדר (N-14) */
 export function friendWord(gender?: Gender) {
   if (gender === 'female') return 'חברה';
   if (gender === 'male') return 'חבר';
-  return 'חבר';
+  return 'חבר/ה';
 }
 
 export function genderSelected(gender?: Gender): boolean {

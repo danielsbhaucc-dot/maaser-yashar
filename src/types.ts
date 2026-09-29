@@ -11,7 +11,12 @@ export type AllowanceMode = 'exclude' | 'include'; // קצבאות ילדים ו
 export type MaaserRate = number;
 
 export type EmploymentType = 'employee' | 'self_employed' | 'both' | 'other';
-export type MaritalStatus = 'single' | 'married' | 'unknown';
+export type MaritalStatus =
+  | 'single'
+  | 'married'
+  | 'divorced'
+  | 'widowed'
+  | 'unknown';
 
 export interface MaaserInputs {
   // הכנסות
