@@ -12,28 +12,8 @@ import {
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR } from '../rtl';
 import { Glass } from './Glass';
-
-export function formatMoney(value: number): string {
-  return `${value.toLocaleString('he-IL', {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 2,
-  })} ₪`;
-}
-
-export type MoneyResult = { ok: true; value: number } | { ok: false; error: string };
-
-export function parseMoney(raw: string): MoneyResult {
-  // "1,250" -> "1250" (comma as thousands separator only)
-  const s = raw.trim().replace(/[\u00A0\s]/g, '').replace(/,(?=\d{3}(?:\D|$))/g, '');
-  if (!s) return { ok: false, error: 'צריך להזין סכום' };
-  if (s.startsWith('-')) return { ok: false, error: 'סכום לא יכול להיות שלילי' };
-  if (!/^\d+(\.\d{1,2})?$/.test(s))
-    return { ok: false, error: 'סכום לא תקין: רק ספרות, ועד שתי ספרות אחרי הנקודה' };
-  const value = Number(s);
-  if (value <= 0) return { ok: false, error: 'צריך סכום גדול מאפס' };
-  if (value > 100_000_000) return { ok: false, error: 'הסכום גדול מדי' };
-  return { ok: true, value };
-}
+export { formatMoney, parseMoney, type MoneyResult } from '../utils/money';
+import { parseMoney } from '../utils/money';
 
 export function Card({
   children,
@@ -170,10 +150,12 @@ export function PrimaryButton({
   label,
   onPress,
   disabled,
+  testID,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  testID?: string;
 }) {
   return (
     <Pressable
@@ -183,6 +165,7 @@ export function PrimaryButton({
       accessibilityRole="button"
       accessibilityState={{ disabled: !!disabled }}
       accessibilityLabel={label}
+      testID={testID}
     >
       <Text style={styles.primaryBtnText}>{label}</Text>
     </Pressable>

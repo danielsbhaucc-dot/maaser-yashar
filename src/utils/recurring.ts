@@ -95,8 +95,23 @@ function monthsInclusive(from: string, to: string): string[] {
   return out;
 }
 
-function shouldApplyInPeriod(rule: RecurringRule, period: string, now: Date): boolean {
-  const cur = currentPeriod();
+function periodOfDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** יום בחודש מתוך ISO (YYYY-MM-DD…) — בלי תלות באזור זמן מקומי */
+function dayOfIso(iso: string): number {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (m) return Number(m[3]);
+  return new Date(iso).getDate();
+}
+
+function shouldApplyInPeriod(
+  rule: RecurringRule,
+  period: string,
+  now: Date,
+  cur: string
+): boolean {
   if (period < cur) return true;
   if (period > cur) return false;
   return now.getDate() >= rule.dayOfMonth;
@@ -133,7 +148,7 @@ export function applyRecurringRules(
   ledger: LedgerEntry[],
   now = new Date()
 ): { rules: RecurringRule[]; ledger: LedgerEntry[]; added: number } {
-  const cur = currentPeriod();
+  const cur = periodOfDate(now);
   const nextLedger = [...ledger];
   let added = 0;
 
@@ -141,17 +156,24 @@ export function applyRecurringRules(
     if (!rule.enabled || !(rule.amount > 0)) return rule;
 
     const createdPeriod = rule.createdAt.slice(0, 7);
-    const start = rule.lastAppliedPeriod
-      ? nextPeriodAfter(rule.lastAppliedPeriod)
-      : parsePeriod(createdPeriod)
-        ? createdPeriod
-        : cur;
+    let start: string;
+    if (rule.lastAppliedPeriod) {
+      start = nextPeriodAfter(rule.lastAppliedPeriod);
+    } else if (parsePeriod(createdPeriod)) {
+      // נוצר אחרי יום ההוראה בחודש — ההופעה הראשונה בחודש הבא (לא רטרואקטיבי)
+      start =
+        dayOfIso(rule.createdAt) > rule.dayOfMonth
+          ? nextPeriodAfter(createdPeriod)
+          : createdPeriod;
+    } else {
+      start = cur;
+    }
 
     if (start > cur) return rule;
 
     let lastApplied = rule.lastAppliedPeriod;
     for (const period of monthsInclusive(start, cur)) {
-      if (!shouldApplyInPeriod(rule, period, now)) continue;
+      if (!shouldApplyInPeriod(rule, period, now, cur)) continue;
 
       const exists = nextLedger.some(
         (e) =>

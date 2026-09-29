@@ -35,7 +35,9 @@
   "devDependencies": {
     "@expo/ngrok": "^4.1.3",
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3"
+    "typescript": "~6.0.3",
+    "@vitest/coverage-v8": "^4.1.11",
+    "vitest": "^4.1.11"
   },
   "scripts": {
     "start": "expo start",
@@ -45,7 +47,10 @@
     "ios": "expo run:ios",
     "web": "expo start --web",
     "export:web": "expo export -p web",
-    "deploy:netlify": "expo export -p web && netlify deploy --dir=dist --prod"
+    "deploy:netlify": "expo export -p web && netlify deploy --dir=dist --prod",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage"
   },
   "private": true
 }
