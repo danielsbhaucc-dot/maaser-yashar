@@ -12,10 +12,12 @@ export function AnimatedMoney({
   value,
   style,
   accessibilityLabel,
+  testID,
 }: {
   value: number;
   style?: StyleProp<TextStyle>;
   accessibilityLabel?: string;
+  testID?: string;
 }) {
   const motionOk = useMotionEnabled();
   const [display, setDisplay] = useState(value);
@@ -50,6 +52,7 @@ export function AnimatedMoney({
 
   return (
     <Text
+      testID={testID}
       style={[styles.base, style]}
       accessibilityLabel={accessibilityLabel ?? formatN(Math.round(display))}
     >

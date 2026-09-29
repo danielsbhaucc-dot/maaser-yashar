@@ -326,6 +326,7 @@ export default function AddEntryModal({
               <Pressable
                 key={k}
                 onPress={() => selectKind(k)}
+                testID={`kind-${k}`}
                 accessibilityRole="button"
                 accessibilityState={{ selected: on }}
                 accessibilityLabel={meta.label}
@@ -366,6 +367,7 @@ export default function AddEntryModal({
 
         <Text style={[styles.label, { color: active.color }]}>סכום</Text>
         <TextInput
+          testID="amount-input"
           style={[
             styles.amount,
             { borderColor: amountError ? colors.danger : `${active.color}88` },
@@ -543,7 +545,7 @@ export default function AddEntryModal({
           </View>
         ) : null}
 
-        <PrimaryButton label={saveLabel} onPress={submit} />
+        <PrimaryButton testID="save-entry" label={saveLabel} onPress={submit} />
 
         {isEdit && onDelete ? (
           <Pressable

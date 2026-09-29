@@ -134,10 +134,18 @@ export function SwipeTabs() {
   const renderTab = (tab: (typeof TABS)[number], i: number) => {
     const focused = i === index;
     const showLabel = focused || !activeOnlyLabels;
+    const testIdByKey: Record<string, string> = {
+      Home: 'tab-home',
+      History: 'tab-history',
+      Tax: 'tab-tax',
+      Guide: 'tab-guide',
+      Settings: 'tab-settings',
+    };
     return (
       <Pressable
         key={tab.key}
         onPress={() => goTo(i)}
+        testID={testIdByKey[tab.key]}
         style={({ pressed }) => [styles.tabItem, pressed && styles.tabPressed]}
         accessibilityRole="tab"
         accessibilityState={{ selected: focused }}
@@ -213,6 +221,7 @@ export function SwipeTabs() {
             <View style={styles.fabNotch} pointerEvents="box-none">
               <Pressable
                 onPress={() => openAdd('tzedaka')}
+                testID="fab-add"
                 style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
                 accessibilityRole="button"
                 accessibilityLabel="תנועה חדשה"

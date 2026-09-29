@@ -484,7 +484,11 @@ export default function HomeScreen() {
             <View style={styles.balanceRow}>
               <View style={styles.balanceText}>
                 <Text style={styles.balanceLabel}>יתרה לתת</Text>
-                <AnimatedMoney value={totals.remaining} style={styles.balanceValue} />
+                <AnimatedMoney
+                  value={totals.remaining}
+                  style={styles.balanceValue}
+                  testID="remaining-amount"
+                />
                 {ringStatusLine ? (
                   <Text style={styles.balanceHint}>
                     <Text style={styles.balanceHintEm}>{ringStatusLine}</Text>
@@ -655,6 +659,7 @@ export default function HomeScreen() {
         style={[styles.saveBtn, shadow.float, saving && { opacity: 0.55 }]}
         onPress={onSaveMonth}
         disabled={saving}
+        testID="save-month"
         accessibilityRole="button"
         accessibilityState={{ disabled: saving }}
         accessibilityLabel={saving ? 'שומר סיכום חודש' : 'שמור סיכום חודש'}
