@@ -1,12 +1,13 @@
 import React from 'react';
 import { Text, StyleSheet, StyleProp, TextStyle, View, ViewStyle } from 'react-native';
 import { RABBI_REVIEW, rabbiReviewLine } from '../constants/rabbiReview';
+import { HALAKHA_PENDING_BANNER } from '../constants/guides';
 import { colors, fonts, spacing, type } from '../theme';
 
 /**
  * מציג שורת סקירת רב:
- * — אחרי אישור: «נסקר על ידי הרב …»
- * — לפני אישור: סימון ברור שהסקירה עדיין בתהליך (T-62 / pre-deploy).
+ * — אחרי אישור: שורת האישור מ־rabbiReviewLine()
+ * — לפני אישור: באנר ממתין מ־shared/halakha.json (T-62 / pre-deploy).
  */
 export function RabbiReviewNote({
   style,
@@ -17,10 +18,7 @@ export function RabbiReviewNote({
 }) {
   const line = rabbiReviewLine();
   const text =
-    line ??
-    (!RABBI_REVIEW.approved
-      ? 'התוכן ההלכתי ממתין לסקירת רב — עדיין לא אושר להצגה כמאושר.'
-      : null);
+    line ?? (!RABBI_REVIEW.approved ? HALAKHA_PENDING_BANNER : null);
   if (!text) return null;
   return (
     <View style={[styles.wrap, style]} accessibilityRole="text">

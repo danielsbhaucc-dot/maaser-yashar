@@ -52,7 +52,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:noam": "node scripts/noam-regression.mjs"
+    "test:noam": "node scripts/noam-regression.mjs",
+    "sync:halakha": "node scripts/sync-halakha.mjs",
+    "export:halakha": "node scripts/export-halakha-for-rabbi.mjs"
   },
   "private": true
 }

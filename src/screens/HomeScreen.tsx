@@ -39,6 +39,7 @@ import type { LedgerEntry } from '../types/ledger';
 import { homeSmartInsights } from '../utils/smartInsights';
 import type { SmartInsight } from '../utils/smartInsights';
 import { EXPLAIN } from '../utils/chatScript';
+import halakha from '../../shared/halakha.json';
 import { daysLabel, entriesLabel } from '../utils/plural';
 import { formatRatePercent } from '../utils/rateLabel';
 import { formatRelativeTime } from '../utils/relativeTime';
@@ -57,9 +58,10 @@ import {
 } from '../utils/monthlyReminder';
 import { useTabNav } from '../navigation/TabNavContext';
 
-/** T-60: נוסח מרוכך — ממתין לאישור רב */
-const BASE_EXPLAIN_SHORT = `בסיס המעשר כאן = הכנסות שרשמת פחות הוצאות מותרות (מס / ביטוח / בריאות / הוצאות עסק).
-לפי המקובל, הוצאות מחיה (שכירות, אוכל) לא מנוכות. בשאלות גבוליות כדאי לשאול רב. צדקה לא מורידה מהבסיס — רק נספרת מול החובה.`;
+import halakha from '../../shared/halakha.json';
+
+/** T-60: נוסח מרוכך — מ־shared/halakha.json */
+const BASE_EXPLAIN_SHORT = halakha.explainers.baseShort as string;
 
 export default function HomeScreen() {
   const {

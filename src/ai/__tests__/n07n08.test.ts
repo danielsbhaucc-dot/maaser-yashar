@@ -29,11 +29,12 @@ describe('N-07 disputed topics block', () => {
     expect(N07_DISPUTED_TOPICS_BLOCK).toMatch(/שכר לימוד/);
   });
 
-  it('FAQ includes brother / tuition entries matching prompt', () => {
+  it('FAQ brother / tuition still neutral + rabbi referral', () => {
     const brother = HALACHA_GUIDE.find((g) => g.title.includes('לאח'));
     const tuition = HALACHA_GUIDE.find((g) => g.title.includes('שכר לימוד'));
     expect(brother?.body).toMatch(/יש דעות/);
-    expect(brother?.body).toMatch(/שאלו רב/);
+    expect(brother?.body).toMatch(/שאלו רב|לשאול את הרב/);
+    expect(brother?.body).not.toMatch(/עדיפות ל/);
     expect(tuition?.body).toMatch(/יש דעות/);
     expect(tuition?.body).toMatch(/שאלו רב/);
   });
