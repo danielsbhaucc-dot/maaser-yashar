@@ -58,8 +58,6 @@ import {
 } from '../utils/monthlyReminder';
 import { useTabNav } from '../navigation/TabNavContext';
 
-import halakha from '../../shared/halakha.json';
-
 /** T-60: נוסח מרוכך — מ־shared/halakha.json */
 const BASE_EXPLAIN_SHORT = halakha.explainers.baseShort as string;
 
@@ -761,7 +759,7 @@ function LedgerRow({
             </Text>
           </View>
           <View style={styles.rowBottom}>
-            <Text style={styles.rowNote} numberOfLines={1}>
+            <Text style={styles.rowNote} numberOfLines={1} ellipsizeMode="tail">
               {note || kindLabel}
             </Text>
             <Text style={styles.rowDate} numberOfLines={1}>

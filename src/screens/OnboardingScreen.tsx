@@ -36,12 +36,7 @@ import {
 import {
   MAX_ONBOARD_CLARIFY,
   ONBOARD_DEFAULTS,
-  isNoPhrase,
-  isYesPhrase,
   parseOnboardStep,
-  refuseAskSureMessage,
-  refuseButtonLabel,
-  refuseConfirmPrompt,
   refuseFieldForStep,
   skipNameContinue,
   type RefuseField,
@@ -298,10 +293,20 @@ export default function OnboardingScreen() {
   const [rateExplainOpen, setRateExplainOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [thinking, setThinking] = useState(false);
-  /** M19: סירוב → «בטוחים?» → כפתור אישור ייעודי → ברירת מחדל */
-  const [refuse, setRefuse] = useState<null | {
-    field: RefuseField;
-    phase: 'ask_sure' | 'need_button';
+  /** צ׳יפ ביטול אחרי דילוג מיידי — 5 שניות */
+  const [undoChip, setUndoChip] = useState<null | {
+    label: string;
+    snap: {
+      step: number;
+      name: string;
+      skippedName: boolean;
+      gender: Gender;
+      marital: MaritalStatus;
+      includeSpouse: boolean;
+      rate: MaaserRate;
+      msgs: Msg[];
+      clarifyCount: number;
+    };
   }>(null);
   const [clarifyCount, setClarifyCount] = useState(0);
   /** N-14: בועה אחת בפתיחה */
@@ -313,6 +318,9 @@ export default function OnboardingScreen() {
   const celebrateScale = useRef(new Animated.Value(0.86)).current;
   const celebrateOpacity = useRef(new Animated.Value(0)).current;
   const motionOk = useMotionEnabled();
+  const inputQueueRef = useRef<string[]>([]);
+  const transitioningRef = useRef(false);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!motionOk) {
@@ -356,27 +364,51 @@ export default function OnboardingScreen() {
     setMsgs((m) => [...m, { id: `${Date.now()}-${Math.random()}`, from, text }]);
   };
 
-  const clearRefuse = () => setRefuse(null);
-
   const goToGenderStep = (botLead: string) => {
     // N-14: בועת בוט אחת לכל מעבר שלב
     push('bot', `${botLead}\n\n${pick(GENDER_ASK)}`);
     setClarifyCount(0);
-    clearRefuse();
     setStep(1);
   };
 
-  /** מתחיל זרימת סירוב: שאלה «בטוחים?» ואז כפתור אישור (M19) */
-  const startRefuse = (field: RefuseField, fromButton?: boolean) => {
-    if (thinking || finishing) return;
-    if (fromButton) push('me', 'דילוג');
-    clearRefuse();
-    setRefuse({ field, phase: 'ask_sure' });
-    push('bot', refuseAskSureMessage(field));
+  const clearUndoTimer = () => {
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+  };
+
+  const takeSnap = () => ({
+    step,
+    name,
+    skippedName,
+    gender,
+    marital,
+    includeSpouse,
+    rate,
+    msgs: [...msgs],
+    clarifyCount,
+  });
+
+  const applySnap = (snap: NonNullable<typeof undoChip>['snap']) => {
+    setStep(snap.step);
+    setName(snap.name);
+    setSkippedName(snap.skippedName);
+    setGender(snap.gender);
+    setMarital(snap.marital);
+    setIncludeSpouse(snap.includeSpouse);
+    setRate(snap.rate);
+    setMsgs(snap.msgs);
+    setClarifyCount(snap.clarifyCount);
+  };
+
+  const showUndo = (label: string, snap: ReturnType<typeof takeSnap>) => {
+    clearUndoTimer();
+    setUndoChip({ label, snap });
+    undoTimerRef.current = setTimeout(() => setUndoChip(null), 5000);
   };
 
   const applyRefuseDefaults = (field: RefuseField) => {
-    clearRefuse();
     setClarifyCount(0);
     if (field === 'name') {
       setName(ONBOARD_DEFAULTS.displayName);
@@ -397,60 +429,43 @@ export default function OnboardingScreen() {
     }
   };
 
-  const confirmRefuseButton = () => {
-    if (!refuse || refuse.phase !== 'need_button' || thinking) return;
-    push('me', refuseButtonLabel(refuse.field));
-    applyRefuseDefaults(refuse.field);
+  /** דילוג מיידי עם ברירת מחדל + צ׳יפ ביטול (ללא אישור «כן») */
+  const skipImmediately = (field: RefuseField, fromButton?: boolean) => {
+    if (thinking || finishing) return;
+    const snap = takeSnap();
+    if (fromButton) push('me', 'דילוג');
+    applyRefuseDefaults(field);
+    showUndo('בטל דילוג', snap);
   };
 
   const nudgeAfterClarify = (base: string) => {
     const next = clarifyCount + 1;
     setClarifyCount(next);
     if (next >= MAX_ONBOARD_CLARIFY) {
-      return `${base}\n\nכדי להתקדם — בחרו מהכפתורים, או דילוג (נעבור לאישור קצר).`;
+      return `${base}\n\nכדי להתקדם — בחרו מהכפתורים, או דילוג.`;
     }
     return base;
   };
 
-  const handleFreeText = () => {
-    const text = draft.trim();
-    if (!text || thinking) return;
-    setDraft('');
+  const flushInputQueue = () => {
+    const next = inputQueueRef.current.shift();
+    if (!next) return;
+    setTimeout(() => {
+      processFreeText(next);
+    }, 0);
+  };
+
+  const processFreeText = (text: string) => {
+    if (!text || finishing) return;
+    if (thinking || transitioningRef.current) {
+      inputQueueRef.current.push(text);
+      return;
+    }
     push('me', text);
     setThinking(true);
+    transitioningRef.current = true;
 
     try {
-      // —— זרימת סירוב פעילה (M19) ——
-      if (refuse?.phase === 'ask_sure') {
-        if (isYesPhrase(text)) {
-          setRefuse({ field: refuse.field, phase: 'need_button' });
-          push('bot', refuseConfirmPrompt(refuse.field));
-          return;
-        }
-        if (isNoPhrase(text)) {
-          clearRefuse();
-          push('bot', 'סבבה, נמשיך. אפשר לבחור מהכפתורים או לכתוב תשובה.');
-          return;
-        }
-        push(
-          'bot',
-          'רק לוודא: בטוחים שרוצים לדלג? כתבו «כן» או «לא».'
-        );
-        return;
-      }
-      if (refuse?.phase === 'need_button') {
-        if (isNoPhrase(text)) {
-          clearRefuse();
-          push('bot', 'בוטל. נמשיך מהשלב — בחרו או כתבו תשובה.');
-          return;
-        }
-        push(
-          'bot',
-          'כדי לאשר דילוג צריך ללחוץ על הכפתור הייעודי למטה (לא מספיק טקסט חופשי).'
-        );
-        return;
-      }
-
       const result = parseOnboardStep(step, text);
 
       if (step === 0) {
@@ -463,7 +478,7 @@ export default function OnboardingScreen() {
           return;
         }
         if (result.intent === 'skip_name') {
-          startRefuse('name');
+          skipImmediately('name', false);
           return;
         }
         if (result.intent === 'gibberish') {
@@ -516,7 +531,7 @@ export default function OnboardingScreen() {
 
       if (result.intent === 'skip_step') {
         const field = refuseFieldForStep(step);
-        if (field) startRefuse(field);
+        if (field) skipImmediately(field, false);
         return;
       }
 
@@ -529,12 +544,20 @@ export default function OnboardingScreen() {
       );
     } finally {
       setThinking(false);
+      transitioningRef.current = false;
+      flushInputQueue();
     }
+  };
+
+  const handleFreeText = () => {
+    const text = draft.trim();
+    if (!text) return;
+    setDraft('');
+    processFreeText(text);
   };
 
   const applyGender = (g: Gender, fromButton: boolean) => {
     if (thinking) return;
-    clearRefuse();
     setGender(g);
     if (fromButton) {
       push(
@@ -571,7 +594,6 @@ export default function OnboardingScreen() {
 
   const applyMarital = (m: MaritalStatus, joint: boolean, fromButton: boolean) => {
     if (thinking) return;
-    clearRefuse();
     setMarital(m);
     const spouse = m === 'married' ? joint : false;
     setIncludeSpouse(spouse);
@@ -590,7 +612,6 @@ export default function OnboardingScreen() {
 
   const applyRate = (r: MaaserRate, fromButton: boolean) => {
     if (thinking) return;
-    clearRefuse();
     setRateError(null);
     setCustomRateOpen(false);
     setRateExplainOpen(false);
@@ -625,16 +646,15 @@ export default function OnboardingScreen() {
     setCustomRateOpen(false);
     setRateExplainOpen(false);
     setRateError(null);
-    clearRefuse();
     setClarifyCount(0);
     setStep((s) => Math.max(0, s - 1));
   };
 
-  /** דילוג על השלב — נכנס לזרימת סירוב+אישור (N-15 Skip + M19) */
+  /** דילוג על השלב — מיידי עם ברירת מחדל + צ׳יפ ביטול */
   const skipCurrentStep = (fromButton: boolean) => {
     const field = refuseFieldForStep(step);
     if (!field) return;
-    startRefuse(field, fromButton);
+    skipImmediately(field, fromButton);
   };
 
   /** נכנסים לאפליקציה רק אחרי לחיצה מפורשת */
@@ -682,7 +702,6 @@ export default function OnboardingScreen() {
     marital === 'married' ? includeSpouse : false
   );
   const showComposer = step < 4;
-  const showRefuseConfirm = refuse?.phase === 'need_button' && !thinking;
 
   return (
     <View style={[styles.root, DIR]} {...rtlDomProps}>
@@ -816,36 +835,24 @@ export default function OnboardingScreen() {
 
               {thinking ? <TypingRow /> : null}
 
-              {showRefuseConfirm && refuse ? (
-                <Glass style={styles.panel}>
-                  <Text style={styles.panelTitle}>אישור דילוג</Text>
-                  <Text style={styles.refuseHint}>
-                    לחיצה על הכפתור מחילה ברירת מחדל וממשיכה הלאה.
-                  </Text>
-                  <Pressable
-                    style={[styles.optWide, styles.optPrimary, styles.refuseConfirmBtn]}
-                    onPress={confirmRefuseButton}
-                    accessibilityRole="button"
-                    accessibilityLabel={refuseButtonLabel(refuse.field)}
-                  >
-                    <Text style={styles.optText}>{refuseButtonLabel(refuse.field)}</Text>
-                  </Pressable>
-                  <Pressable
-                    style={[styles.optWide, styles.optWideAlt]}
-                    onPress={() => {
-                      clearRefuse();
-                      push('me', 'ביטול');
-                      push('bot', 'בוטל. נמשיך מהשלב — בחרו או כתבו תשובה.');
-                    }}
-                    accessibilityRole="button"
-                    accessibilityLabel="ביטול דילוג"
-                  >
-                    <Text style={styles.optText}>ביטול — ממשיכים לבחור</Text>
-                  </Pressable>
-                </Glass>
+              {undoChip ? (
+                <Pressable
+                  style={styles.undoChip}
+                  onPress={() => {
+                    clearUndoTimer();
+                    applySnap(undoChip.snap);
+                    setUndoChip(null);
+                    push('bot', 'ביטלתי את הדילוג — אפשר להמשיך מהשלב.');
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={undoChip.label}
+                  testID="onboard-undo-skip"
+                >
+                  <Text style={styles.undoChipText}>{undoChip.label}</Text>
+                </Pressable>
               ) : null}
 
-              {step === 1 && !thinking && !showRefuseConfirm && (
+              {step === 1 && !thinking && (
                 <Glass style={styles.panel}>
                   <Text style={styles.panelTitle}>מה המגדר שלך?</Text>
                   <Accordion
@@ -888,7 +895,7 @@ export default function OnboardingScreen() {
                 </Glass>
               )}
 
-              {step === 2 && !thinking && !showRefuseConfirm && (
+              {step === 2 && !thinking && (
                 <Glass style={styles.panel}>
                   <Text style={styles.panelTitle}>מצב משפחתי</Text>
                   <Accordion
@@ -950,7 +957,7 @@ export default function OnboardingScreen() {
                 </Glass>
               )}
 
-              {step === 3 && !thinking && !showRefuseConfirm && (
+              {step === 3 && !thinking && (
                 <Glass style={styles.panel}>
                   <Text style={styles.panelTitle}>מעשר, חומש או אחר?</Text>
                   <Pressable
@@ -1074,16 +1081,16 @@ export default function OnboardingScreen() {
                     onSubmitEditing={() => void handleFreeText()}
                     returnKeyType="send"
                     autoCorrect={false}
-                    editable={!thinking}
+                    editable={!finishing}
                   />
                   <Pressable
                     style={[
                       styles.send,
-                      (!draft.trim() || thinking) && styles.sendDisabled,
+                      (!draft.trim() || finishing) && styles.sendDisabled,
                       shadow.float,
                     ]}
                     onPress={() => void handleFreeText()}
-                    disabled={!draft.trim() || thinking}
+                    disabled={!draft.trim() || finishing}
                   >
                     <Text style={styles.sendLabel}>{thinking ? '…' : 'שלח'}</Text>
                   </Pressable>
@@ -1263,18 +1270,24 @@ const styles = StyleSheet.create({
   },
   panel: { padding: spacing.md, marginTop: 6 },
   panelTitle: { ...type.h2, color: '#fff', textAlign: 'center' },
-  refuseHint: {
-    ...type.caption,
-    color: 'rgba(255,255,255,0.65)',
-    textAlign: 'center',
-    writingDirection: 'rtl',
-    marginTop: 6,
+  undoChip: {
+    alignSelf: 'center',
+    marginTop: 8,
     marginBottom: 4,
-    paddingHorizontal: 8,
-  },
-  refuseConfirmBtn: {
-    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    minHeight: 44,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,216,138,0.16)',
+    borderWidth: 1,
     borderColor: 'rgba(255,216,138,0.45)',
+  },
+  undoChipText: {
+    fontFamily: fonts.semi,
+    fontSize: 14,
+    color: colors.gold,
+    writingDirection: 'rtl',
+    textAlign: 'center',
   },
   stepNav: {
     flexDirection: 'row',

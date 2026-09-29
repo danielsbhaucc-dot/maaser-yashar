@@ -17,13 +17,30 @@ const PATH_TO_TAB: Record<string, TabKey> = {
   '/settings': 'Settings',
 };
 
-export const TAB_LABELS: Record<TabKey, string> = {
+/** תוויות ארוכות (medium/wide / document title) */
+export const TAB_LABELS_LONG: Record<TabKey, string> = {
   Home: 'בית',
   History: 'היסטוריה',
   Tax: 'החזר מס',
   Guide: 'הנחיות',
   Settings: 'הגדרות',
 };
+
+/** תוויות מקוצרות (compact) — אותם מפתחות כמו LONG */
+export const TAB_LABELS_SHORT: Record<TabKey, string> = {
+  Home: 'בית',
+  History: 'ארכיון',
+  Tax: 'מס',
+  Guide: 'מדריך',
+  Settings: 'עוד',
+};
+
+/** ברירת מחדל = ארוכות (כותרת דפדפן, a11y) */
+export const TAB_LABELS = TAB_LABELS_LONG;
+
+export function tabLabel(key: TabKey, short: boolean): string {
+  return short ? TAB_LABELS_SHORT[key] : TAB_LABELS_LONG[key];
+}
 
 /** נרמול pathname ללא סלאש סופי (חוץ מ־`/`) */
 export function normalizePathname(pathname: string): string {

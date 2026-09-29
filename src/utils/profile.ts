@@ -49,6 +49,8 @@ export interface UserProfile {
   hideNoamNudge?: boolean;
   /** כרטיס «לכוון?» נסגר */
   tuneCardDismissed?: boolean;
+  /** פעימת כפתור נועם נראתה — אחרי פתיחה ראשונה של הצ׳אט */
+  noamPulseSeen?: boolean;
 }
 
 export const defaultProfile = (): UserProfile => ({
@@ -67,6 +69,7 @@ export const defaultProfile = (): UserProfile => ({
   skippedSetup: false,
   hideNoamNudge: false,
   tuneCardDismissed: false,
+  noamPulseSeen: false,
 });
 
 export async function loadProfile(): Promise<SafeLoadResult<UserProfile>> {

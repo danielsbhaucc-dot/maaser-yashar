@@ -4,7 +4,6 @@ import {
   StyleSheet,
   Platform,
   I18nManager,
-  useWindowDimensions,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { reloadAppAsync } from 'expo';
@@ -27,6 +26,7 @@ import PinLockScreen from './src/components/PinLockScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
 import AddEntryModal from './src/components/AddEntryModal';
 import { LoadingScreen } from './src/components/LoadingScreen';
+import { DesktopInfoPane } from './src/components/DesktopInfoPane';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
 import { documentTitleFromLocation } from './src/navigation/tabRoutes';
 import PwaInstallBanner from './src/components/PwaInstallBanner';
@@ -36,9 +36,7 @@ import { isNativeRtlActive } from './src/rtlBootstrap';
 import { currentPeriod } from './src/utils/history';
 import { registerWebPwa } from './src/pwa/registerWebPwa';
 import { APP_URL } from './src/utils/monthlyReminderCore';
-
-/** N-17: דסקטופ רחב — פנקס + צ'אט זה לצד זה (~480 + ~400) */
-const DESKTOP_CHAT_BREAKPOINT = 1000;
+import { useShellLayout } from './src/hooks/useShellLayout';
 
 /** Deep-link paths for tabs (SwipeTabs syncs history; config documents the routes) */
 const linking = {
@@ -71,18 +69,55 @@ function LazyNoamChat() {
   );
 }
 
-/** N-17: מעטפת — בדסקטופ פתוח הצ'אט יושב ליד עמודת הפנקס */
+/** מעטפת רספונסיבית (web): compact / medium / wide — native נשאר כמסך מלא */
 function AppChrome({ children }: { children: React.ReactNode }) {
   const { open } = useNoamChat();
-  const { width } = useWindowDimensions();
-  const sideBySide = Platform.OS === 'web' && width >= DESKTOP_CHAT_BREAKPOINT && open;
+  const shell = useShellLayout();
+
+  if (!shell.isWeb) {
+    return (
+      <View style={[styles.appRoot, DIR]} {...rtlDomProps}>
+        <View style={[styles.phoneFrameNative, DIR]} {...rtlDomProps}>
+          {children}
+        </View>
+        <LazyNoamChat />
+      </View>
+    );
+  }
+
+  if (shell.mode === 'wide') {
+    return (
+      <View style={[styles.appRoot, styles.appRootWide, DIR]} {...rtlDomProps}>
+        <View style={styles.wideMainArea}>
+          <View
+            style={[
+              styles.phoneFrame,
+              { maxWidth: shell.contentMaxWidth },
+              DIR,
+            ]}
+            {...rtlDomProps}
+          >
+            {children}
+          </View>
+        </View>
+        <View style={[styles.wideSecondary, { width: shell.chatPaneWidth }]}>
+          {open ? <LazyNoamChat /> : <DesktopInfoPane />}
+        </View>
+      </View>
+    );
+  }
 
   return (
-    <View
-      style={[styles.appRoot, DIR, sideBySide && styles.appRootWithDock]}
-      {...rtlDomProps}
-    >
-      <View style={[styles.phoneFrame, sideBySide && styles.phoneFrameDocked, DIR]} {...rtlDomProps}>
+    <View style={[styles.appRoot, DIR]} {...rtlDomProps}>
+      <View
+        style={[
+          styles.phoneFrame,
+          shell.mode === 'medium' && styles.phoneFrameMedium,
+          { maxWidth: shell.contentMaxWidth },
+          DIR,
+        ]}
+        {...rtlDomProps}
+      >
         {children}
       </View>
       <LazyNoamChat />
@@ -489,17 +524,30 @@ const styles = StyleSheet.create({
     maxWidth: '100%',
     alignItems: 'center',
   },
-  /** N-17: פנקס + צ'אט זה לצד זה ב־≥1000px */
-  appRootWithDock: {
+  /** wide ≥1200: פנקס (ימין ב־RTL) + פאנל משני ~400 */
+  appRootWide: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'stretch',
-    gap: 12,
-    paddingHorizontal: 12,
-    maxWidth: 920,
+    gap: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    maxWidth: 1200,
     alignSelf: 'center',
+    width: '100%',
   },
-  /** מובייל־פירסט: על דסקטופ נשארים ברוחב טלפון ממורכז */
+  wideMainArea: {
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'center',
+    justifyContent: 'stretch',
+  },
+  wideSecondary: {
+    flexGrow: 0,
+    flexShrink: 0,
+    alignSelf: 'stretch',
+    maxWidth: 400,
+  },
   phoneFrame: {
     flex: 1,
     width: '100%',
@@ -508,12 +556,14 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: colors.bg,
   },
-  phoneFrameDocked: {
-    flexGrow: 0,
-    flexShrink: 0,
-    width: 480,
-    maxWidth: 480,
-    alignSelf: 'stretch',
+  phoneFrameMedium: {
+    maxWidth: 720,
+  },
+  phoneFrameNative: {
+    flex: 1,
+    width: '100%',
+    overflow: 'hidden',
+    backgroundColor: colors.bg,
   },
   mainShell: { flex: 1, width: '100%' },
 });

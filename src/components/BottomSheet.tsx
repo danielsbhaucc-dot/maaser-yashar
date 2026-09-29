@@ -17,6 +17,7 @@ import { colors, fonts, spacing, type } from '../theme';
 import { DIR } from '../rtl';
 import { NATIVE_DRIVER } from '../utils/motion';
 import { dialogDomProps, useDialogFocus } from '../hooks/useDialogFocus';
+import { useShellLayout } from '../hooks/useShellLayout';
 
 const SCREEN_H = Dimensions.get('window').height;
 const DISMISS_Y = 110;
@@ -32,6 +33,9 @@ type Props = {
 /** מגירת iOS: ידית, גרירה למטה, איקס זכוכית */
 export function BottomSheet({ visible, onClose, title, children }: Props) {
   const insets = useSafeAreaInsets();
+  const shell = useShellLayout();
+  const sheetMax = shell.mode === 'compact' ? 480 : shell.sheetMaxWidth;
+  const centeredSheet = shell.isWeb && shell.mode !== 'compact';
   const translateY = useRef(new Animated.Value(0)).current;
   const backdrop = useRef(new Animated.Value(0)).current;
   const safeBottom = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12) + 12;
@@ -99,7 +103,7 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
 
   return (
     <Modal visible={visible} animationType="none" transparent onRequestClose={dismiss}>
-      <View style={[styles.root, DIR]}>
+      <View style={[styles.root, centeredSheet && styles.rootCentered, DIR]}>
         <Animated.View
           style={[
             styles.backdrop,
@@ -121,7 +125,11 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
 
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={styles.sheetAnchor}
+          style={[
+            styles.sheetAnchor,
+            centeredSheet && styles.sheetAnchorCentered,
+            { maxWidth: sheetMax },
+          ]}
           pointerEvents="box-none"
         >
           <Animated.View
@@ -129,16 +137,25 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
             {...dialogDomProps}
             style={[
               styles.sheet,
-              { transform: [{ translateY }], paddingBottom: safeBottom },
+              centeredSheet && styles.sheetCentered,
+              {
+                transform: [{ translateY: centeredSheet ? 0 : translateY }],
+                paddingBottom: safeBottom,
+                maxWidth: sheetMax,
+              },
             ]}
-            {...pan.panHandlers}
+            {...(centeredSheet ? {} : pan.panHandlers)}
             accessibilityRole="summary"
             accessibilityViewIsModal
             accessibilityLabel={title || 'חלון'}
           >
-            <View style={styles.handleHit} accessibilityLabel="גרור לסגירה">
-              <View style={styles.handle} />
-            </View>
+            {!centeredSheet ? (
+              <View style={styles.handleHit} accessibilityLabel="גרור לסגירה">
+                <View style={styles.handle} />
+              </View>
+            ) : (
+              <View style={{ height: 12 }} />
+            )}
 
             <View style={styles.head}>
               {title ? (
@@ -164,6 +181,10 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-end',
   },
+  rootCentered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   backdrop: {
     ...StyleSheet.absoluteFill,
     backgroundColor: colors.overlay,
@@ -173,6 +194,9 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
+  },
+  sheetAnchorCentered: {
+    maxHeight: '88%',
   },
   sheet: {
     borderTopLeftRadius: 30,
@@ -194,6 +218,10 @@ const styles = StyleSheet.create({
       } as object,
       default: {},
     }),
+  },
+  sheetCentered: {
+    borderRadius: 28,
+    borderBottomWidth: 1,
   },
   handleHit: {
     alignItems: 'center',

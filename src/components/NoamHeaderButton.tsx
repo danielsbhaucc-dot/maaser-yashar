@@ -45,6 +45,7 @@ export function NoamHeaderButton() {
       accessibilityLabel={`פתח צ'אט עם ${BOT_NAME}`}
       style={({ pressed }) => [styles.hit, pressed && { opacity: 0.85 }]}
       hitSlop={2}
+      testID="noam-chat-fab"
     >
       <Animated.View style={[styles.btn, { transform: [{ scale: pulse }] }]}>
         <LinearGradient

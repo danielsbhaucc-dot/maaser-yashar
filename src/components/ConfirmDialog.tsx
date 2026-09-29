@@ -10,6 +10,7 @@ import {
 import { colors, fonts, radii, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import { dialogDomProps, useDialogFocus } from '../hooks/useDialogFocus';
+import { useShellLayout } from '../hooks/useShellLayout';
 
 export type ConfirmDialogProps = {
   visible: boolean;
@@ -40,6 +41,8 @@ export function ConfirmDialog({
   const busy = useRef(false);
   const reactId = useId().replace(/:/g, '');
   const dialogId = `maaser-confirm-${reactId}`;
+  const shell = useShellLayout();
+  const dialogMax = shell.mode === 'compact' ? 480 : shell.sheetMaxWidth;
 
   const handleCancel = useCallback(() => {
     onCancel();
@@ -75,7 +78,7 @@ export function ConfirmDialog({
         <View
           nativeID={dialogId}
           {...dialogDomProps}
-          style={styles.dialog}
+          style={[styles.dialog, { maxWidth: dialogMax }]}
           accessibilityRole="summary"
           accessibilityViewIsModal
           accessibilityLabel={title}

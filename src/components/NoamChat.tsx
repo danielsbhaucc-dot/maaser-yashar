@@ -12,7 +12,6 @@ import {
   Animated,
   Easing,
   Linking,
-  useWindowDimensions,
   AppState,
   type AppStateStatus,
 } from 'react-native';
@@ -55,12 +54,13 @@ import { resolvePeriodTotals } from '../utils/totalsAdvanced';
 import { RichMessageText } from './RichMessageText';
 import { PRIVACY_LINK_LABEL, privacyPageUrl } from '../constants/privacy';
 import { useNoamChat } from '../navigation/NoamChatContext';
+import { useShellLayout } from '../hooks/useShellLayout';
 
 type ViewMode = 'home' | 'chat' | 'history';
 
-/** N-17: דסקטופ — פאנל צד ~400px ליד עמודת האפליקציה */
-const DESKTOP_BREAKPOINT = 1000;
-const DESKTOP_CHAT_WIDTH = 400;
+/** גובה ברירת מחדל למובייל (60%) */
+const COMPACT_SHEET_PCT = '60%';
+const COMPACT_SHEET_EXPANDED_PCT = '94%';
 
 function NoamAvatar({ size = 56, glow }: { size?: number; glow?: boolean }) {
   return (
@@ -188,8 +188,8 @@ export default function NoamChat() {
   const { profile, ledger, addEntries, patchProfile } = useApp();
   const toast = useToast();
   const insets = useSafeAreaInsets();
-  const { width: windowWidth } = useWindowDimensions();
-  const { open, openChat, closeChat } = useNoamChat();
+  const shell = useShellLayout();
+  const { open, closeChat } = useNoamChat();
   const [mode, setMode] = useState<ViewMode>('home');
   const [threads, setThreads] = useState<ChatThread[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
@@ -201,9 +201,11 @@ export default function NoamChat() {
   /** נעילת שליחה אחרי 429 (60 שניות) */
   const [sendLockedUntil, setSendLockedUntil] = useState(0);
   const [sendLockTick, setSendLockTick] = useState(0);
-  /** N-17 מובייל: חצי מסך שניתן להרחבה */
+  /** מובייל: חצי מסך שניתן להרחבה */
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const inputRef = useRef<TextInput>(null);
+  const dialogId = 'maaser-noam-chat';
   const threadsRef = useRef<ChatThread[]>(threads);
   const sendingRef = useRef(false);
   const pendingSeedRef = useRef<{ text: string; threadId: string } | null>(null);
@@ -212,8 +214,10 @@ export default function NoamChat() {
   const profileRef = useRef(profile);
   const motionOk = useMotionEnabled();
 
-  const isDesktopDock =
-    Platform.OS === 'web' && windowWidth >= DESKTOP_BREAKPOINT;
+  const isWideDock = shell.isWeb && shell.mode === 'wide';
+  const isMediumSide = shell.isWeb && shell.mode === 'medium';
+  const isDocked = isWideDock;
+  const chatWidth = shell.chatPaneWidth;
 
   useEffect(() => {
     ledgerRef.current = ledger;
@@ -246,11 +250,6 @@ export default function NoamChat() {
     const tmr = setTimeout(() => setSlowHint(true), 5000);
     return () => clearTimeout(tmr);
   }, [typing]);
-
-  const setOpen = (v: boolean) => {
-    if (v) openChat();
-    else closeChat();
-  };
 
   const name = profile.displayName || friendWord(profile.gender);
   const active = useMemo(
@@ -374,7 +373,7 @@ export default function NoamChat() {
   }, [persist, toast]);
 
   const closeMessenger = () => {
-    setOpen(false);
+    closeChat();
     setTyping(false);
     setDraft('');
     sendingRef.current = false;
@@ -385,6 +384,30 @@ export default function NoamChat() {
       void clearAllThreads();
     }
   };
+
+  /** פוקוס לשדה בפתיחה; Escape סוגר (לא ב־dock רחב) */
+  useEffect(() => {
+    if (!open) return;
+    const tmr = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 120);
+    if (Platform.OS !== 'web' || typeof window === 'undefined' || isDocked) {
+      return () => clearTimeout(tmr);
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeMessenger();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => {
+      clearTimeout(tmr);
+      window.removeEventListener('keydown', onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- closeMessenger is stable enough for Escape
+  }, [open, isDocked]);
+
 
   const startNewChat = (seed?: string) => {
     const id = newThreadId();
@@ -647,18 +670,28 @@ export default function NoamChat() {
   const sheetBody = (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      nativeID={dialogId}
       style={[
         styles.sheet,
-        isDesktopDock
-          ? styles.sheetDock
-          : {
-              paddingBottom: Math.max(insets.bottom, 10),
-              maxHeight: sheetExpanded ? '94%' : '52%',
-              minHeight: sheetExpanded ? '72%' : '48%',
-              maxWidth: 480,
-              width: '100%',
-              alignSelf: 'center',
-            },
+        isDocked
+          ? [styles.sheetDock, { maxWidth: chatWidth }]
+          : isMediumSide
+            ? [
+                styles.sheetSide,
+                {
+                  width: chatWidth,
+                  maxWidth: chatWidth,
+                  paddingBottom: Math.max(insets.bottom, 10),
+                },
+              ]
+            : {
+                paddingBottom: Math.max(insets.bottom, 10),
+                maxHeight: sheetExpanded ? COMPACT_SHEET_EXPANDED_PCT : COMPACT_SHEET_PCT,
+                minHeight: sheetExpanded ? '72%' : '48%',
+                maxWidth: 480,
+                width: '100%',
+                alignSelf: 'center' as const,
+              },
       ]}
     >
       {Platform.OS !== 'web' ? (
@@ -680,7 +713,7 @@ export default function NoamChat() {
         ]}
       />
 
-      {!isDesktopDock ? (
+      {!isDocked && !isMediumSide ? (
         <Pressable
           onPress={() => setSheetExpanded((v) => !v)}
           style={styles.expandHandle}
@@ -735,6 +768,7 @@ export default function NoamChat() {
           applying={applying}
           sendLocked={sendLocked}
           scrollRef={scrollRef}
+          inputRef={inputRef}
           onClose={closeMessenger}
           onBack={() => {
             setMode('home');
@@ -753,12 +787,12 @@ export default function NoamChat() {
     </KeyboardAvoidingView>
   );
 
-  // N-17 דסקטופ: פאנל צד בלי Modal שמכסה את הפנקס
-  if (isDesktopDock) {
+  // wide: פאנל צד בתוך AppChrome (בלי Modal)
+  if (isDocked) {
     if (!open) return null;
     return (
       <View
-        style={[styles.dockRoot, DIR]}
+        style={[styles.dockRoot, { width: chatWidth, maxWidth: chatWidth }, DIR]}
         {...rtlDomProps}
         accessibilityViewIsModal
       >
@@ -775,7 +809,14 @@ export default function NoamChat() {
       onRequestClose={closeMessenger}
       statusBarTranslucent
     >
-      <View style={[styles.modalRoot, DIR]} {...rtlDomProps}>
+      <View
+        style={[
+          styles.modalRoot,
+          isMediumSide && styles.modalRootSide,
+          DIR,
+        ]}
+        {...rtlDomProps}
+      >
         <Pressable style={styles.backdrop} onPress={closeMessenger} />
         {sheetBody}
       </View>
@@ -945,6 +986,7 @@ function ChatPane({
   applying,
   sendLocked,
   scrollRef,
+  inputRef,
   onClose,
   onBack,
   onSend,
@@ -966,6 +1008,7 @@ function ChatPane({
   applying: boolean;
   sendLocked: boolean;
   scrollRef: React.RefObject<ScrollView | null>;
+  inputRef: React.RefObject<TextInput | null>;
   onClose: () => void;
   onBack: () => void;
   onSend: () => void;
@@ -979,15 +1022,18 @@ function ChatPane({
 }) {
   const [shareChoice, setShareChoice] = useState(defaultShareTotals);
 
-  /** N-17: Enter שולח, Shift+Enter שורה חדשה */
+  /** Enter שולח, Shift+Enter שורה חדשה — לא בזמן IME composition */
   const onComposerKey = (e: {
-    nativeEvent?: { key?: string; shiftKey?: boolean };
+    nativeEvent?: { key?: string; shiftKey?: boolean; isComposing?: boolean };
     key?: string;
     shiftKey?: boolean;
+    isComposing?: boolean;
     preventDefault?: () => void;
   }) => {
-    const key = e?.nativeEvent?.key ?? e?.key;
-    const shift = e?.nativeEvent?.shiftKey ?? e?.shiftKey;
+    const ne = e?.nativeEvent;
+    if (ne?.isComposing || e?.isComposing) return;
+    const key = ne?.key ?? e?.key;
+    const shift = ne?.shiftKey ?? e?.shiftKey;
     if (key === 'Enter' && !shift) {
       e.preventDefault?.();
       onSend();
@@ -1168,6 +1214,7 @@ function ChatPane({
       </Pressable>
       <View style={styles.inputRow}>
         <TextInput
+          ref={inputRef}
           value={draft}
           onChangeText={setDraft}
           placeholder={`כתוב ל${BOT_NAME} מה עובר עליך במספרים…`}
@@ -1201,8 +1248,9 @@ function ChatPane({
 
 const styles = StyleSheet.create({
   dockRoot: {
-    width: DESKTOP_CHAT_WIDTH,
-    flexGrow: 0,
+    width: '100%',
+    flex: 1,
+    flexGrow: 1,
     flexShrink: 0,
     alignSelf: 'stretch',
     maxHeight: '100%',
@@ -1217,9 +1265,22 @@ const styles = StyleSheet.create({
     maxHeight: '100%',
     minHeight: 0,
     width: '100%',
-    maxWidth: DESKTOP_CHAT_WIDTH,
     borderRadius: 0,
     marginHorizontal: 0,
+  },
+  sheetSide: {
+    height: '100%',
+    maxHeight: '100%',
+    alignSelf: 'flex-end',
+    borderTopLeftRadius: radii.xxl,
+    borderBottomLeftRadius: radii.xxl,
+    borderTopRightRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  modalRootSide: {
+    justifyContent: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'stretch',
   },
   expandHandle: {
     alignItems: 'center',

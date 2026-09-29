@@ -898,42 +898,37 @@ export default function SettingsScreen() {
         style={styles.resetWrap}
         onPress={() =>
           toast.confirm({
-            title: t(
-              profile.gender,
-              'להתחיל מחדש עם נועם?',
-              'להתחיל מחדש עם נועם?'
-            ),
+            title: 'התחל היכרות מחדש',
             message: t(
               profile.gender,
-              'תעבור שוב את ההיכרות',
-              'תעברי שוב את ההיכרות'
+              'להתחיל את ההיכרות מחדש? הפרטים שהזנת בהיכרות יימחקו, הפנקס לא ייפגע.',
+              'להתחיל את ההיכרות מחדש? הפרטים שהזנת בהיכרות יימחקו, הפנקס לא ייפגע.',
+              'להתחיל את ההיכרות מחדש? הפרטים שהוזנו בהיכרות יימחקו, הפנקס לא ייפגע.'
             ),
             destructive: false,
             confirmLabel: 'יאללה',
             cancelLabel: 'ביטול',
             onConfirm: async () => {
-              await patchProfile({ onboardingDone: false });
+              await patchProfile({
+                onboardingDone: false,
+                displayName: '',
+                gender: 'unspecified',
+                maritalStatus: 'unknown',
+                includeSpouse: false,
+                rate: 0.1,
+                skippedSetup: false,
+                tuneCardDismissed: false,
+              });
               setSaved(false);
-              toast.info(
-                t(profile.gender, 'חוזר להיכרות…', 'חוזרת להיכרות…')
-              );
+              toast.info('חוזרים להיכרות…');
             },
           })
         }
         accessibilityRole="button"
-        accessibilityLabel={t(
-          profile.gender,
-          'התחל מחדש את ההיכרות',
-          'התחילי מחדש את ההיכרות'
-        )}
+        accessibilityLabel="התחל היכרות מחדש"
+        testID="restart-onboarding"
       >
-        <Text style={styles.reset}>
-          {t(
-            profile.gender,
-            'רוצה להכיר את נועם מחדש? לחץ כאן',
-            'רוצה להכיר את נועם מחדש? לחצי כאן'
-          )}
-        </Text>
+        <Text style={styles.reset}>התחל היכרות מחדש</Text>
       </Pressable>
 
       {versionShort ? (

@@ -72,7 +72,7 @@ describe('M19 parseOnboardStep refusal vs choice', () => {
     expect(localOnboardParse('יוסף').intent).toBe('name');
   });
 
-  it('skip phrases become skip_step (UI runs confirm button flow)', () => {
+  it('skip phrases become skip_step (UI מדלג מיד עם undo)', () => {
     expect(parseOnboardStep(1, 'דלג').intent).toBe('skip_step');
     expect(parseOnboardStep(2, 'לא רוצה להגיד').intent).toBe('skip_step');
     expect(parseOnboardStep(3, 'skip').intent).toBe('skip_step');
