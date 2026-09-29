@@ -40,6 +40,11 @@ describe('reconcileReplyWithContext (N-03)', () => {
     expect(out).not.toMatch(/999/);
   });
 
+  it('corrects mismatched ניתן', () => {
+    const out = reconcileReplyWithContext('ניתן 100 החודש.', filledCtx);
+    expect(out).toMatch(/ניתן\s*₪360/);
+  });
+
   it('leaves לאחר אישור amounts alone', () => {
     const out = reconcileReplyWithContext(
       'לאחר אישור יישאר נותר 620.',

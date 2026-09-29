@@ -28,7 +28,7 @@ import { useToast } from '../context/ToastContext';
 import { BOT_NAME, friendWord, t } from '../utils/copy';
 import { NOAM_AI_DISCLOSURE_LINE } from '../constants/noamDisclosure';
 import { currentPeriod, defaultDateFor, formatPeriod } from '../utils/history';
-import { createEntry } from '../utils/ledger';
+import { parseMoney } from '../utils/money';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import {
@@ -44,6 +44,7 @@ import {
   sendToNoam,
   type ChatMessage,
   type ChatThread,
+  type ConfirmedProposal,
   type ProposedEntry,
 } from '../ai/noam';
 import { noamChatWelcome } from '../utils/noamCompanion';
@@ -206,6 +207,8 @@ export default function NoamChat() {
   /** N-03: תמיד הפנקס העדכני — גם מיד אחרי אישור כרטיס / מחיקה בבית */
   const ledgerRef = useRef(ledger);
   const profileRef = useRef(profile);
+  /** NEW-1: עד 3 תנועות שאושרו בכרטיסים בשיחה הנוכחית */
+  const confirmedRef = useRef<ConfirmedProposal[]>([]);
   const motionOk = useMotionEnabled();
 
   const isDesktopDock =
@@ -399,6 +402,7 @@ export default function NoamChat() {
     setActiveId(id);
     setMode('chat');
     setPending([]);
+    confirmedRef.current = [];
     // זרע הודעה רק אחרי הסכמה — אחרת מסך ההסכמה יופיע קודם
     if (seed) {
       if (profile.chatConsentDone) {
@@ -413,6 +417,7 @@ export default function NoamChat() {
     setActiveId(id);
     setMode('chat');
     setPending([]);
+    confirmedRef.current = [];
   };
 
   const patchThread = useCallback(
@@ -482,10 +487,12 @@ export default function NoamChat() {
             period: currentPeriod(),
           })
         : null;
+      const confirmed = share ? confirmedRef.current.slice(0, 3) : null;
       const { reply, actions } = await sendToNoam({
         messages: apiMsgs,
         context,
         gender: liveProfile.gender,
+        confirmed,
       });
 
       const botMsg: ChatMessage = {
@@ -504,7 +511,12 @@ export default function NoamChat() {
           messages: [...baseMsgs, botMsg],
         };
       });
-      setPending(actions);
+      // D.4: כרטיס רק לסכומים חיוביים תקינים
+      setPending(
+        actions.filter(
+          (a) => Number.isFinite(a.amount) && a.amount > 0 && a.amount < 1e8
+        )
+      );
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'שגיאה לא ידועה';
       const offline = msg === 'אין חיבור';
@@ -560,37 +572,54 @@ export default function NoamChat() {
     try {
       const fallbackPeriod = currentPeriod();
       const noteBase = `נועם · צ'אט`;
-      const payloads = batch.map((a) => {
-        const period =
-          a.period && /^\d{4}-(0[1-9]|1[0-2])$/.test(a.period)
-            ? a.period
-            : fallbackPeriod;
-        return {
-          period,
-          kind: a.kind,
-          category: a.category,
-          amount: a.amount,
-          note: a.note || noteBase,
-          date: defaultDateFor(period),
-        };
-      });
-      const created = payloads.map((p) => createEntry(p));
-      await addEntries(payloads);
-      // N-03: עדכון מיידי של refs — הבקשה הבאה שולחת סכומים אחרי האישור
-      const nextLedger = [...created, ...ledgerRef.current];
+      const payloads = batch
+        .map((a) => {
+          const parsed = parseMoney(String(a.amount));
+          if (!parsed.ok) return null;
+          const period =
+            a.period && /^\d{4}-(0[1-9]|1[0-2])$/.test(a.period)
+              ? a.period
+              : fallbackPeriod;
+          return {
+            period,
+            kind: a.kind,
+            category: a.category,
+            amount: parsed.value,
+            note: a.note || noteBase,
+            date: defaultDateFor(period),
+          };
+        })
+        .filter((p): p is NonNullable<typeof p> => p != null);
+      if (!payloads.length) {
+        toast.error('סכום לא תקין', 'לא ניתן להוסיף תנועה עם סכום שלילי או אפס');
+        setPending([]);
+        return;
+      }
+      // A: מקור אמת יחיד — addEntries מחזיר את הפנקס המלא אחרי ההוספה
+      const nextLedger = await addEntries(payloads);
       ledgerRef.current = nextLedger;
       const afterCtx = buildNoamContext({
         profile: profileRef.current,
         ledger: nextLedger,
         period: fallbackPeriod,
       });
-      toast.success('נרשם בפנקס ✦', entriesLabel(batch.length));
+      // B: שמירת עד 3 תנועות שאושרו בשיחה (בלי הערות)
+      const justConfirmed: ConfirmedProposal[] = payloads.map((p) => ({
+        kind: p.kind,
+        category: p.category,
+        amount: p.amount,
+        period: p.period,
+      }));
+      confirmedRef.current = [...justConfirmed, ...confirmedRef.current].slice(
+        0,
+        3
+      );
+      toast.success('נרשם בפנקס ✦', entriesLabel(payloads.length));
       setPending([]);
       if (activeId) {
         // N-02: שורת מערכת מהאפליקציה — לא נשלחת למודל כהודעת נועם
-        const lines = batch.map((a, i) => {
-          const p = payloads[i].period;
-          return `נוסף לפנקס: ${kindLabel(a.kind, profile.gender)} · ${a.category} · ${formatMoney(a.amount)} · נרשם ל: ${formatPeriod(p)}`;
+        const lines = payloads.map((p) => {
+          return `נוסף לפנקס: ${kindLabel(p.kind, profile.gender)} · ${p.category} · ${formatMoney(p.amount)} · נרשם ל: ${formatPeriod(p.period)}`;
         });
         lines.push(`נותר עכשיו לפי הפנקס: ${formatMoney(afterCtx.remaining)}`);
         const sysMsg: ChatMessage = {
@@ -1076,10 +1105,13 @@ function ChatPane({
       </ScrollView>
 
       {/* N-01: כרטיס אישור מעל השדה — לא נגלל מחוץ למסך */}
-      {pending.length > 0 ? (
+      {pending.filter((a) => Number.isFinite(a.amount) && a.amount > 0).length >
+      0 ? (
         <View style={styles.proposeCardSticky}>
           <Text style={styles.proposeTitle}>להוסיף לפנקס?</Text>
-          {pending.map((a, i) => {
+          {pending
+            .filter((a) => Number.isFinite(a.amount) && a.amount > 0)
+            .map((a, i) => {
             const p =
               a.period && /^\d{4}-(0[1-9]|1[0-2])$/.test(a.period)
                 ? a.period

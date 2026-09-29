@@ -1,10 +1,16 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
-import type { LedgerEntry, LedgerKind } from '../types/ledger';
+import type { LedgerKind } from '../types/ledger';
 import { t, type Gender } from '../utils/copy';
-import { resolvePeriodTotals } from '../utils/totalsAdvanced';
-import { currentPeriod } from '../utils/history';
-import type { UserProfile } from '../utils/profile';
+import {
+  type NoamChatContext,
+} from './noamContext';
+
+export {
+  buildContextFromLedger,
+  buildNoamContext,
+  type NoamChatContext,
+} from './noamContext';
 
 /** system = שורת אפליקציה (N-02) — לא נשלחת למודל כהודעת נועם */
 export type ChatRole = 'user' | 'assistant' | 'system';
@@ -45,38 +51,13 @@ export function chatEndpoint(): string {
   return 'https://maaser-yashar.netlify.app/api/chat';
 }
 
-/** הקשר מזערי לשרת — בלי שם, בלי הערות, בלי רשימת תנועות */
-export type NoamChatContext = {
-  rate: number;
-  income: number;
-  expenses: number;
-  tzedaka: number;
-  obligation: number;
-  remaining: number;
+/** סיכום תנועה שאושרה בכרטיס — בלי הערות/שמות (NEW-1) */
+export type ConfirmedProposal = {
+  kind: LedgerKind;
+  category: string;
+  amount: number;
+  period: string;
 };
-
-export function buildNoamContext(opts: {
-  profile: UserProfile;
-  ledger: LedgerEntry[];
-  period?: string;
-}): NoamChatContext {
-  const period = opts.period || currentPeriod();
-  const totals = resolvePeriodTotals(
-    opts.ledger,
-    period,
-    opts.profile,
-    !!opts.profile.carryForwardSurplus
-  );
-
-  return {
-    rate: Number.isFinite(opts.profile.rate) ? opts.profile.rate : 0.1,
-    income: totals.income,
-    expenses: totals.expenses,
-    tzedaka: totals.tzedaka,
-    obligation: totals.obligation,
-    remaining: totals.remaining,
-  };
-}
 
 export async function sendToNoam(params: {
   messages: { role: ChatRole; content: string }[];
@@ -84,6 +65,8 @@ export async function sendToNoam(params: {
   context?: NoamChatContext | null;
   /** N-11 — מגדר מהפרופיל לפנייה נכונה (תמיד נשלח) */
   gender?: Gender;
+  /** NEW-1: עד 3 תנועות שאושרו בכרטיסים בשיחה הזו */
+  confirmed?: ConfirmedProposal[] | null;
 }): Promise<{ reply: string; actions: ProposedEntry[] }> {
   const endpoint = chatEndpoint();
   const body: Record<string, unknown> = {
@@ -92,6 +75,9 @@ export async function sendToNoam(params: {
   };
   if (params.context) {
     body.context = params.context;
+  }
+  if (params.confirmed && params.confirmed.length) {
+    body.confirmed = params.confirmed.slice(0, 3);
   }
 
   if (typeof navigator !== 'undefined' && navigator.onLine === false) {

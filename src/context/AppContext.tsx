@@ -52,7 +52,10 @@ type AppCtx = {
   setProfile: (p: UserProfile) => Promise<void>;
   patchProfile: (partial: Partial<UserProfile>) => Promise<void>;
   addEntry: (data: Omit<LedgerEntry, 'id' | 'createdAt'>) => Promise<void>;
-  addEntries: (data: Omit<LedgerEntry, 'id' | 'createdAt'>[]) => Promise<void>;
+  /** מחזיר את הפנקס המלא אחרי ההוספה (מקור אמת יחיד לצ'אט) */
+  addEntries: (
+    data: Omit<LedgerEntry, 'id' | 'createdAt'>[]
+  ) => Promise<LedgerEntry[]>;
   removeEntry: (id: string) => Promise<void>;
   /** שחזור תנועה עם אותו ID (ל־Undo אחרי מחיקה) */
   restoreEntry: (entry: LedgerEntry) => Promise<void>;
@@ -220,9 +223,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addEntries = useCallback(
     async (data: Omit<LedgerEntry, 'id' | 'createdAt'>[]) => {
-      if (!data.length) return;
+      if (!data.length) return ledger;
       const created = data.map((d) => createEntry(d));
-      await persistLedger([...created, ...ledger]);
+      const next = [...created, ...ledger];
+      await persistLedger(next);
+      return next;
     },
     [ledger, persistLedger]
   );

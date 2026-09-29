@@ -25,14 +25,20 @@ import {
 } from './_shared.mjs';
 import {
   AI_EXPENSE_CATEGORIES,
+  ALREADY_CONFIRMED_REPLY,
   CANARY_STRING,
   INJECTION_REJECTION,
+  applyIntentGates,
+  detectNegativeAmount,
+  dropConfirmedDuplicates,
   filterCanaryOutput,
   gateProposedActions,
   isPromptInjectionAttempt,
+  negativeAmountReply,
   replyForProposalGate,
-  sanitizeEntryCategory,
+  sanitizeConfirmed,
   stripMarkdownHeadings,
+  stripOrphanCardPointers,
   stripSaveClaims,
   textSuggestsEntry,
   validActions,
@@ -283,10 +289,11 @@ function sanitizeGender(g) {
  * בונה את ההנחיה בשרת בלבד — מתעלם מכל system שהלקוח ישלח.
  * הפרדה הוראות/נתונים (פרק 6.2) + מחרוזת קנרית (פרק 5.4).
  */
-function buildSystemPrompt(context, gender) {
+function buildSystemPrompt(context, gender, confirmed) {
   const hasCtx = context && typeof context === 'object';
   const ctx = hasCtx ? sanitizeContext(context) : null;
   const userGender = sanitizeGender(gender);
+  const conf = sanitizeConfirmed(confirmed);
   const genderBlock =
     userGender === 'female'
       ? `מגדר המשתמשת בפרופיל: נקבה (N-11, קריטי):
@@ -319,15 +326,27 @@ function buildSystemPrompt(context, gender) {
     num(ctx.obligation) === 0 &&
     num(ctx.remaining) === 0;
 
+  const confirmedLine =
+    conf.length > 0
+      ? `כבר אושרו בשיחה הזו (אל תציע שוב): ${conf
+          .map(
+            (c) =>
+              `${c.kind}/${c.category}/₪${num(c.amount)}/${c.period}`
+          )
+          .join(' · ')}`
+      : '';
+
   const totalsBlock = ctx
     ? `<<<LEDGER_DATA>>>
 שיעור ${rateLabel} (${ratePctLabel}%).
 הכנסות ₪${num(ctx.income)} · ניכויים ₪${num(ctx.expenses)}
 חובה ₪${num(ctx.obligation)} · ניתן ₪${num(ctx.tzedaka)} · נותר ₪${num(ctx.remaining)}
 ${emptyLedger ? 'מצב: אין תנועות החודש בפנקס (כל הסכומים 0).' : ''}
+${confirmedLine}
 <<<END_LEDGER_DATA>>>`
     : `<<<LEDGER_DATA>>>
 אין סיכום פנקס בבקשה הזו — רק הודעת המשתמש. אל תמציא מספרים מהפנקס; שאל אם חסר.
+${confirmedLine}
 <<<END_LEDGER_DATA>>>`;
 
   return `אתה נועם, העוזר ה-AI של האפליקציה "מעשר ישר". יש לך אישיות חמה, ישירה ועם הומור יבש.
@@ -535,12 +554,13 @@ export async function handler(event) {
   }
 
   // מתעלמים מ־system / model מהלקוח במכוון — מונע שימוש כפרוקסי AI כללי
-  const { messages, context, gender } = payload;
+  const { messages, context, gender, confirmed: rawConfirmed } = payload;
   if (!Array.isArray(messages) || messages.length === 0) {
     return json(event, 400, { error: 'חסרות הודעות' });
   }
   // context אופציונלי — מצב "רק ההודעה" לא שולח סיכום פנקס
   // gender אופציונלי (N-11) — זכר/נקבה מהפרופיל לפנייה נכונה
+  // confirmed אופציונלי (NEW-1) — עד 3 תנועות שאושרו בכרטיס בשיחה
   // payload.system נזרק במכוון — לא נקרא ולא משפיע
 
   const cleaned = messages
@@ -570,10 +590,26 @@ export async function handler(event) {
     });
   }
 
+  // NEW-2 / C-09: סכום שלילי — לפני OpenRouter (חוסך כסף)
+  const negAmount = lastUser ? detectNegativeAmount(lastUser.content) : null;
+  if (negAmount != null) {
+    console.info('[chat] negative-amount guard');
+    return json(event, 200, {
+      reply: negativeAmountReply(negAmount),
+      actions: [],
+      model: 'guard',
+    });
+  }
+
+  const confirmed = sanitizeConfirmed(rawConfirmed);
+  const ledgerCtx =
+    context && typeof context === 'object' ? sanitizeContext(context) : null;
+
   const primaryModel = resolveModel();
   const systemPrompt = buildSystemPrompt(
-    context && typeof context === 'object' ? context : null,
-    gender
+    ledgerCtx,
+    gender,
+    confirmed
   );
   const apiMessages = [
     { role: 'system', content: systemPrompt },
@@ -698,11 +734,39 @@ export async function handler(event) {
 
     actions = validActions(actions);
 
+    // NEW-2 defense: גם אחרי המודל — אין כרטיס על הודעה שלילית
+    if (lastUser && detectNegativeAmount(lastUser.content) != null) {
+      actions = [];
+      reply = negativeAmountReply(
+        detectNegativeAmount(lastUser.content)
+      );
+    }
+
     // N-09 / N-10: בלי כרטיס כשחסרים נטו/ברוטו, שער, או period לחודש קודם
     const gated = gateProposedActions(actions, cleaned);
     actions = gated.actions;
     if (gated.reason) {
       reply = replyForProposalGate(gated.reason, reply);
+    }
+
+    // NEW-3 / C-03b: grounding + question gate + no remaining/obligation invent
+    const intent = applyIntentGates(actions, cleaned, ledgerCtx);
+    if (intent.dropped) {
+      actions = intent.actions;
+      reply = stripOrphanCardPointers(reply) || reply;
+    } else {
+      actions = intent.actions;
+    }
+
+    // NEW-1: אל תציע שוב תנועה שכבר אושרה בכרטיס
+    const dup = dropConfirmedDuplicates(actions, confirmed, cleaned);
+    if (dup.droppedDuplicate) {
+      actions = dup.actions;
+      if (!actions.length) {
+        reply = ALREADY_CONFIRMED_REPLY;
+      } else {
+        reply = stripOrphanCardPointers(reply) || reply;
+      }
     }
 
     const canary = filterCanaryOutput(reply);
@@ -711,9 +775,7 @@ export async function handler(event) {
       actions = [];
     }
 
-    // N-03: תיקון נותר/חובה מול context שנשלח בבקשה
-    const ledgerCtx =
-      context && typeof context === 'object' ? sanitizeContext(context) : null;
+    // N-03: תיקון נותר/חובה/ניתן מול context שנשלח בבקשה
     if (ledgerCtx && !canary.triggered) {
       reply = reconcileReplyWithContext(reply, ledgerCtx);
     }
@@ -759,4 +821,10 @@ export {
   sanitizeEntryCategory,
   gateProposedActions,
   replyForProposalGate,
-};
+  detectNegativeAmount,
+  applyIntentGates,
+  dropConfirmedDuplicates,
+  sanitizeConfirmed,
+  NEGATIVE_AMOUNT_RE,
+} from './chatSafety.mjs';
+// note: named re-exports above — keep local imports for handler
