@@ -5,6 +5,7 @@ import {
   Banner,
   Chip,
   MoneyField,
+  PrimaryButton,
   SectionHeader,
   SegmentedRow,
   StatHero,
@@ -32,6 +33,7 @@ import type { SmartInsight } from '../utils/smartInsights';
 import { useToast } from '../context/ToastContext';
 import { loadTaxForm, saveTaxForm } from '../utils/taxForm';
 import { subscribeTaxFill } from '../utils/taxFillBridge';
+import { shareApp } from '../utils/shareApp';
 
 const YEARS = [2026, 2025, 2024, 2023, 2022];
 const TIP_COLORS = [colors.primary, colors.gold, colors.accent, colors.success];
@@ -165,6 +167,21 @@ export default function TaxScreen() {
   return (
     <Screen sheet hero={hero} scroll contentStyle={{ paddingTop: spacing.lg }}>
       <PrivacyNotice light />
+      <PrimaryButton
+        label="שתף מחשבון סעיף 46 ✦"
+        testID="share-tax"
+        onPress={async () => {
+          const result = await shareApp({ path: '/tax' });
+          if (result === 'shared') {
+            toast.success('שותף ✦');
+          } else if (result === 'copied') {
+            toast.success('הקישור הועתק ✦', 'אפשר להדביק בוואטסאפ או במייל');
+          } else if (result === 'failed') {
+            toast.error('השיתוף נכשל', 'נסה שוב');
+          }
+        }}
+      />
+      <View style={{ height: spacing.md }} />
       <SmartInsights items={insights} onAction={onInsightAction} />
       <Accordion
         items={[

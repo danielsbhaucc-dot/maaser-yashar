@@ -27,12 +27,28 @@ import ErrorBoundary from './src/components/ErrorBoundary';
 import AddEntryModal from './src/components/AddEntryModal';
 import { LoadingScreen } from './src/components/LoadingScreen';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
+import { documentTitleFromLocation } from './src/navigation/tabRoutes';
 import PwaInstallBanner from './src/components/PwaInstallBanner';
 import { colors } from './src/theme';
 import { DIR, rtlDomProps } from './src/rtl';
 import { isNativeRtlActive } from './src/rtlBootstrap';
 import { currentPeriod } from './src/utils/history';
 import { registerWebPwa } from './src/pwa/registerWebPwa';
+import { APP_URL } from './src/utils/monthlyReminderCore';
+
+/** Deep-link paths for tabs (SwipeTabs syncs history; config documents the routes) */
+const linking = {
+  prefixes: [APP_URL, 'https://maaser-yashar.netlify.app', 'http://localhost:8081'],
+  config: {
+    screens: {
+      Home: '',
+      History: 'history',
+      Tax: 'tax',
+      Guide: 'guide',
+      Settings: 'settings',
+    },
+  },
+};
 
 const NoamChat = React.lazy(() => import('./src/components/NoamChat'));
 
@@ -421,9 +437,10 @@ export default function App() {
                       <AccessibilityProvider>
                         <NavigationContainer
                           theme={navTheme}
+                          linking={linking}
                           documentTitle={{
                             enabled: true,
-                            formatter: () => 'מעשר ישר',
+                            formatter: () => documentTitleFromLocation(),
                           }}
                         >
                           <StatusBar style="light" />

@@ -56,6 +56,7 @@ import {
   enableMonthlyReminder,
   reminderSettingsHint,
 } from '../utils/monthlyReminder';
+import { shareApp } from '../utils/shareApp';
 
 function FieldLabel({ children }: { children: string }) {
   return (
@@ -711,6 +712,27 @@ export default function SettingsScreen() {
           }}
         />
       </View>
+
+      <Glass light strong style={styles.panel}>
+        <FieldLabel>שיתוף האפליקציה</FieldLabel>
+        <Text style={styles.recurIntro}>
+          שלחו לחברים קישור ישיר — בלי הרשמה, והנתונים נשארים אצל כל אחד במכשיר שלו.
+        </Text>
+        <PrimaryButton
+          label="שתף את מעשר ישר ✦"
+          testID="share-app"
+          onPress={async () => {
+            const result = await shareApp({ path: '/' });
+            if (result === 'shared') {
+              toast.success('שותף ✦');
+            } else if (result === 'copied') {
+              toast.success('הקישור הועתק ✦', 'אפשר להדביק בוואטסאפ או במייל');
+            } else if (result === 'failed') {
+              toast.error('השיתוף נכשל', 'נסה שוב');
+            }
+          }}
+        />
+      </Glass>
 
       <Pressable
         style={styles.privacyLinkWrap}

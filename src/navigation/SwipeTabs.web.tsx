@@ -21,6 +21,11 @@ import HistoryScreen from '../screens/HistoryScreen';
 import GuideScreen from '../screens/GuideScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { TabNavProvider, type TabKey } from './TabNavContext';
+import {
+  documentTitleForTab,
+  pathForTab,
+  tabFromPathname,
+} from './tabRoutes';
 import { useApp } from '../context/AppContext';
 
 const TaxScreen = React.lazy(() => import('../screens/TaxScreen'));
@@ -52,12 +57,23 @@ const TAB_KEYS: TabKey[] = TABS.map((t) => t.key);
 const LABEL_ACTIVE_ONLY_MAX = 360;
 const TAX_TAB_INDEX = TABS.findIndex((t) => t.key === 'Tax');
 
+function initialIndexFromLocation(): number {
+  if (typeof window === 'undefined') return 0;
+  const tab = tabFromPathname(window.location.pathname);
+  if (!tab) return 0;
+  const i = TAB_KEYS.indexOf(tab);
+  return i >= 0 ? i : 0;
+}
+
 export function SwipeTabs() {
   const scrollRef = useRef<ScrollView>(null);
-  const [index, setIndex] = useState(0);
+  const [index, setIndex] = useState(initialIndexFromLocation);
   const [pageWidth, setPageWidth] = useState(0);
-  const indexRef = useRef(0);
-  const [taxVisited, setTaxVisited] = useState(false);
+  const indexRef = useRef(initialIndexFromLocation());
+  const skipPushRef = useRef(true);
+  const [taxVisited, setTaxVisited] = useState(
+    () => initialIndexFromLocation() === TAX_TAB_INDEX
+  );
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { openAdd } = useApp();
@@ -130,6 +146,45 @@ export function SwipeTabs() {
     },
     [pageWidth]
   );
+
+  /** Deep link + back/forward: sync URL ↔ טאב */
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const tab = TAB_KEYS[index] ?? 'Home';
+    const path = pathForTab(tab);
+    const title = documentTitleForTab(tab);
+    document.title = title;
+
+    const current =
+      window.location.pathname.replace(/\/+$/, '') || '/';
+    const normalizedCurrent = current === '' ? '/' : current;
+    if (normalizedCurrent === path) {
+      skipPushRef.current = false;
+      return;
+    }
+    if (skipPushRef.current) {
+      skipPushRef.current = false;
+      window.history.replaceState({ tab }, title, path);
+      return;
+    }
+    window.history.pushState({ tab }, title, path);
+  }, [index]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onPopState = () => {
+      const tab = tabFromPathname(window.location.pathname) ?? 'Home';
+      const i = TAB_KEYS.indexOf(tab);
+      if (i < 0 || i === indexRef.current) {
+        document.title = documentTitleForTab(tab);
+        return;
+      }
+      skipPushRef.current = true;
+      goTo(i);
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, [goTo]);
 
   const renderTab = (tab: (typeof TABS)[number], i: number) => {
     const focused = i === index;

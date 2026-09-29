@@ -1,3 +1,8 @@
 # Static pages — pretty URLs (no SPA catch-all; unknown paths get real 404)
 /privacy   /privacy.html   200
 /about     /about.html     200
+# Tab deep links (T-59) — SPA rewrite, no catch-all
+/history   /index.html   200
+/tax       /index.html   200
+/guide     /index.html   200
+/settings  /index.html   200
