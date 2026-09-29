@@ -222,8 +222,8 @@ export function PageStructureModal() {
           : [
               { text: 'בית', level: 1 },
               { text: 'היסטוריה', level: 2 },
-              { text: 'מס', level: 2 },
-              { text: 'מדריך', level: 2 },
+              { text: 'החזר מס', level: 2 },
+              { text: 'הנחיות', level: 2 },
               { text: 'הגדרות', level: 2 },
             ]
       );
@@ -231,8 +231,8 @@ export function PageStructureModal() {
       setHeadings([
         { text: 'בית', level: 1 },
         { text: 'היסטוריה', level: 2 },
-        { text: 'מס / מעשר', level: 2 },
-        { text: 'מדריך', level: 2 },
+        { text: 'החזר מס', level: 2 },
+        { text: 'הנחיות', level: 2 },
         { text: 'הגדרות', level: 2 },
       ]);
     }
@@ -251,12 +251,13 @@ export function PageStructureModal() {
         <View style={[styles.structCard, { paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.structHead}>
             <Text style={styles.structTitle}>מבנה העמוד</Text>
-            <Pressable
-              onPress={() => setSetting('pageStructure', false)}
-              accessibilityRole="button"
-              accessibilityLabel="סגור מבנה עמוד"
-              style={styles.structClose}
-            >
+          <Pressable
+            onPress={() => setSetting('pageStructure', false)}
+            accessibilityRole="button"
+            accessibilityLabel="סגור מבנה עמוד"
+            hitSlop={4}
+            style={styles.structClose}
+          >
               <Text style={styles.structCloseTxt}>✕</Text>
             </Pressable>
           </View>
@@ -343,9 +344,11 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   structClose: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    minWidth: 44,
+    minHeight: 44,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.glassBorder,

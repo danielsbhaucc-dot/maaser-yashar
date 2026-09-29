@@ -369,7 +369,19 @@ function InfoRow({
 
 const STATEMENT = `הצהרת נגישות — מעשר ישר
 
-אפליקציית מעשר ישר מחויבת להנגשה לפי תקן ישראלי ת״י 5568 ו־WCAG 2.2 ברמת AA ככל האפשר.
+אפליקציית מעשר ישר שואפת לעמוד בתקן ישראלי ת״י 5568 ו־WCAG 2.2 ברמת AA.
+עד להשלמת ואימות כל תיקוני הנגישות איננו מצהירים על עמידה מלאה בתקן.
+
+תאריך בדיקה אחרון: 29 בספטמבר 2026
+
+מגבלות ידועות:
+• חלק מיעדי הנגישות (ניגודיות, זום וגודל אזורי לחיצה) עדיין בטיפול או בבדיקה
+• ייתכנו פערים בחוויית קורא מסך ובניווט מקלדת במסכים מסוימים
+• רכיבי צד שלישי (אם יופעלו) עשויים שלא לעמוד באותה רמת נגישות
+
+יצירת קשר לנגישות (דיווח בעיות / שאלות):
+accessibility@maaser-yashar.app
+נושא מומלץ: «דיווח נגישות — מעשר ישר»
 
 מה כלול בתוסף הנגישות:
 • פרופילי נגישות מוכנים (ראייה, מוטוריקה, דיסלקציה, קשב, אפילפסיה ועוד)
@@ -512,7 +524,9 @@ export function AccessibilityWidget() {
         >
           <Pressable
             onPress={a11y.closePanel}
+            accessibilityRole="button"
             accessibilityLabel="סגור תפריט נגישות"
+            hitSlop={4}
             style={({ pressed }) => [styles.headerBtn, pressed && { opacity: 0.75 }]}
           >
             <Text style={styles.headerBtnTxt}>✕</Text>
@@ -1132,7 +1146,7 @@ export function AccessibilityWidget() {
               <Text style={styles.footerPillTxt}>−  הסתר תפריט</Text>
             </Pressable>
           </View>
-          <Text style={styles.powered}>מעשר ישר · זכוכית כהה · WCAG 2.2</Text>
+          <Text style={styles.powered}>מעשר ישר · זכוכית כהה · שואפים ל־WCAG 2.2 AA</Text>
         </View>
       </View>
 
@@ -1222,7 +1236,13 @@ function DocModal({
           />
           <View style={styles.docHead}>
             <Text style={styles.docTitle}>{title}</Text>
-            <Pressable onPress={onClose} style={styles.headerBtn} accessibilityLabel="סגור">
+            <Pressable
+              onPress={onClose}
+              style={styles.headerBtn}
+              accessibilityRole="button"
+              accessibilityLabel="סגור"
+              hitSlop={4}
+            >
               <Text style={styles.headerBtnTxt}>✕</Text>
             </Pressable>
           </View>
@@ -1276,9 +1296,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   headerBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    minWidth: 44,
+    minHeight: 44,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'rgba(255,255,255,0.16)',
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.22)',
@@ -1360,8 +1382,10 @@ const styles = StyleSheet.create({
   activeChip: {
     backgroundColor: colors.surface,
     borderRadius: radii.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 44,
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: colors.glassBorder,
   },

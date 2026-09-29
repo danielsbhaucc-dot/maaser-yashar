@@ -327,7 +327,7 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable
               onPress={() => void onDismissCloseMonth()}
-              hitSlop={10}
+              hitSlop={6}
               accessibilityRole="button"
               accessibilityLabel="סגור תזכורת סגירת חודש"
               style={styles.closeMonthDismiss}
@@ -375,7 +375,7 @@ export default function HomeScreen() {
             </Pressable>
             <Pressable
               onPress={() => void patchProfile({ tuneCardDismissed: true })}
-              hitSlop={10}
+              hitSlop={6}
               accessibilityRole="button"
               accessibilityLabel="סגור כרטיס לכוון"
               style={styles.closeMonthDismiss}
@@ -769,9 +769,11 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   closeMonthDismiss: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    minWidth: 44,
+    minHeight: 44,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',
@@ -895,6 +897,8 @@ const styles = StyleSheet.create({
   periodChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
+    minHeight: 44,
+    justifyContent: 'center',
     borderRadius: radii.pill,
     backgroundColor: 'rgba(255,255,255,0.08)',
     borderWidth: 1,

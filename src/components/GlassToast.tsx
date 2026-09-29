@@ -127,7 +127,13 @@ function ToastCard({
           {item.message ? <Text style={styles.message}>{item.message}</Text> : null}
         </View>
         {item.kind === 'toast' && !(item.onConfirm && item.confirmLabel) ? (
-          <Pressable onPress={() => onDismiss(item.id)} hitSlop={10} style={styles.close}>
+          <Pressable
+            onPress={() => onDismiss(item.id)}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel="סגור התראה"
+            style={styles.close}
+          >
             <Text style={styles.closeTxt}>✕</Text>
           </Pressable>
         ) : null}
@@ -260,9 +266,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   close: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    minWidth: 44,
+    minHeight: 44,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',

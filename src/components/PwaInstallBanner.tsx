@@ -106,7 +106,6 @@ export default function PwaInstallBanner() {
     <>
       <View
         style={[styles.banner, DIR, { bottom: 88 + insets.bottom }]}
-        accessibilityRole="summary"
         {...rtlDomProps}
       >
         <View style={styles.copy}>
@@ -130,7 +129,7 @@ export default function PwaInstallBanner() {
           style={({ pressed }) => [styles.close, pressed && styles.pressed]}
           accessibilityRole="button"
           accessibilityLabel="סגור"
-          hitSlop={8}
+          hitSlop={4}
         >
           <Text style={styles.closeText}>×</Text>
         </Pressable>
@@ -205,8 +204,10 @@ const styles = StyleSheet.create({
     color: colors.primaryOn,
   },
   close: {
-    width: 36,
-    height: 36,
+    minWidth: 44,
+    minHeight: 44,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },

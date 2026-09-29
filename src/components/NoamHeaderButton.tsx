@@ -13,23 +13,31 @@ export function NoamHeaderButton() {
       onPress={openChat}
       accessibilityRole="button"
       accessibilityLabel={`פתח צ'אט עם ${BOT_NAME}`}
-      style={({ pressed }) => [styles.btn, pressed && { opacity: 0.85 }]}
-      hitSlop={8}
+      style={({ pressed }) => [styles.hit, pressed && { opacity: 0.85 }]}
+      hitSlop={2}
     >
-      <LinearGradient
-        colors={[...colors.primaryGradient]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={styles.grad}
-      >
-        <Text style={styles.letter}>נ</Text>
-      </LinearGradient>
-      <View style={styles.dot} />
+      <View style={styles.btn}>
+        <LinearGradient
+          colors={[...colors.primaryGradient]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.grad}
+        >
+          <Text style={styles.letter}>נ</Text>
+        </LinearGradient>
+        <View style={styles.dot} />
+      </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
+  hit: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   btn: {
     width: 40,
     height: 40,

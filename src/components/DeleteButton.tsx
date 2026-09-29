@@ -3,36 +3,40 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Svg, { Path, Line } from 'react-native-svg';
 import { colors } from '../theme';
 
+const MIN_TOUCH = 44;
+
 type Props = {
   onPress: () => void;
   size?: number;
   accessibilityLabel?: string;
 };
 
-/** כפתור מחיקה עגול ומקצועי */
+/** כפתור מחיקה עגול ומקצועי — יעד לחיצה ≥44×44 גם כשהעיצוב קטן */
 export function DeleteButton({
   onPress,
   size = 34,
   accessibilityLabel = 'מחק',
 }: Props) {
   const icon = Math.round(size * 0.42);
+  const extend = Math.max(0, Math.ceil((MIN_TOUCH - size) / 2));
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={8}
+      hitSlop={extend}
       accessibilityLabel={accessibilityLabel}
       accessibilityRole="button"
-      style={({ pressed }) => [
-        styles.btn,
-        {
-          width: size,
-          height: size,
-          borderRadius: size / 2,
-          opacity: pressed ? 0.75 : 1,
-        },
-      ]}
+      style={({ pressed }) => [styles.hit, { opacity: pressed ? 0.75 : 1 }]}
     >
-      <View>
+      <View
+        style={[
+          styles.btn,
+          {
+            width: size,
+            height: size,
+            borderRadius: size / 2,
+          },
+        ]}
+      >
         <Svg width={icon} height={icon} viewBox="0 0 24 24" fill="none">
           <Path
             d="M4 7h16"
@@ -77,6 +81,12 @@ export function DeleteButton({
 }
 
 const styles = StyleSheet.create({
+  hit: {
+    minWidth: MIN_TOUCH,
+    minHeight: MIN_TOUCH,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   btn: {
     alignItems: 'center',
     justifyContent: 'center',

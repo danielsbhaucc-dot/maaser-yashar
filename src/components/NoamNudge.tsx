@@ -32,7 +32,7 @@ export function NoamNudge({
         {onDismiss ? (
           <Pressable
             onPress={onDismiss}
-            hitSlop={10}
+            hitSlop={8}
             accessibilityRole="button"
             accessibilityLabel={`הסתר כרטיס ${BOT_NAME}`}
             style={styles.dismiss}
@@ -89,9 +89,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   dismiss: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    minWidth: 44,
+    minHeight: 44,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.08)',

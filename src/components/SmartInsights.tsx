@@ -88,7 +88,7 @@ export function SmartInsights({
   const hiddenCount = items.length - limit;
 
   return (
-    <View style={[styles.wrap, style]} accessibilityRole="summary">
+    <View style={[styles.wrap, style]}>
       {!hideHeader ? (
         <View style={styles.head}>
           <View style={styles.dot} />

@@ -105,7 +105,8 @@ export function GlassCloseButton({ onPress }: { onPress: () => void }) {
   return (
     <Pressable
       onPress={onPress}
-      hitSlop={12}
+      hitSlop={4}
+      accessibilityRole="button"
       accessibilityLabel="סגור"
       style={({ pressed }) => [styles.closeWrap, pressed && styles.closePressed]}
     >
@@ -191,9 +192,11 @@ const styles = StyleSheet.create({
   },
   content: { position: 'relative', zIndex: 1 },
   closeWrap: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    minWidth: 44,
+    minHeight: 44,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1.5,
     borderColor: 'rgba(255,255,255,0.35)',
     alignItems: 'center',
