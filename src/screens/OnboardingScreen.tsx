@@ -19,25 +19,37 @@ import { Accordion } from '../components/Accordion';
 import { useMotionEnabled } from '../hooks/useMotionEnabled';
 import { NATIVE_DRIVER } from '../utils/motion';
 import { useApp } from '../context/AppContext';
-import { BOT_NAME, type Gender, t } from '../utils/copy';
+import { BOT_NAME, friendWord, type Gender, t } from '../utils/copy';
 import { NOAM_AI_DISCLOSURE_LINE } from '../constants/noamDisclosure';
 import {
-  ASK_NAME,
   EXPLAIN,
   GENDER_ASK,
-  INTROS,
   afterGender,
   afterMarital,
   afterName,
   afterRate,
+  displayFallbackName,
+  introBubble,
   pick,
   welcomeDone,
 } from '../utils/chatScript';
-import { localOnboardParse, skipNameContinue } from '../ai/onboardApi';
+import {
+  MAX_ONBOARD_CLARIFY,
+  ONBOARD_DEFAULTS,
+  isNoPhrase,
+  isYesPhrase,
+  parseOnboardStep,
+  refuseAskSureMessage,
+  refuseButtonLabel,
+  refuseConfirmPrompt,
+  refuseFieldForStep,
+  skipNameContinue,
+  type RefuseField,
+} from '../ai/onboardApi';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import { RichMessageText } from '../components/RichMessageText';
-import type { MaaserRate } from '../types';
+import type { MaaserRate, MaritalStatus } from '../types';
 import {
   parseRatePercentInput,
   rateLabelFull,
@@ -227,32 +239,74 @@ function ConfettiBurst() {
   );
 }
 
+function StepNav({
+  onBack,
+  onSkip,
+  showBack,
+  disabled,
+}: {
+  onBack: () => void;
+  onSkip: () => void;
+  showBack: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <View style={styles.stepNav}>
+      {showBack ? (
+        <Pressable
+          style={[styles.navBtn, disabled && { opacity: 0.45 }]}
+          onPress={onBack}
+          disabled={disabled}
+          accessibilityRole="button"
+          accessibilityLabel="חזרה"
+        >
+          <Text style={styles.navBtnText}>חזרה</Text>
+        </Pressable>
+      ) : (
+        <View style={styles.navBtnSpacer} />
+      )}
+      <Pressable
+        style={[styles.navBtn, styles.navBtnSkip, disabled && { opacity: 0.45 }]}
+        onPress={onSkip}
+        disabled={disabled}
+        accessibilityRole="button"
+        accessibilityLabel="דילוג"
+      >
+        <Text style={styles.navBtnSkipText}>דילוג</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 export default function OnboardingScreen() {
   const { profile, setProfile } = useApp();
   const insets = useSafeAreaInsets();
-  const intro = useMemo(() => pick(INTROS), []);
-  const askName = useMemo(
-    () =>
-      `${pick(ASK_NAME)}\n\n(אפשר גם לשאול אותי משהו קטן על מעשר — ואם ממש מעדיפים בלי שם, תגידו במפורש.)`,
-    []
-  );
+  const opening = useMemo(() => introBubble(), []);
 
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
   const [skippedName, setSkippedName] = useState(false);
   const [draft, setDraft] = useState('');
-  const [gender, setGender] = useState<Gender>('male');
-  const [marital, setMarital] = useState<'single' | 'married'>('single');
+  /** עד בחירה — unspecified (פנייה ניטרלית, N-14) */
+  const [gender, setGender] = useState<Gender>('unspecified');
+  const [marital, setMarital] = useState<MaritalStatus>('unknown');
   const [includeSpouse, setIncludeSpouse] = useState(false);
   const [rate, setRate] = useState<MaaserRate>(0.1);
   const [customRateOpen, setCustomRateOpen] = useState(false);
   const [customRateText, setCustomRateText] = useState('');
   const [rateError, setRateError] = useState<string | null>(null);
+  const [rateExplainOpen, setRateExplainOpen] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [thinking, setThinking] = useState(false);
+  /** M19: סירוב → «בטוחים?» → כפתור אישור ייעודי → ברירת מחדל */
+  const [refuse, setRefuse] = useState<null | {
+    field: RefuseField;
+    phase: 'ask_sure' | 'need_button';
+  }>(null);
+  const [clarifyCount, setClarifyCount] = useState(0);
+  /** N-14: בועה אחת בפתיחה */
   const [msgs, setMsgs] = useState<Msg[]>(() => [
-    { id: 'i1', from: 'bot', text: intro },
-    { id: 'i2', from: 'bot', text: askName },
+    { id: 'i1', from: 'bot', text: opening },
   ]);
   const scrollRef = useRef<ScrollView>(null);
   const pulse = useRef(new Animated.Value(1)).current;
@@ -302,6 +356,62 @@ export default function OnboardingScreen() {
     setMsgs((m) => [...m, { id: `${Date.now()}-${Math.random()}`, from, text }]);
   };
 
+  const clearRefuse = () => setRefuse(null);
+
+  const goToGenderStep = (botLead: string) => {
+    // N-14: בועת בוט אחת לכל מעבר שלב
+    push('bot', `${botLead}\n\n${pick(GENDER_ASK)}`);
+    setClarifyCount(0);
+    clearRefuse();
+    setStep(1);
+  };
+
+  /** מתחיל זרימת סירוב: שאלה «בטוחים?» ואז כפתור אישור (M19) */
+  const startRefuse = (field: RefuseField, fromButton?: boolean) => {
+    if (thinking || finishing) return;
+    if (fromButton) push('me', 'דילוג');
+    clearRefuse();
+    setRefuse({ field, phase: 'ask_sure' });
+    push('bot', refuseAskSureMessage(field));
+  };
+
+  const applyRefuseDefaults = (field: RefuseField) => {
+    clearRefuse();
+    setClarifyCount(0);
+    if (field === 'name') {
+      setName(ONBOARD_DEFAULTS.displayName);
+      setSkippedName(true);
+      goToGenderStep(skipNameContinue());
+      return;
+    }
+    if (field === 'gender') {
+      applyGender(ONBOARD_DEFAULTS.gender, false);
+      return;
+    }
+    if (field === 'marital') {
+      applyMarital(ONBOARD_DEFAULTS.maritalStatus, false, false);
+      return;
+    }
+    if (field === 'rate') {
+      applyRate(ONBOARD_DEFAULTS.rate, false);
+    }
+  };
+
+  const confirmRefuseButton = () => {
+    if (!refuse || refuse.phase !== 'need_button' || thinking) return;
+    push('me', refuseButtonLabel(refuse.field));
+    applyRefuseDefaults(refuse.field);
+  };
+
+  const nudgeAfterClarify = (base: string) => {
+    const next = clarifyCount + 1;
+    setClarifyCount(next);
+    if (next >= MAX_ONBOARD_CLARIFY) {
+      return `${base}\n\nכדי להתקדם — בחרו מהכפתורים, או דילוג (נעבור לאישור קצר).`;
+    }
+    return base;
+  };
+
   const handleFreeText = () => {
     const text = draft.trim();
     if (!text || thinking) return;
@@ -310,98 +420,195 @@ export default function OnboardingScreen() {
     setThinking(true);
 
     try {
-      const result = localOnboardParse(text);
+      // —— זרימת סירוב פעילה (M19) ——
+      if (refuse?.phase === 'ask_sure') {
+        if (isYesPhrase(text)) {
+          setRefuse({ field: refuse.field, phase: 'need_button' });
+          push('bot', refuseConfirmPrompt(refuse.field));
+          return;
+        }
+        if (isNoPhrase(text)) {
+          clearRefuse();
+          push('bot', 'סבבה, נמשיך. אפשר לבחור מהכפתורים או לכתוב תשובה.');
+          return;
+        }
+        push(
+          'bot',
+          'רק לוודא: בטוחים שרוצים לדלג? כתבו «כן» או «לא».'
+        );
+        return;
+      }
+      if (refuse?.phase === 'need_button') {
+        if (isNoPhrase(text)) {
+          clearRefuse();
+          push('bot', 'בוטל. נמשיך מהשלב — בחרו או כתבו תשובה.');
+          return;
+        }
+        push(
+          'bot',
+          'כדי לאשר דילוג צריך ללחוץ על הכפתור הייעודי למטה (לא מספיק טקסט חופשי).'
+        );
+        return;
+      }
+
+      const result = parseOnboardStep(step, text);
 
       if (step === 0) {
         if (result.intent === 'name' && result.name) {
           const reply = result.reply || afterName(result.name);
-          push('bot', `${reply}\n\n${pick(GENDER_ASK)}`);
           setName(result.name);
           setSkippedName(false);
-          setStep(1);
+          setClarifyCount(0);
+          goToGenderStep(reply);
           return;
         }
         if (result.intent === 'skip_name') {
-          // תשובה אחת בלבד — בלי כפילות של reply מה־AI
-          push('bot', `${skipNameContinue(gender)}\n\n${pick(GENDER_ASK)}`);
-          setName('');
-          setSkippedName(true);
-          setStep(1);
+          startRefuse('name');
           return;
         }
         if (result.intent === 'gibberish') {
           push(
             'bot',
-            result.reply ||
-              'זה לא נשמע כמו שם 😅 שם פרטי אמיתי — או במפורש בלי שם.'
+            nudgeAfterClarify(
+              result.reply ||
+                'זה לא נשמע כמו שם 😅 שם פרטי אמיתי — או במפורש בלי שם.'
+            )
           );
           return;
         }
-        // question / other — עונים ונשארים על שלב השם
         push(
           'bot',
-          result.reply ||
-            `שאלה טובה. ואחרי זה — איך קוראים לך? (או תגיד במפורש בלי שם.)`
+          nudgeAfterClarify(
+            result.reply ||
+              `שאלה טובה. ואחרי זה — איך קוראים לך? (או במפורש בלי שם.)`
+          )
         );
         return;
       }
 
-      // בשלבים מתקדמים — רק שאלות/שיחה קלה, בלי לדרוס בחירות
+      if (result.intent === 'gender' && result.gender) {
+        setClarifyCount(0);
+        applyGender(result.gender, false);
+        return;
+      }
+
+      if (result.intent === 'marital' && result.maritalStatus) {
+        setClarifyCount(0);
+        applyMarital(
+          result.maritalStatus,
+          result.maritalStatus === 'married' ? !!result.includeSpouse : false,
+          false
+        );
+        return;
+      }
+
+      if (result.intent === 'rate_explain') {
+        setRateExplainOpen(true);
+        push('bot', EXPLAIN.rate);
+        return;
+      }
+
+      if (result.intent === 'rate' && result.rate != null) {
+        setClarifyCount(0);
+        applyRate(result.rate, false);
+        return;
+      }
+
+      if (result.intent === 'skip_step') {
+        const field = refuseFieldForStep(step);
+        if (field) startRefuse(field);
+        return;
+      }
+
       push(
         'bot',
-        result.reply ||
-          t(
-            gender,
-            'קיבלתי. אפשר גם לבחור מהכפתורים למטה — זה הכי מדויק.',
-            'קיבלתי. אפשר גם לבחור מהכפתורים למטה — זה הכי מדויק.'
-          )
+        nudgeAfterClarify(
+          result.reply ||
+            'קיבלתי. אפשר גם לבחור מהכפתורים למטה — או לדלג על השלב.'
+        )
       );
     } finally {
       setThinking(false);
     }
   };
 
-  const pickGender = (g: Gender) => {
+  const applyGender = (g: Gender, fromButton: boolean) => {
     if (thinking) return;
+    clearRefuse();
     setGender(g);
-    push('me', g === 'male' ? 'זכר' : 'נקבה');
-    const display = name.trim() || t(g, 'חבר', 'חברה');
+    if (fromButton) {
+      push(
+        'me',
+        g === 'male' ? 'זכר' : g === 'female' ? 'נקבה' : 'מעדיפים לא לומר'
+      );
+    }
+    const display = displayFallbackName(name, g);
     setTimeout(() => {
       push('bot', afterGender(display, g));
+      setClarifyCount(0);
       setStep(2);
-    }, 280);
+    }, fromButton ? 280 : 0);
   };
 
-  const pickMarital = (m: 'single' | 'married', joint?: boolean) => {
+  const pickGender = (g: Gender) => applyGender(g, true);
+
+  const maritalLabelFor = (m: MaritalStatus, joint?: boolean) => {
+    if (m === 'single') {
+      return t(gender, 'רווק', 'רווקה', 'רווק/ה');
+    }
+    if (m === 'divorced') {
+      return t(gender, 'גרוש', 'גרושה', 'גרוש/ה');
+    }
+    if (m === 'widowed') {
+      return t(gender, 'אלמן', 'אלמנה', 'אלמן/ה');
+    }
+    if (m === 'unknown') return 'מדלגים על מצב משפחתי';
+    if (joint) {
+      return t(gender, 'נשוי — חישוב ביחד', 'נשואה — חישוב ביחד', 'נשוי/אה — חישוב ביחד');
+    }
+    return t(gender, 'נשוי — רק שלי', 'נשואה — רק שלי', 'נשוי/אה — רק שלי');
+  };
+
+  const applyMarital = (m: MaritalStatus, joint: boolean, fromButton: boolean) => {
     if (thinking) return;
+    clearRefuse();
     setMarital(m);
-    if (m === 'married') setIncludeSpouse(!!joint);
-    push(
-      'me',
-      m === 'single'
-        ? t(gender, 'רווק', 'רווקה')
-        : joint
-          ? t(gender, 'נשוי — חישוב ביחד', 'נשואה — חישוב ביחד')
-          : t(gender, 'נשוי — רק שלי', 'נשואה — רק שלי')
-    );
+    const spouse = m === 'married' ? joint : false;
+    setIncludeSpouse(spouse);
+    if (fromButton) {
+      push('me', maritalLabelFor(m, spouse));
+    }
     setTimeout(() => {
       push('bot', afterMarital(gender));
+      setClarifyCount(0);
       setStep(3);
-    }, 280);
+    }, fromButton ? 280 : 0);
   };
 
-  const pickRate = (r: MaaserRate) => {
+  const pickMarital = (m: MaritalStatus, joint?: boolean) =>
+    applyMarital(m, !!joint, true);
+
+  const applyRate = (r: MaaserRate, fromButton: boolean) => {
     if (thinking) return;
+    clearRefuse();
     setRateError(null);
     setCustomRateOpen(false);
+    setRateExplainOpen(false);
     setRate(r);
-    push('me', rateLabelFull(r));
-    const display = name.trim() || t(gender, 'חבר', 'חברה');
+    if (fromButton) {
+      push('me', rateLabelFull(r));
+    }
+    const display = displayFallbackName(name, gender);
     setTimeout(() => {
       push('bot', afterRate(display, gender, r));
-      setTimeout(() => setStep(4), 500);
-    }, 280);
+      setTimeout(() => {
+        setClarifyCount(0);
+        setStep(4);
+      }, 500);
+    }, fromButton ? 280 : 0);
   };
+
+  const pickRate = (r: MaaserRate) => applyRate(r, true);
 
   const confirmCustomRate = () => {
     if (thinking) return;
@@ -413,16 +620,36 @@ export default function OnboardingScreen() {
     pickRate(parsed.rate);
   };
 
+  const goBack = () => {
+    if (thinking || finishing || step <= 0) return;
+    setCustomRateOpen(false);
+    setRateExplainOpen(false);
+    setRateError(null);
+    clearRefuse();
+    setClarifyCount(0);
+    setStep((s) => Math.max(0, s - 1));
+  };
+
+  /** דילוג על השלב — נכנס לזרימת סירוב+אישור (N-15 Skip + M19) */
+  const skipCurrentStep = (fromButton: boolean) => {
+    const field = refuseFieldForStep(step);
+    if (!field) return;
+    startRefuse(field, fromButton);
+  };
+
   /** נכנסים לאפליקציה רק אחרי לחיצה מפורשת */
   const finish = async () => {
     if (finishing) return;
     setFinishing(true);
+    const savedName =
+      name.trim() ||
+      (skippedName ? ONBOARD_DEFAULTS.displayName : friendWord(gender));
     await setProfile({
       ...profile,
       onboardingDone: true,
-      displayName: name.trim() || t(gender, 'חבר', 'חברה'),
+      displayName: savedName,
       gender,
-      maritalStatus: marital,
+      maritalStatus: marital === 'unknown' ? ONBOARD_DEFAULTS.maritalStatus : marital,
       includeSpouse: marital === 'married' ? includeSpouse : false,
       rate,
       joinedAt: new Date().toISOString(),
@@ -430,33 +657,32 @@ export default function OnboardingScreen() {
     });
   };
 
-  /** דילוג ישר לחשבון — פרופיל ברירת מחדל */
+  /** דילוג ישר לחשבון — פרופיל ברירת מחדל (M19) */
   const skipToAccount = async () => {
     if (finishing) return;
     setFinishing(true);
     await setProfile({
       ...profile,
       onboardingDone: true,
-      displayName: '',
-      gender: 'male',
-      maritalStatus: 'single',
+      displayName: ONBOARD_DEFAULTS.displayName,
+      gender: ONBOARD_DEFAULTS.gender,
+      maritalStatus: ONBOARD_DEFAULTS.maritalStatus,
       includeSpouse: false,
-      rate: 0.1,
+      rate: ONBOARD_DEFAULTS.rate,
       joinedAt: new Date().toISOString(),
       skippedSetup: true,
       tuneCardDismissed: false,
     });
   };
 
-  const displayName = name.trim() || t(gender, 'חבר', 'חברה');
+  const displayName = displayFallbackName(name, gender);
   const rateSummary = rateLabelFull(rate);
-  const maritalLabel =
-    marital === 'single'
-      ? t(gender, 'רווק', 'רווקה')
-      : includeSpouse
-        ? t(gender, 'נשוי · ביחד', 'נשואה · ביחד')
-        : t(gender, 'נשוי · בנפרד', 'נשואה · בנפרד');
+  const maritalLabel = maritalLabelFor(
+    marital,
+    marital === 'married' ? includeSpouse : false
+  );
   const showComposer = step < 4;
+  const showRefuseConfirm = refuse?.phase === 'need_button' && !thinking;
 
   return (
     <View style={[styles.root, DIR]} {...rtlDomProps}>
@@ -507,9 +733,7 @@ export default function OnboardingScreen() {
             <Glass dark gold style={styles.celebrateCard}>
               <ConfettiBurst />
               <Text style={styles.celebrateEmoji}>✦</Text>
-              <Text style={styles.celebrateTitle}>
-                {t(gender, 'הפנקס שלך מוכן', 'הפנקס שלך מוכן')}
-              </Text>
+              <Text style={styles.celebrateTitle}>הפנקס מוכן</Text>
               <Text style={styles.celebrateName}>{displayName}</Text>
               {skippedName ? (
                 <Text style={styles.skippedHint}>
@@ -517,11 +741,7 @@ export default function OnboardingScreen() {
                 </Text>
               ) : (
                 <Text style={styles.celebrateHello}>
-                  {t(
-                    gender,
-                    `${BOT_NAME} שמח להכיר אותך`,
-                    `${BOT_NAME} שמח להכיר אותך`
-                  )}
+                  {`${BOT_NAME} שמח להכיר`}
                 </Text>
               )}
               <Text style={styles.celebrateBody}>{welcomeDone(displayName, gender, rate)}</Text>
@@ -533,7 +753,9 @@ export default function OnboardingScreen() {
                 </View>
                 <View style={styles.summaryChip}>
                   <Text style={styles.summaryLbl}>מצב</Text>
-                  <Text style={styles.summaryVal}>{maritalLabel}</Text>
+                  <Text style={styles.summaryVal}>
+                    {marital === 'unknown' ? '—' : maritalLabel}
+                  </Text>
                 </View>
                 <View style={styles.summaryChip}>
                   <Text style={styles.summaryLbl}>חישוב</Text>
@@ -546,18 +768,16 @@ export default function OnboardingScreen() {
                 onPress={finish}
                 disabled={finishing}
                 accessibilityRole="button"
-                accessibilityLabel={t(gender, 'כניסה לפנקס', 'כניסה לפנקס')}
+                accessibilityLabel="כניסה לפנקס"
               >
                 {finishing ? (
                   <InlineLoader color={colors.ink} size={18} label="שומר פרופיל" />
                 ) : (
-                  <Text style={styles.ctaText}>
-                    {t(gender, 'יאללה, נכנסים לפנקס ✦', 'יאללה, נכנסות לפנקס ✦')}
-                  </Text>
+                  <Text style={styles.ctaText}>יאללה, נכנסים לפנקס ✦</Text>
                 )}
               </Pressable>
               <Text style={styles.celebrateHint}>
-                לא נכנסים אוטומטית — רק כשאתה לוחץ. בקצב שלך.
+                לא נכנסים אוטומטית — רק בלחיצה. בקצב שלך.
               </Text>
             </Glass>
           </Animated.View>
@@ -596,7 +816,36 @@ export default function OnboardingScreen() {
 
               {thinking ? <TypingRow /> : null}
 
-              {step === 1 && !thinking && (
+              {showRefuseConfirm && refuse ? (
+                <Glass style={styles.panel}>
+                  <Text style={styles.panelTitle}>אישור דילוג</Text>
+                  <Text style={styles.refuseHint}>
+                    לחיצה על הכפתור מחילה ברירת מחדל וממשיכה הלאה.
+                  </Text>
+                  <Pressable
+                    style={[styles.optWide, styles.optPrimary, styles.refuseConfirmBtn]}
+                    onPress={confirmRefuseButton}
+                    accessibilityRole="button"
+                    accessibilityLabel={refuseButtonLabel(refuse.field)}
+                  >
+                    <Text style={styles.optText}>{refuseButtonLabel(refuse.field)}</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.optWide, styles.optWideAlt]}
+                    onPress={() => {
+                      clearRefuse();
+                      push('me', 'ביטול');
+                      push('bot', 'בוטל. נמשיך מהשלב — בחרו או כתבו תשובה.');
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="ביטול דילוג"
+                  >
+                    <Text style={styles.optText}>ביטול — ממשיכים לבחור</Text>
+                  </Pressable>
+                </Glass>
+              ) : null}
+
+              {step === 1 && !thinking && !showRefuseConfirm && (
                 <Glass style={styles.panel}>
                   <Text style={styles.panelTitle}>מה המגדר שלך?</Text>
                   <Accordion
@@ -622,10 +871,24 @@ export default function OnboardingScreen() {
                       <Text style={styles.optText}>נקבה</Text>
                     </Pressable>
                   </View>
+                  <Pressable
+                    style={[styles.optWide, styles.optWideAlt]}
+                    onPress={() => pickGender('unspecified')}
+                    accessibilityRole="button"
+                    accessibilityLabel="מעדיפים לא לומר"
+                  >
+                    <Text style={styles.optText}>מעדיפים לא לומר</Text>
+                  </Pressable>
+                  <StepNav
+                    showBack
+                    onBack={goBack}
+                    onSkip={() => skipCurrentStep(true)}
+                    disabled={thinking}
+                  />
                 </Glass>
               )}
 
-              {step === 2 && !thinking && (
+              {step === 2 && !thinking && !showRefuseConfirm && (
                 <Glass style={styles.panel}>
                   <Text style={styles.panelTitle}>מצב משפחתי</Text>
                   <Accordion
@@ -638,11 +901,18 @@ export default function OnboardingScreen() {
                     ]}
                   />
                   <Pressable style={styles.optWide} onPress={() => pickMarital('single')}>
-                    <Text style={styles.optText}>{t(gender, 'רווק', 'רווקה')}</Text>
+                    <Text style={styles.optText}>
+                      {t(gender, 'רווק', 'רווקה', 'רווק/ה')}
+                    </Text>
                   </Pressable>
                   <Pressable style={styles.optWide} onPress={() => pickMarital('married', true)}>
                     <Text style={styles.optText}>
-                      {t(gender, 'נשוי — חישוב ביחד', 'נשואה — חישוב ביחד')}
+                      {t(
+                        gender,
+                        'נשוי — חישוב ביחד',
+                        'נשואה — חישוב ביחד',
+                        'נשוי/אה — חישוב ביחד'
+                      )}
                     </Text>
                   </Pressable>
                   <Pressable
@@ -650,15 +920,55 @@ export default function OnboardingScreen() {
                     onPress={() => pickMarital('married', false)}
                   >
                     <Text style={styles.optText}>
-                      {t(gender, 'נשוי — רק שלי', 'נשואה — רק שלי')}
+                      {t(
+                        gender,
+                        'נשוי — רק שלי',
+                        'נשואה — רק שלי',
+                        'נשוי/אה — רק שלי'
+                      )}
                     </Text>
                   </Pressable>
+                  <Pressable style={styles.optWide} onPress={() => pickMarital('divorced')}>
+                    <Text style={styles.optText}>
+                      {t(gender, 'גרוש', 'גרושה', 'גרוש/ה')}
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.optWide, styles.optWideAlt]}
+                    onPress={() => pickMarital('widowed')}
+                  >
+                    <Text style={styles.optText}>
+                      {t(gender, 'אלמן', 'אלמנה', 'אלמן/ה')}
+                    </Text>
+                  </Pressable>
+                  <StepNav
+                    showBack
+                    onBack={goBack}
+                    onSkip={() => skipCurrentStep(true)}
+                    disabled={thinking}
+                  />
                 </Glass>
               )}
 
-              {step === 3 && !thinking && (
+              {step === 3 && !thinking && !showRefuseConfirm && (
                 <Glass style={styles.panel}>
                   <Text style={styles.panelTitle}>מעשר, חומש או אחר?</Text>
+                  <Pressable
+                    style={styles.diffBtn}
+                    onPress={() => {
+                      if (rateExplainOpen) {
+                        setRateExplainOpen(false);
+                        return;
+                      }
+                      setRateExplainOpen(true);
+                      push('me', 'מה ההבדל?');
+                      push('bot', EXPLAIN.rate);
+                    }}
+                    accessibilityRole="button"
+                    accessibilityLabel="מה ההבדל"
+                  >
+                    <Text style={styles.diffBtnText}>מה ההבדל?</Text>
+                  </Pressable>
                   <Accordion
                     items={[
                       {
@@ -701,8 +1011,8 @@ export default function OnboardingScreen() {
                       <TextInput
                         style={styles.customRateInput}
                         value={customRateText}
-                        onChangeText={(t) => {
-                          setCustomRateText(t);
+                        onChangeText={(txt) => {
+                          setCustomRateText(txt);
                           if (rateError) setRateError(null);
                         }}
                         keyboardType="decimal-pad"
@@ -726,6 +1036,12 @@ export default function OnboardingScreen() {
                       </Pressable>
                     </View>
                   ) : null}
+                  <StepNav
+                    showBack
+                    onBack={goBack}
+                    onSkip={() => skipCurrentStep(true)}
+                    disabled={thinking}
+                  />
                 </Glass>
               )}
             </ScrollView>
@@ -947,6 +1263,69 @@ const styles = StyleSheet.create({
   },
   panel: { padding: spacing.md, marginTop: 6 },
   panelTitle: { ...type.h2, color: '#fff', textAlign: 'center' },
+  refuseHint: {
+    ...type.caption,
+    color: 'rgba(255,255,255,0.65)',
+    textAlign: 'center',
+    writingDirection: 'rtl',
+    marginTop: 6,
+    marginBottom: 4,
+    paddingHorizontal: 8,
+  },
+  refuseConfirmBtn: {
+    marginTop: 12,
+    borderColor: 'rgba(255,216,138,0.45)',
+  },
+  stepNav: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 14,
+    width: '100%',
+  },
+  navBtn: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 44,
+    paddingVertical: 10,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  navBtnSpacer: { flex: 1 },
+  navBtnSkip: {
+    borderColor: 'rgba(255,216,138,0.35)',
+    backgroundColor: 'rgba(255,216,138,0.10)',
+  },
+  navBtnText: {
+    fontFamily: fonts.semi,
+    fontSize: 14,
+    color: 'rgba(255,255,255,0.85)',
+    writingDirection: 'rtl',
+  },
+  navBtnSkipText: {
+    fontFamily: fonts.semi,
+    fontSize: 14,
+    color: colors.gold,
+    writingDirection: 'rtl',
+  },
+  diffBtn: {
+    marginTop: 10,
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255,216,138,0.4)',
+    backgroundColor: 'rgba(255,216,138,0.12)',
+  },
+  diffBtnText: {
+    fontFamily: fonts.semi,
+    fontSize: 14,
+    color: colors.gold,
+    writingDirection: 'rtl',
+  },
   two: { flexDirection: 'row', gap: 10, marginTop: 14 },
   opt: {
     flex: 1,
