@@ -80,10 +80,13 @@ export async function sendToNoam(params: {
   messages: { role: ChatRole; content: string }[];
   /** אם undefined — נשלחת רק ההודעה, בלי סיכום חודש */
   context?: NoamChatContext | null;
+  /** N-11 — מגדר מהפרופיל לפנייה נכונה (תמיד נשלח) */
+  gender?: Gender;
 }): Promise<{ reply: string; actions: ProposedEntry[] }> {
   const endpoint = chatEndpoint();
   const body: Record<string, unknown> = {
     messages: params.messages,
+    gender: params.gender === 'female' ? 'female' : 'male',
   };
   if (params.context) {
     body.context = params.context;

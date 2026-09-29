@@ -165,6 +165,17 @@ export function stripSaveClaims(text) {
   return cleaned || 'להוסיף לפנקס? אשר בכפתור למטה';
 }
 
+/**
+ * N-11 — מסיר כותרות markdown (### וכו') מתחילת שורות.
+ * גיבוי לפרומפט שאוסר כותרות.
+ */
+export function stripMarkdownHeadings(text) {
+  return String(text || '')
+    .replace(/^#{1,6}[ \t]*/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** האם הטקסט מציע תנועה בלי actions מובנים (N-01 retry) */
 export function textSuggestsEntry(text) {
   const t = String(text || '');

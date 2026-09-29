@@ -20,6 +20,16 @@ const MARKER_COLORS = [
   colors.badgePink,
 ] as const;
 
+/**
+ * N-11 — מסיר `#` / `###` מתחילת שורות לפני רינדור (גיבוי לפרומפט).
+ */
+export function stripLeadingMarkdownHashes(text: string): string {
+  return String(text || '')
+    .replace(/^#{1,6}[ \t]*/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 /** מפצל **הדגשה** לסקגמנטים */
 export function parseInlineBold(text: string): InlineSeg[] {
   const segs: InlineSeg[] = [];
@@ -48,7 +58,7 @@ function isUlLine(line: string): RegExpMatchArray | null {
 
 /** מפרסר טקסט קל: פסקאות, רשימות ממוספרות/תבליטים, והדגשת ** */
 export function parseMessageBlocks(raw: string): Block[] {
-  const lines = raw.replace(/\r\n/g, '\n').split('\n');
+  const lines = stripLeadingMarkdownHashes(raw).replace(/\r\n/g, '\n').split('\n');
   const blocks: Block[] = [];
   let i = 0;
 

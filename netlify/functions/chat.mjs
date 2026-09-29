@@ -10,6 +10,12 @@
  * N-06: הגבלת ניכויים.
  * N-07: מחלוקות הלכתיות — תבנית «יש דעות» + הפניה לרב (ממתין לביקורת רב).
  * N-08: חובות/מצוקה — אמפתיה, פעמונים, ער״ן רק במצוקה, בלי פירוט סכומים.
+ * N-09: נטו/ברוטו + מטבע זר — שאלה לפני כרטיס.
+ * N-10: חודש יעד (period YYYY-MM) לרישום בחודש שאינו הנוכחי.
+ * N-11: מגדר / בלי כותרות markdown / בלי סיומת «מה נרשום?».
+ * N-12: לענות בשפת המשתמש.
+ * N-13: מחוץ לנושא — משפט אחד וחזרה לפנקס.
+ * N-18: max_tokens קצר, לוג זמני תגובה, timeout לניסיון בודד.
  */
 
 import {
@@ -22,8 +28,11 @@ import {
   CANARY_STRING,
   INJECTION_REJECTION,
   filterCanaryOutput,
+  gateProposedActions,
   isPromptInjectionAttempt,
+  replyForProposalGate,
   sanitizeEntryCategory,
+  stripMarkdownHeadings,
   stripSaveClaims,
   textSuggestsEntry,
   validActions,
@@ -40,9 +49,12 @@ const UPSTREAM_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MAX_MESSAGES = 12;
 const MAX_CHARS = 800;
 const MAX_BODY_CHARS = 12_000;
-const MAX_TOKENS = 400;
+/** N-18: תשובות קצרות יותר → פחות latency */
+const MAX_TOKENS = 280;
 const TEMPERATURE = 0.4;
-const UPSTREAM_TIMEOUT_MS = 20_000;
+/** N-18: timeout לניסיון בודד — משאיר מקום ל־fallback בתוך ~20ש׳ */
+const UPSTREAM_TIMEOUT_MS = 12_000;
+const HANDLER_BUDGET_MS = 20_000;
 
 function resolveModel() {
   const fromEnv = (process.env.OPENROUTER_MODEL || '').trim();
@@ -92,6 +104,8 @@ const ENTRY_ITEM_SCHEMA = {
     amount: { type: 'number' },
     category: { type: 'string' },
     note: { type: 'string' },
+    /** YYYY-MM — חודש יעד (N-10 / T-13); ריק = חודש נוכחי */
+    period: { type: 'string' },
   },
   required: ['kind', 'amount', 'category'],
 };
@@ -102,7 +116,7 @@ const TOOLS = [
     function: {
       name: 'propose_entries',
       description:
-        'הצע תנועות להוספה לפנקס כשהמשתמש נתן סכומים ברורים. תמיד גם תכתוב תשובה אנושית קצרה בנוסף לקריאה לכלי. רק income/expense/tzedaka — לעולם לא חובה או נותר. ל־expense השתמש רק בקטגוריות ניכוי מותרות (מסים/ביטוח/בריאות/הוצאות עסק/הוצאות שכירות עסקיות) — לא שכר דירה אישי, אוכל, שכר לימוד או קניות.',
+        'הצע תנועות להוספה לפנקס כשהמשתמש נתן סכומים ברורים ב־₪ + נטו/ברוטו להכנסה (ואם מטבע זר — גם שער). תמיד גם תכתוב תשובה אנושית קצרה בנוסף לקריאה לכלי. רק income/expense/tzedaka — לעולם לא חובה או נותר. ל־expense השתמש רק בקטגוריות ניכוי מותרות (מסים/ביטוח/בריאות/הוצאות עסק/הוצאות שכירות עסקיות) — לא שכר דירה אישי, אוכל, שכר לימוד או קניות. period אופציונלי YYYY-MM כשנרשם לחודש שאינו הנוכחי.',
       parameters: {
         type: 'object',
         properties: {
@@ -139,8 +153,9 @@ const RESPONSE_JSON_SCHEMA = {
             amount: { type: 'number' },
             category: { type: 'string' },
             note: { type: 'string' },
+            period: { type: 'string' },
           },
-          required: ['type', 'kind', 'amount', 'category', 'note'],
+          required: ['type', 'kind', 'amount', 'category', 'note', 'period'],
           additionalProperties: false,
         },
       },
@@ -152,6 +167,20 @@ const RESPONSE_JSON_SCHEMA = {
 
 const STRUCTURED_RETRY_REMINDER =
   'תזכורת קצרה: אם הצעת תנועה לפנקס — החזר גם propose_entries (או JSON עם actions מסוג add_entry בלבד: income/expense/tzedaka, סכום חיובי, קטגוריה מהרשימה). בלי חובה/נותר. אל תטען שכבר נרשם — המשתמש יאשר בכרטיס.';
+
+function mapEntryAction(e) {
+  const action = {
+    type: 'add_entry',
+    kind: e.kind,
+    amount: e.amount,
+    category: e.category,
+    note: e.note || '',
+  };
+  if (typeof e.period === 'string' && e.period.trim()) {
+    action.period = e.period.trim();
+  }
+  return action;
+}
 
 function parseToolActions(toolCalls) {
   const actions = [];
@@ -169,13 +198,7 @@ function parseToolActions(toolCalls) {
     if (name === 'propose_entries' && Array.isArray(args.entries)) {
       if (typeof args.summary === 'string') summary = args.summary;
       for (const e of args.entries) {
-        actions.push({
-          type: 'add_entry',
-          kind: e.kind,
-          amount: e.amount,
-          category: e.category,
-          note: e.note || '',
-        });
+        actions.push(mapEntryAction(e));
       }
     }
   }
@@ -192,13 +215,7 @@ function parseEmbeddedActions(text) {
       ? parsed
       : parsed?.entries || parsed?.actions || [];
     for (const e of list) {
-      actions.push({
-        type: 'add_entry',
-        kind: e.kind,
-        amount: e.amount,
-        category: e.category,
-        note: e.note || '',
-      });
+      actions.push(mapEntryAction({ ...e, note: e.note || '' }));
     }
     const cleaned = text.replace(/```json\s*[\s\S]*?```/i, '').trim();
     return { cleaned, actions: validActions(actions) };
@@ -227,15 +244,7 @@ function parseStructuredContent(content) {
         : [];
     return {
       reply,
-      actions: validActions(
-        list.map((e) => ({
-          type: 'add_entry',
-          kind: e.kind,
-          amount: e.amount,
-          category: e.category,
-          note: e.note || '',
-        }))
-      ),
+      actions: validActions(list.map((e) => mapEntryAction(e))),
     };
   } catch {
     return null;
@@ -266,13 +275,31 @@ function sanitizeContext(c) {
   };
 }
 
+/** N-11 — מגדר מהפרופיל (male/female בלבד; אחרת זכר כברירת מחדל) */
+function sanitizeGender(g) {
+  return g === 'female' ? 'female' : 'male';
+}
+
 /**
  * בונה את ההנחיה בשרת בלבד — מתעלם מכל system שהלקוח ישלח.
  * הפרדה הוראות/נתונים (פרק 6.2) + מחרוזת קנרית (פרק 5.4).
  */
-function buildSystemPrompt(context) {
+function buildSystemPrompt(context, gender) {
   const hasCtx = context && typeof context === 'object';
   const ctx = hasCtx ? sanitizeContext(context) : null;
+  const userGender = sanitizeGender(gender);
+  const genderBlock =
+    userGender === 'female'
+      ? `מגדר המשתמשת בפרופיל: נקבה (N-11, קריטי):
+- פנה אליה בלשון נקבה בלבד: את, רשמת, רוצה, בואי, תכתבי, מוכנה, תאשרי.
+  דוגמה טובה: «אוקיי, תפסתי. אפשר להוסיף לפנקס — תאשרי בכרטיס.»
+  דוגמה רעה: «בוא נרשום» / «אתה רוצה» / «תכתוב לי».
+- על עצמך (נועם) תמיד בלשון זכר: אני יודע, אני מציע, אני פה — אף פעם לא «אני יודעת».
+- בלי שם פרטי.`
+      : `מגדר המשתמש בפרופיל: זכר (N-11):
+- פנה אליו בלשון זכר: אתה, רשמת, רוצה, בוא, תכתוב, מוכן, תאשר.
+- על עצמך (נועם) תמיד בלשון זכר.
+- בלי שם פרטי.`;
   const rate = ctx ? ctx.rate : 0.1;
   const ratePct = Math.round(Number(rate) * 1000) / 10;
   const ratePctLabel = Number.isInteger(ratePct)
@@ -344,18 +371,32 @@ ${N08_DEBT_DISTRESS_BLOCK}
 - «ניכוי מהבסיס» (expense) ≠ הוצאה אישית. זה רק מה שמוריד מבסיס המעשר.
 
 איך אתה מדבר:
-- עברית מדוברת, חדה, חמה. 1–4 משפטים (או רשימה קצרה כשצריך סדר). חוש הומור יבש. ישר. לא מלחך־פנכה.
+- 1–3 משפטים (או רשימה קצרה כשצריך סדר). חוש הומור יבש. ישר. לא מלחך־פנכה. (N-18: קצר = מהיר)
+- שפה (N-12): ענה באותה שפה שבה כתב המשתמש בהודעה האחרונה (עברית→עברית, English→English). ממשק האפליקציה בעברית — זה לא משנה את שפת התשובה שלך.
 - הדגשה חשובה: עטוף ב־**כך** (שתי כוכביות מכל צד). רשימה ממוספרת: שורה לכל פריט בצורה 1. 2. 3.
-- בלי כותרות markdown, בלי להלן, בלי אשמח לעזור, בלי אימוג'י מוגזם (אחד מקסימום).
-- פנה בלשון זכר כברירת מחדל, אלא אם המשתמש מבהיר אחרת. בלי שם פרטי.
-- תמיד תענה על השאלה — ואז תחזיר לעניין (פנקס / כמה נשאר / מה לרשום). בלי דרשה ובלי לא יודע מה זה… על מושגי מעשר.
+- אסור לחלוטין כותרות markdown: אל תכתוב ### או ## או # בתחילת שורה. בלי להלן, בלי אשמח לעזור, בלי אימוג'י מוגזם (אחד מקסימום).
+${genderBlock}
+- תענה על השאלה. אל תוסיף סיומת קבועה כמו «מה נרשום?» / «מה לרשום?» בסוף כל תשובה — רק אם זה באמת הצעד הבא הטבעי. בלי דרשה ובלי «לא יודע מה זה…» על מושגי מעשר.
 
 מה אתה עושה:
 - עוזר לרשום הכנסה / ניכוי מהבסיס / צדקה, ומחשב כמה נשאר לתת.
 - כשיש סכומים ברורים לרישום מותר — חובה לקרוא ל־propose_entries (או להחזיר actions מובנים) + משפט קצר. המשתמש יאשר בכרטיס "להוסיף לפנקס?".
 - רק kind: income | expense | tzedaka. לעולם לא kind של "חובה" או "נותר", ולא סכום שלילי/אפס.
 - אל תמציא מספרים. חסר משהו? שאלה אחת קצרה.
-- אל תענה על בקשות שאינן קשורות למעשר/פנקס/צדקה/מס בסיסי — החזר בעדינות לנושא.
+- מחוץ לנושא (N-13): שיר / בדיחה / מתכון / שיחה כללית וכו' — משפט קליל אחד שאתה כאן לפנקס («מעשר ישר»), והצעה לחזור לעניין. מקסימום שני משפטים. בלי שירים, בלי בתים, בלי דרשות ארוכות.
+
+נטו/ברוטו ומטבע זר (N-09, קריטי):
+- אם המשתמש מציין סכום הכנסה (משכורת וכו') בלי לציין במפורש «נטו» או «ברוטו» — שאל שאלה אחת קצרה («נטו או ברוטו?») ואל תקרא ל־propose_entries / אל תחזיר actions עד שיענה.
+- אל תניח נטו. אל תכתוב «נטו: החשבון» או הנחות דומות בלי שהמשתמש אמר.
+- מטבע זר (דולר, €, $, ליש״ט וכו') — באותה הודעה שאל גם את שער ההמרה ל־₪ וגם נטו/ברוטו. אל תציע רישום עד שיש שער מספרי מהמשתמש.
+- אחרי שקיבלת שער — הצע סכום ב־₪ בלבד (סכום × שער). דוגמה: 5000 דולר × 3.7 = ₪18,500.
+
+חודש יעד (N-10 / T-13):
+- החודש הנוכחי ביומן: ${new Date().toISOString().slice(0, 7)}.
+- כשמבקשים לרשום לחודש שעבר / חודש ספציפי בעבר — כלול בשדה period את YYYY-MM המתאים (חודש שעבר = חודש לפני הנוכחי).
+- בטקסט ציין במפורש לאיזה חודש מציעים. הכרטיס יציג «נרשם ל: …».
+- בלי בקשת חודש אחר — השאר period ריק (נרשם לחודש הנוכחי).
+- אל תבטיח רישום לחודש קודם בלי period תקין ב־actions.
 
 איסור מוחלט (N-02):
 - לעולם אל תכתוב שרשמת / נרשם / שמרת / הוספת לפנקס / יעבור לפנקס / עודכן בפנקס.
@@ -390,6 +431,7 @@ async function callUpstream({
   useTools,
   useJsonSchema,
   preferGroq,
+  timeoutMs = UPSTREAM_TIMEOUT_MS,
 }) {
   const body = {
     model,
@@ -410,6 +452,7 @@ async function callUpstream({
     };
   }
 
+  const t0 = Date.now();
   const res = await fetch(UPSTREAM_URL, {
     method: 'POST',
     headers: {
@@ -422,10 +465,13 @@ async function callUpstream({
       'X-Title': 'Maaser Yashar - Noam',
     },
     body: JSON.stringify(body),
-    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+    signal: AbortSignal.timeout(timeoutMs),
   });
 
   const data = await res.json().catch(() => ({}));
+  console.info(
+    `[chat] upstream_ms=${Date.now() - t0} status=${res.status} model=${model} tools=${!!useTools} schema=${!!useJsonSchema}`
+  );
   return { res, data };
 }
 
@@ -453,10 +499,11 @@ function finalizeReply(reply, summary, actions) {
     out = `אוקיי, תפסתי ${actions.length} תנועות. מאשרים לפנקס?`;
   }
   if (!out) out = 'רגע, נתקעתי. תכתוב שוב בקצרה?';
-  return stripSaveClaims(out);
+  return stripMarkdownHeadings(stripSaveClaims(out));
 }
 
 export async function handler(event) {
+  const handlerStarted = Date.now();
   if (event.httpMethod === 'OPTIONS') {
     return optionsResponse(event);
   }
@@ -489,11 +536,12 @@ export async function handler(event) {
   }
 
   // מתעלמים מ־system / model מהלקוח במכוון — מונע שימוש כפרוקסי AI כללי
-  const { messages, context } = payload;
+  const { messages, context, gender } = payload;
   if (!Array.isArray(messages) || messages.length === 0) {
     return json(event, 400, { error: 'חסרות הודעות' });
   }
   // context אופציונלי — מצב "רק ההודעה" לא שולח סיכום פנקס
+  // gender אופציונלי (N-11) — זכר/נקבה מהפרופיל לפנייה נכונה
   // payload.system נזרק במכוון — לא נקרא ולא משפיע
 
   const cleaned = messages
@@ -525,7 +573,8 @@ export async function handler(event) {
 
   const primaryModel = resolveModel();
   const systemPrompt = buildSystemPrompt(
-    context && typeof context === 'object' ? context : null
+    context && typeof context === 'object' ? context : null,
+    gender
   );
   const apiMessages = [
     { role: 'system', content: systemPrompt },
@@ -650,6 +699,13 @@ export async function handler(event) {
 
     actions = validActions(actions);
 
+    // N-09 / N-10: בלי כרטיס כשחסרים נטו/ברוטו, שער, או period לחודש קודם
+    const gated = gateProposedActions(actions, cleaned);
+    actions = gated.actions;
+    if (gated.reason) {
+      reply = replyForProposalGate(gated.reason, reply);
+    }
+
     const canary = filterCanaryOutput(reply);
     reply = canary.reply;
     if (canary.triggered) {
@@ -663,18 +719,34 @@ export async function handler(event) {
       reply = reconcileReplyWithContext(reply, ledgerCtx);
     }
 
+    // N-11: גיבוי אחרון נגד כותרות markdown אחרי reconcile
+    reply = stripMarkdownHeadings(reply);
+
+    const durationMs = Date.now() - handlerStarted;
+    console.info(
+      `[chat] total_ms=${durationMs} model=${data?.model || primaryModel} actions=${actions.length}`
+    );
+
     return json(event, 200, {
       reply,
       actions,
       model: data?.model || primaryModel,
+      durationMs,
     });
   } catch (err) {
-    console.error('chat function error', err);
+    const durationMs = Date.now() - handlerStarted;
+    console.error('chat function error', err, `total_ms=${durationMs}`);
     const hint = err && err.message ? String(err.message).slice(0, 180) : '';
-    return json(event, 502, {
-      error: hint
-        ? `תקלה בחיבור למודל: ${hint}`
-        : 'נועם לא זמין כרגע',
+    const timedOut =
+      (err && err.name === 'TimeoutError') ||
+      /timeout|aborted|AbortError/i.test(hint);
+    return json(event, timedOut ? 504 : 502, {
+      error: timedOut
+        ? 'נסה שוב'
+        : hint
+          ? `תקלה בחיבור למודל: ${hint}`
+          : 'נועם לא זמין כרגע',
+      durationMs,
     });
   }
 }
@@ -683,6 +755,9 @@ export async function handler(event) {
 export {
   validActions,
   stripSaveClaims,
+  stripMarkdownHeadings,
   textSuggestsEntry,
   sanitizeEntryCategory,
+  gateProposedActions,
+  replyForProposalGate,
 };

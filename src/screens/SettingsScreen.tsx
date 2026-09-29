@@ -784,20 +784,34 @@ export default function SettingsScreen() {
         style={styles.resetWrap}
         onPress={() =>
           toast.confirm({
-            title: 'להתחיל מחדש עם נועם?',
-            message: 'תעברו שוב את ההיכרות',
+            title: t(
+              profile.gender,
+              'להתחיל מחדש עם נועם?',
+              'להתחיל מחדש עם נועם?'
+            ),
+            message: t(
+              profile.gender,
+              'תעבור שוב את ההיכרות',
+              'תעברי שוב את ההיכרות'
+            ),
             destructive: false,
             confirmLabel: 'יאללה',
             cancelLabel: 'ביטול',
             onConfirm: async () => {
               await patchProfile({ onboardingDone: false });
               setSaved(false);
-              toast.info('חוזרים להיכרות…');
+              toast.info(
+                t(profile.gender, 'חוזר להיכרות…', 'חוזרת להיכרות…')
+              );
             },
           })
         }
         accessibilityRole="button"
-        accessibilityLabel="התחל מחדש את ההיכרות"
+        accessibilityLabel={t(
+          profile.gender,
+          'התחל מחדש את ההיכרות',
+          'התחילי מחדש את ההיכרות'
+        )}
       >
         <Text style={styles.reset}>
           {t(

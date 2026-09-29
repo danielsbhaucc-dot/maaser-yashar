@@ -319,6 +319,7 @@ export default function NoamChat() {
       const { reply, actions } = await sendToNoam({
         messages: apiMsgs,
         context,
+        gender: liveProfile.gender,
       });
 
       const botMsg: ChatMessage = {

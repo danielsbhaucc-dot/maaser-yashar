@@ -1,10 +1,11 @@
 /**
- * Unit tests for N-01 / N-02 chat helpers (validActions, SAVE_CLAIM, suggestion detect).
+ * Unit tests for N-01 / N-02 / N-11 chat helpers (validActions, SAVE_CLAIM, markdown strip).
  */
 import { describe, expect, it } from 'vitest';
 import {
   validActions,
   stripSaveClaims,
+  stripMarkdownHeadings,
   textSuggestsEntry,
 } from '../../../netlify/functions/chatSafety.mjs';
 
@@ -97,6 +98,22 @@ describe('stripSaveClaims (N-02)', () => {
     expect(stripSaveClaims('רשמתי לך בפנקס.')).toBe(
       'להוסיף לפנקס? אשר בכפתור למטה'
     );
+  });
+});
+
+describe('stripMarkdownHeadings (N-11)', () => {
+  it('strips ### headings from line starts', () => {
+    expect(stripMarkdownHeadings('### סיכום\nנותר ₪100')).toBe(
+      'סיכום\nנותר ₪100'
+    );
+  });
+
+  it('strips multiple heading levels', () => {
+    expect(stripMarkdownHeadings('# א\n## ב\n### ג')).toBe('א\nב\nג');
+  });
+
+  it('leaves mid-line hashes alone', () => {
+    expect(stripMarkdownHeadings('סכום #1 בסדר')).toBe('סכום #1 בסדר');
   });
 });
 
