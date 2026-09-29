@@ -1,19 +1,26 @@
-/* מעשר ישר — service worker מינימלי
+/* מעשר ישר — service worker
  * HTML/navigate: network-first
- * נכסים סטטיים: cache-first
+ * נכסים סטטיים + גופנים: cache-first
  * /api/ וצ'אט: בלי cache לעולם
- * עדכונים נטענים ברקע ומופעלים בפתיחה הבאה (בלי skipWaiting)
  */
-const CACHE_NAME = 'maaser-yashar-v1';
+const CACHE_NAME = 'maaser-yashar-v2';
 const PRECACHE_URLS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/manifest.webmanifest',
   '/icon-192.png',
   '/icon-512.png',
   '/icon-512-maskable.png',
   '/apple-touch-icon.png',
   '/favicon-32.png',
+  '/fonts/heebo-400.woff2',
+  '/fonts/heebo-600.woff2',
+  '/fonts/heebo-700.woff2',
+  '/fonts/rubik-700.woff2',
+  '/privacy.html',
+  '/about.html',
+  '/offline.html',
 ];
 
 function isApiOrChat(url) {
@@ -37,7 +44,13 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_URLS))
+      .then((cache) =>
+        Promise.all(
+          PRECACHE_URLS.map((u) =>
+            cache.add(u).catch(() => undefined)
+          )
+        )
+      )
       .catch(() => undefined)
   );
 });
@@ -68,7 +81,12 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  if (isStaticAsset(url) || url.pathname.startsWith('/_expo/') || url.pathname.startsWith('/assets/')) {
+  if (
+    isStaticAsset(url) ||
+    url.pathname.startsWith('/_expo/') ||
+    url.pathname.startsWith('/assets/') ||
+    url.pathname.startsWith('/fonts/')
+  ) {
     event.respondWith(cacheFirst(request));
   }
 });
@@ -86,7 +104,8 @@ async function networkFirstHtml(request) {
     const cached =
       (await cache.match(request)) ||
       (await cache.match('/index.html')) ||
-      (await cache.match('/'));
+      (await cache.match('/')) ||
+      (await cache.match('/offline.html'));
     if (cached) return cached;
     return new Response('אופליין — אין גרסה שמורה.', {
       status: 503,

@@ -321,6 +321,172 @@ export default function HomeScreen() {
 
   return (
     <Screen sheet hero={hero} scroll>
+      {/* יתרה מעל הקיפול — לפני באנרים משניים */}
+      <View
+        style={styles.periodWrap}
+        onLayout={(e) => setPeriodViewportW(e.nativeEvent.layout.width)}
+      >
+        <View style={styles.periodFadeStart} pointerEvents="none" />
+        <ScrollView
+          ref={periodScrollRef}
+          horizontal
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          bounces={false}
+          contentContainerStyle={styles.periodRow}
+          {...({ dir: 'rtl' } as object)}
+        >
+          {periods.map((p) => (
+            <Pressable
+              key={p}
+              onPress={() => setPeriod(p)}
+              onLayout={(e) => {
+                periodLayouts.current[p] = {
+                  x: e.nativeEvent.layout.x,
+                  w: e.nativeEvent.layout.width,
+                };
+              }}
+              style={[styles.periodChip, period === p && styles.periodChipOn]}
+              accessibilityRole="button"
+              accessibilityState={{ selected: period === p }}
+              accessibilityLabel={`תקופה ${formatPeriod(p)}`}
+            >
+              <Text style={[styles.periodText, period === p && styles.periodTextOn]}>
+                {formatPeriod(p)}
+              </Text>
+            </Pressable>
+          ))}
+        </ScrollView>
+        <View style={styles.periodFadeEnd} pointerEvents="none" />
+      </View>
+
+      <Glass
+        dark
+        gold
+        style={styles.balanceCard}
+        accessibilityRole="summary"
+        accessibilityLabel={
+          celebrateDone
+            ? `החודש כוסה. חובה ${formatMoney(totals.obligation)}`
+            : totals.obligation <= 0
+              ? ringStatusLine || 'אין חובה החודש'
+              : `יתרה לתת ${formatMoney(totals.remaining)} מתוך חובה של ${formatMoney(totals.obligation)}`
+        }
+      >
+        {isEmptyMonth ? (
+          <View style={styles.emptyHome}>
+            <Text style={styles.emptyHomeTitle}>שלושה צעדים</Text>
+            <Text style={styles.emptyHomeBody}>
+              רשום הכנסה, רשום ניכוי חובה, רשום צדקה
+            </Text>
+            <PrimaryButton
+              label="הוסף הכנסה ראשונה"
+              onPress={() => openAdd('income', period)}
+            />
+          </View>
+        ) : (
+          <>
+            <View style={styles.balanceRow}>
+              <View style={styles.balanceText}>
+                <Text style={styles.balanceLabel}>יתרה לתת</Text>
+                <AnimatedMoney
+                  value={totals.remaining}
+                  style={styles.balanceValue}
+                  testID="remaining-amount"
+                />
+                {ringStatusLine ? (
+                  <Text style={styles.balanceHint}>
+                    <Text style={styles.balanceHintEm}>{ringStatusLine}</Text>
+                  </Text>
+                ) : (
+                  <Text style={styles.balanceHint}>
+                    מתוך חובה של{' '}
+                    <Text style={styles.balanceHintEm}>{formatMoney(totals.obligation)}</Text>
+                  </Text>
+                )}
+                {surplusLine ? (
+                  <Text style={styles.surplusHint}>{surplusLine}</Text>
+                ) : null}
+                {carryInLine ? (
+                  <Text style={styles.carryHint}>{carryInLine}</Text>
+                ) : null}
+              </View>
+              <ProgressRing
+                ring={ring}
+                color={colors.gold}
+                celebrate={celebrateDone || savedFlash}
+                accessibilityHidden
+                accessibilityLabel={
+                  celebrateDone || savedFlash
+                    ? `החודש כוסה. חובה ${formatMoney(totals.obligation)}`
+                    : totals.obligation <= 0
+                      ? ringStatusLine || 'אין חובה החודש'
+                      : `יתרה לתת ${formatMoney(totals.remaining)} מתוך חובה של ${formatMoney(totals.obligation)}`
+                }
+              />
+            </View>
+            <View style={styles.balanceGrid}>
+              <Stat
+                label="הכנסות (+בסיס)"
+                value={formatMoney(totals.income)}
+                color={colors.income}
+              />
+              <Stat
+                label="ניכויים (−בסיס)"
+                value={formatMoney(totals.expenses)}
+                color={colors.expense}
+              />
+              <Stat label="בסיס נטו" value={formatMoney(totals.netBase)} color={colors.accent} />
+              <Stat label="צדקה (מול חובה)" value={formatMoney(totals.tzedaka)} color={colors.tzedaka} />
+            </View>
+            <Text style={styles.baseHint}>
+              חובה = {formatRatePercent(profile.rate)}% × בסיס נטו · ניכוי כאן = יורד מהבסיס (לא מחיה)
+            </Text>
+            {(totals.lines.length > 0 || totals.warnings.length > 0) && (
+              <View style={styles.howWrap}>
+                <Text style={styles.howTitle}>איך חישבנו</Text>
+                {totals.lines.map((line) => (
+                  <View key={line.id} style={styles.howRow}>
+                    <Text style={styles.howLabel} numberOfLines={2}>
+                      {line.label}
+                      {line.kind === 'exempt' ? ' · פטור' : ''}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.howAmt,
+                        {
+                          color:
+                            line.kind === 'deduction'
+                              ? colors.expense
+                              : line.kind === 'exempt'
+                                ? colors.inkSoft
+                                : colors.income,
+                        },
+                      ]}
+                    >
+                      {line.amount >= 0 ? '+' : ''}
+                      {formatMoney(line.amount)}
+                    </Text>
+                  </View>
+                ))}
+                {totals.warnings.map((w, i) => (
+                  <Text key={`w-${i}`} style={styles.howWarn}>
+                    ⚠ {w}
+                  </Text>
+                ))}
+              </View>
+            )}
+            <View style={styles.cardFooter}>
+              <View style={styles.monthBadge}>
+                <Text style={styles.monthBadgeText}>
+                  ✦ {entriesLabel(monthEntries.length)} החודש
+                </Text>
+              </View>
+            </View>
+          </>
+        )}
+      </Glass>
+
       <PrivacyNotice />
       {showCloseMonthBanner ? (
         <Glass dark gold style={styles.closeMonthCard}>
@@ -416,173 +582,6 @@ export default function HomeScreen() {
           style={{ marginBottom: spacing.sm }}
         />
       ) : null}
-
-      <View
-        style={styles.periodWrap}
-        onLayout={(e) => setPeriodViewportW(e.nativeEvent.layout.width)}
-      >
-        <View style={styles.periodFadeStart} pointerEvents="none" />
-        <ScrollView
-          ref={periodScrollRef}
-          horizontal
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator={false}
-          bounces={false}
-          contentContainerStyle={styles.periodRow}
-          {...({ dir: 'rtl' } as object)}
-        >
-          {periods.map((p) => (
-            <Pressable
-              key={p}
-              onPress={() => setPeriod(p)}
-              onLayout={(e) => {
-                periodLayouts.current[p] = {
-                  x: e.nativeEvent.layout.x,
-                  w: e.nativeEvent.layout.width,
-                };
-              }}
-              style={[styles.periodChip, period === p && styles.periodChipOn]}
-              accessibilityRole="button"
-              accessibilityState={{ selected: period === p }}
-              accessibilityLabel={`תקופה ${formatPeriod(p)}`}
-            >
-              <Text style={[styles.periodText, period === p && styles.periodTextOn]}>
-                {formatPeriod(p)}
-              </Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-        <View style={styles.periodFadeEnd} pointerEvents="none" />
-      </View>
-
-      {/* 2) טבעת יתרה */}
-      <Glass
-        dark
-        gold
-        style={styles.balanceCard}
-        accessibilityRole="summary"
-        accessibilityLabel={
-          celebrateDone
-            ? `החודש כוסה. חובה ${formatMoney(totals.obligation)}`
-            : totals.obligation <= 0
-              ? ringStatusLine || 'אין חובה החודש'
-              : `יתרה לתת ${formatMoney(totals.remaining)} מתוך חובה של ${formatMoney(totals.obligation)}`
-        }
-      >
-        {isEmptyMonth ? (
-          <View style={styles.emptyHome}>
-            <Text style={styles.emptyHomeTitle}>שלושה צעדים</Text>
-            <Text style={styles.emptyHomeBody}>
-              רשום הכנסה, רשום ניכוי חובה, רשום צדקה
-            </Text>
-            <PrimaryButton
-              label="הוסף הכנסה ראשונה"
-              onPress={() => openAdd('income', period)}
-            />
-          </View>
-        ) : (
-          <>
-            <View style={styles.balanceRow}>
-              <View style={styles.balanceText}>
-                <Text style={styles.balanceLabel}>יתרה לתת</Text>
-                <AnimatedMoney
-                  value={totals.remaining}
-                  style={styles.balanceValue}
-                  testID="remaining-amount"
-                />
-                {ringStatusLine ? (
-                  <Text style={styles.balanceHint}>
-                    <Text style={styles.balanceHintEm}>{ringStatusLine}</Text>
-                  </Text>
-                ) : (
-                  <Text style={styles.balanceHint}>
-                    מתוך חובה של{' '}
-                    <Text style={styles.balanceHintEm}>{formatMoney(totals.obligation)}</Text>
-                  </Text>
-                )}
-                {surplusLine ? (
-                  <Text style={styles.surplusHint}>{surplusLine}</Text>
-                ) : null}
-                {carryInLine ? (
-                  <Text style={styles.carryHint}>{carryInLine}</Text>
-                ) : null}
-              </View>
-              <ProgressRing
-                ring={ring}
-                color={colors.gold}
-                celebrate={celebrateDone || savedFlash}
-                accessibilityHidden
-                accessibilityLabel={
-                  celebrateDone || savedFlash
-                    ? `החודש כוסה. חובה ${formatMoney(totals.obligation)}`
-                    : totals.obligation <= 0
-                      ? ringStatusLine || 'אין חובה החודש'
-                      : `יתרה לתת ${formatMoney(totals.remaining)} מתוך חובה של ${formatMoney(totals.obligation)}`
-                }
-              />
-            </View>
-            {/* 3) כרטיסי סיכום */}
-            <View style={styles.balanceGrid}>
-              <Stat
-                label="הכנסות (+בסיס)"
-                value={formatMoney(totals.income)}
-                color={colors.income}
-              />
-              <Stat
-                label="ניכויים (−בסיס)"
-                value={formatMoney(totals.expenses)}
-                color={colors.expense}
-              />
-              <Stat label="בסיס נטו" value={formatMoney(totals.netBase)} color={colors.accent} />
-              <Stat label="צדקה (מול חובה)" value={formatMoney(totals.tzedaka)} color={colors.tzedaka} />
-            </View>
-            <Text style={styles.baseHint}>
-              חובה = {formatRatePercent(profile.rate)}% × בסיס נטו · ניכוי כאן = יורד מהבסיס (לא מחיה)
-            </Text>
-            {(totals.lines.length > 0 || totals.warnings.length > 0) && (
-              <View style={styles.howWrap}>
-                <Text style={styles.howTitle}>איך חישבנו</Text>
-                {totals.lines.map((line) => (
-                  <View key={line.id} style={styles.howRow}>
-                    <Text style={styles.howLabel} numberOfLines={2}>
-                      {line.label}
-                      {line.kind === 'exempt' ? ' · פטור' : ''}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.howAmt,
-                        {
-                          color:
-                            line.kind === 'deduction'
-                              ? colors.expense
-                              : line.kind === 'exempt'
-                                ? colors.inkSoft
-                                : colors.income,
-                        },
-                      ]}
-                    >
-                      {line.amount >= 0 ? '+' : ''}
-                      {formatMoney(line.amount)}
-                    </Text>
-                  </View>
-                ))}
-                {totals.warnings.map((w, i) => (
-                  <Text key={`w-${i}`} style={styles.howWarn}>
-                    ⚠ {w}
-                  </Text>
-                ))}
-              </View>
-            )}
-            <View style={styles.cardFooter}>
-              <View style={styles.monthBadge}>
-                <Text style={styles.monthBadgeText}>
-                  ✦ {entriesLabel(monthEntries.length)} החודש
-                </Text>
-              </View>
-            </View>
-          </>
-        )}
-      </Glass>
 
       {/* 4) תובנה אחת + עוד */}
       {!isEmptyMonth && otherInsights.length > 0 ? (

@@ -1,4 +1,20 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
+import path from 'node:path';
+
+const TAB_IDS = [
+  'tab-home',
+  'tab-history',
+  'tab-tax',
+  'tab-guide',
+  'tab-settings',
+] as const;
+
+async function skipToHome(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'דלג ישר לחשבון' }).click();
+  await expect(page.getByTestId('fab-add')).toBeVisible({ timeout: 30_000 });
+}
 
 test('skip onboarding, 10% scenario, archive refresh, no network', async ({
   page,
@@ -28,30 +44,25 @@ test('skip onboarding, 10% scenario, archive refresh, no network', async ({
     await expect(page.getByTestId('amount-input')).toHaveCount(0);
   }
 
-  // 10% of 12500 = 1250; given 750 → remaining 500
   await expect(page.getByTestId('remaining-amount')).toContainText('500');
 
   await page.getByTestId('save-month').click();
   await page.getByTestId('tab-history').click();
-  // UI copy is without parentheses; count 0 means archive refreshed
   await expect(page.getByText('עדיין אין ארכיון')).toHaveCount(0);
 
   expect(calls).toEqual([]);
 });
 
-test('tab bar is not covered by floating elements', async ({ page }) => {
-  await page.goto('/');
-  await page.getByRole('button', { name: 'דלג ישר לחשבון' }).click();
+test('tab bar clickable and labels visible at acceptance widths', async ({
+  page,
+}) => {
+  await skipToHome(page);
   await expect(page.getByTestId('tab-home')).toBeVisible({ timeout: 30_000 });
 
-  const tabIds = [
-    'tab-home',
-    'tab-history',
-    'tab-tax',
-    'tab-guide',
-    'tab-settings',
-  ];
-  for (const id of tabIds) {
+  for (const id of TAB_IDS) {
+    const tab = page.getByTestId(id);
+    await expect(tab).toBeVisible();
+    await expect(tab).toContainText(/.+/);
     const free = await page.evaluate((tid) => {
       const el = document.querySelector(`[data-testid="${tid}"]`);
       if (!el) return false;
@@ -66,6 +77,39 @@ test('tab bar is not covered by floating elements', async ({ page }) => {
   }
 });
 
+test('home balance visible without scrolling', async ({ page }) => {
+  await skipToHome(page);
+  await page.getByTestId('fab-add').click();
+  await page.getByTestId('kind-income').click();
+  await page.getByTestId('amount-input').fill('5000');
+  await page.getByTestId('save-entry').click();
+  await expect(page.getByTestId('amount-input')).toHaveCount(0);
+
+  const remaining = page.getByTestId('remaining-amount');
+  await expect(remaining).toBeVisible();
+  const inView = await remaining.evaluate((el) => {
+    const r = el.getBoundingClientRect();
+    return r.top >= 0 && r.bottom <= (window.innerHeight || 0) + 1;
+  });
+  expect(inView).toBe(true);
+});
+
+test('keyboard can add an income entry', async ({ page }) => {
+  await skipToHome(page);
+
+  await page.getByTestId('fab-add').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('amount-input')).toBeVisible();
+
+  await page.getByTestId('kind-income').focus();
+  await page.keyboard.press('Enter');
+  await page.getByTestId('amount-input').fill('1200');
+  await page.getByTestId('save-entry').focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('amount-input')).toHaveCount(0);
+  await expect(page.getByTestId('remaining-amount')).toBeVisible();
+});
+
 test('head tags', async ({ page }) => {
   await page.goto('/');
   await expect(page.locator('html')).toHaveAttribute('lang', 'he');
@@ -77,4 +121,45 @@ test('head tags', async ({ page }) => {
     'content',
     /maximum-scale/
   );
+});
+
+test('review screenshots (mobile + desktop key screens)', async ({
+  page,
+}, testInfo) => {
+  // רק בפרויקטי הקצה — חוסך כפילויות ב־CI
+  const name = testInfo.project.name;
+  test.skip(
+    name !== 'mobile-390' && name !== 'desktop-1280',
+    'screenshots only on 390 and 1280'
+  );
+
+  const outDir = path.join(process.cwd(), 'docs', 'review-screenshots');
+  fs.mkdirSync(outDir, { recursive: true });
+  const prefix = name.startsWith('mobile') ? 'mobile' : 'desktop';
+
+  await skipToHome(page);
+  await page.getByTestId('fab-add').click();
+  await page.getByTestId('kind-income').click();
+  await page.getByTestId('amount-input').fill('10000');
+  await page.getByTestId('save-entry').click();
+  await expect(page.getByTestId('remaining-amount')).toBeVisible();
+
+  await page.screenshot({
+    path: path.join(outDir, `${prefix}-home.png`),
+    fullPage: false,
+  });
+
+  await page.getByTestId('tab-settings').click();
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: path.join(outDir, `${prefix}-settings.png`),
+    fullPage: false,
+  });
+
+  await page.getByTestId('tab-guide').click();
+  await page.waitForTimeout(400);
+  await page.screenshot({
+    path: path.join(outDir, `${prefix}-guide.png`),
+    fullPage: false,
+  });
 });

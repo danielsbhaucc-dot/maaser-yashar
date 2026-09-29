@@ -2,37 +2,24 @@
 
 **תאריך:** 29 בספטמבר 2026  
 **פריסה מיועדת:** https://maaser-yashar.netlify.app/  
-**⚠️ חשוב:** האתר החי שנבדק במועד הכנת המסמך **אינו משקף את `main`**. נדרש redeploy ל־Netlify (סטטיקה + Functions) לפני ביקורת ויזואלית על הלינק למעלה.
+**⏸️ Redeploy:** נדחה במכוון ע״י המפתח — יבוצע ידנית מאוחר יותר. אחרי הפריסה: `npm run verify:prod`.
 
-מסמך תוצאות מלא: [`docs/predeploy-checklist.md`](./predeploy-checklist.md)
+מסמך תוצאות: [`docs/predeploy-checklist.md`](./predeploy-checklist.md) · Ops: [`docs/ops-go-live.md`](./ops-go-live.md)
 
 ---
 
-## מה חדש מאז הביקורת הקודמת (עיקרי main)
+## מה חדש לביקורת
 
-- **T-55:** Playwright smoke + CI (unit + export + e2e).
-- **T-56–T-58:** מטא RTL/OG, כותרת יציבה, 404 אמיתי (בלי SPA catch-all).
-- **T-59:** deep links לטאבים + כפתור שיתוף.
-- **T-60/T-61:** ריכוך טענות הלכתיות מוחלטות + מקורות ב־FAQ.
-- **T-62:** תשתית סקירת רב (`RABBI_REVIEW`) — כרגע **לא מאושר**; מוצג סימון «ממתין לסקירת רב».
-- **T-63:** שורת עדכניות ליד אומדן סעיף 46 (שנת בדיקה / fallback).
+- Deep links, OG/RTL meta, 404 אמיתי, CI + Playwright
+- ריכוך טענות הלכתיות + סעיף 46 freshness + סטטוס סקירת רב (בתהליך)
+- חיזוק Noam (N-01…N-08): פעולות מאומתות, בלי טענות «רשמתי», הקשר פנקס חי, עמידות להזרקה
+- Pre-deploy polish: טאבים צרים, יתרה מעל הקיפול, PWA/SW, CSP, צילומי מסך, סקריפט אימות פרוד
 
-## תיקוני pre-deploy בסבב זה
+## בדיקות מקומיות
 
-- ניסוח בלי «רוב הפוסקים» בלי מקור (הגדרות / מנוע חישוב / מסמך הלכה).
-- סימון סקירת רב «בתהליך» במסך הנחיות ובדף האודות.
-- דוח צ'קליסט מלא + מסמך זה.
+- `npm test` — עובר
+- `npm run test:e2e` (אחרי `expo export`) — עובר ברוחבי 320–430 + 1280
 
-## בדיקות מקומיות שעברו
+## צילומים
 
-- `npm test` — 28/28
-- `npm run test:e2e` (אחרי export) — 6/6
-
-## מה לבדוק ידנית אחרי redeploy
-
-1. `/about` ו־`/privacy` — תוכן סטטי (לא SPA).
-2. `/api/chat` עם Origin זר → 403; עומס קל → 429.
-3. כותרות אבטחה ב־`curl -I`.
-4. `robots.txt` / `sitemap.xml` / 404 אמיתי.
-5. התקנת PWA + תצוגת שיתוף בוואטסאפ.
-6. מייל נגישות + הגדרות OpenRouter (cap / מפתחות).
+`docs/review-screenshots/` — home / settings / guide (mobile + desktop)

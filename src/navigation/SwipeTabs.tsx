@@ -42,15 +42,51 @@ function TaxScreenGate() {
 }
 
 const TABS = [
-  { key: 'Home' as const, title: 'בית', icon: 'home', iconOut: 'home-outline', Screen: HomeScreen },
-  { key: 'History' as const, title: 'היסטוריה', icon: 'time', iconOut: 'time-outline', Screen: HistoryScreen },
-  { key: 'Tax' as const, title: 'החזר מס', icon: 'receipt', iconOut: 'receipt-outline', Screen: TaxScreenGate },
-  { key: 'Guide' as const, title: 'הנחיות', icon: 'book', iconOut: 'book-outline', Screen: GuideScreen },
-  { key: 'Settings' as const, title: 'הגדרות', icon: 'settings', iconOut: 'settings-outline', Screen: SettingsScreen },
+  {
+    key: 'Home' as const,
+    title: 'בית',
+    shortTitle: 'בית',
+    icon: 'home',
+    iconOut: 'home-outline',
+    Screen: HomeScreen,
+  },
+  {
+    key: 'History' as const,
+    title: 'היסטוריה',
+    shortTitle: 'ארכיון',
+    icon: 'time',
+    iconOut: 'time-outline',
+    Screen: HistoryScreen,
+  },
+  {
+    key: 'Tax' as const,
+    title: 'החזר מס',
+    shortTitle: 'מס',
+    icon: 'receipt',
+    iconOut: 'receipt-outline',
+    Screen: TaxScreenGate,
+  },
+  {
+    key: 'Guide' as const,
+    title: 'הנחיות',
+    shortTitle: 'מדריך',
+    icon: 'book',
+    iconOut: 'book-outline',
+    Screen: GuideScreen,
+  },
+  {
+    key: 'Settings' as const,
+    title: 'הגדרות',
+    shortTitle: 'עוד',
+    icon: 'settings',
+    iconOut: 'settings-outline',
+    Screen: SettingsScreen,
+  },
 ] as const;
 
 const TAB_KEYS: TabKey[] = TABS.map((t) => t.key);
-const LABEL_ACTIVE_ONLY_MAX = 360;
+/** מתחת לרוחב זה — תוויות מקוצרות (תמיד גלויות) */
+const SHORT_LABEL_MAX = 430;
 const TAX_TAB_INDEX = TABS.findIndex((t) => t.key === 'Tax');
 
 /**
@@ -69,7 +105,7 @@ export function SwipeTabs() {
   const { openAdd } = useApp();
   /** ריווח מעל פס הבית באייפון */
   const bottom = 12 + insets.bottom;
-  const activeOnlyLabels = windowWidth <= LABEL_ACTIVE_ONLY_MAX;
+  const useShortLabels = windowWidth <= SHORT_LABEL_MAX;
 
   useEffect(() => {
     if (index === TAX_TAB_INDEX) setTaxVisited(true);
@@ -108,7 +144,7 @@ export function SwipeTabs() {
 
   const renderTab = (tab: (typeof TABS)[number], i: number) => {
     const focused = i === index;
-    const showLabel = focused || !activeOnlyLabels;
+    const label = useShortLabels ? tab.shortTitle : tab.title;
     const testIdByKey: Record<string, string> = {
       Home: 'tab-home',
       History: 'tab-history',
@@ -134,13 +170,16 @@ export function SwipeTabs() {
             color={focused ? colors.gold : colors.inkSoft}
           />
         </View>
-        {showLabel ? (
-          <Text style={[styles.tabLabel, focused && styles.tabLabelActive]} numberOfLines={1}>
-            {tab.title}
-          </Text>
-        ) : (
-          <View style={styles.tabLabelSpacer} />
-        )}
+        <Text
+          style={[
+            styles.tabLabel,
+            useShortLabels && styles.tabLabelShort,
+            focused && styles.tabLabelActive,
+          ]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
       </Pressable>
     );
   };
@@ -282,8 +321,13 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     maxWidth: '100%',
   },
+  tabLabelShort: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
   tabLabelActive: {
     color: colors.gold,
+    fontFamily: fonts.semi,
   },
   tabLabelSpacer: {
     height: 16,
