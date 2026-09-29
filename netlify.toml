@@ -34,6 +34,23 @@
     Content-Type = "application/manifest+json; charset=utf-8"
     Cache-Control = "no-cache"
 
+# Hashed static assets — long-term immutable cache (T-51)
+# Do NOT apply immutable to index.html, sw.js, or manifest
+[[headers]]
+  for = "/_expo/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/fonts/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
 [[redirects]]
   from = "/privacy"
   to = "/privacy.html"
