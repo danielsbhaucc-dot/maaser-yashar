@@ -323,7 +323,11 @@ export default function SettingsScreen() {
         </View>
       </Glass>
 
-      <Banner light text={`${BOT_NAME} מחשב מהנטו: הכנסות פחות ניכויי חובה/עסק — לא הוצאות מחיה`} tone="ok" />
+      <Banner
+        light
+        text={`${BOT_NAME} מחשב מהנטו: הכנסות פחות ניכויי חובה/עסק. לפי המקובל הוצאות מחיה לא מנוכות — בשאלות גבוליות שאלו רב.`}
+        tone="ok"
+      />
 
       <Glass light strong style={styles.panel}>
         <FieldLabel>הגדרות חישוב מתקדמות</FieldLabel>
