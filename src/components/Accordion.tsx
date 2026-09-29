@@ -9,6 +9,7 @@ import {
   UIManager,
   StyleProp,
   ViewStyle,
+  Linking,
 } from 'react-native';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR } from '../rtl';
@@ -18,10 +19,17 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
+export type AccordionSourceLink = {
+  label: string;
+  url?: string;
+};
+
 export type AccordionItemData = {
   id: string;
   question: string;
   answer: string;
+  /** שורות «מקור» עם קישור אופציונלי */
+  sources?: AccordionSourceLink[];
 };
 
 type Props = {
@@ -75,6 +83,27 @@ export function Accordion({ items, defaultOpenId = null, style }: Props) {
             {open ? (
               <View style={styles.body}>
                 <Text style={styles.answer}>{item.answer}</Text>
+                {item.sources && item.sources.length > 0 ? (
+                  <View style={styles.sources}>
+                    <Text style={styles.sourcesLabel}>מקור:</Text>
+                    {item.sources.map((src) =>
+                      src.url ? (
+                        <Pressable
+                          key={src.label + src.url}
+                          onPress={() => void Linking.openURL(src.url!)}
+                          accessibilityRole="link"
+                          accessibilityLabel={`מקור: ${src.label}`}
+                        >
+                          <Text style={styles.sourceLink}>{src.label}</Text>
+                        </Pressable>
+                      ) : (
+                        <Text key={src.label} style={styles.sourcePlain}>
+                          {src.label}
+                        </Text>
+                      )
+                    )}
+                  </View>
+                ) : null}
               </View>
             ) : null}
           </View>
@@ -159,5 +188,36 @@ const styles = StyleSheet.create({
     textAlign: 'start',
     writingDirection: 'rtl',
     fontFamily: fonts.regular,
+  },
+  sources: {
+    marginTop: spacing.sm,
+    gap: 6,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: 'rgba(42, 37, 88, 0.12)',
+  },
+  sourcesLabel: {
+    fontFamily: fonts.semi,
+    fontSize: 13,
+    color: '#4338CA',
+    textAlign: 'start',
+    writingDirection: 'rtl',
+  },
+  sourceLink: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: '#3730A3',
+    textDecorationLine: 'underline',
+    lineHeight: 20,
+    textAlign: 'start',
+    writingDirection: 'rtl',
+  },
+  sourcePlain: {
+    fontFamily: fonts.regular,
+    fontSize: 13,
+    color: '#312E81',
+    lineHeight: 20,
+    textAlign: 'start',
+    writingDirection: 'rtl',
   },
 });

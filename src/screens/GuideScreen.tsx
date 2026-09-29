@@ -104,6 +104,7 @@ export default function GuideScreen() {
           id: `halacha-${i}`,
           question: item.title,
           answer: item.body,
+          sources: item.sources,
         }))}
         style={{ marginBottom: spacing.lg }}
       />
