@@ -24,7 +24,7 @@ import {
 } from '../utils/history';
 import { entriesForPeriod } from '../utils/ledger';
 import { resolvePeriodTotals } from '../utils/totalsAdvanced';
-import { getSmartGreeting } from '../utils/greeting';
+import type { GreetingResult } from '../utils/greetings/types';
 import {
   noamBannerTip,
   noamEmptyLedger,
@@ -119,10 +119,23 @@ export default function HomeScreen() {
   }, [ledger.length]);
 
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
-  const greet = useMemo(
-    () => getSmartGreeting({ name, gender: profile.gender, now }),
-    [name, profile.gender, now]
-  );
+  const [greet, setGreet] = useState<GreetingResult | null>(null);
+
+  // T-52: טעינה עצלה של hebcal אחרי המסך הראשון — לא בחבילה הראשית
+  useEffect(() => {
+    let alive = true;
+    import('../utils/hebcalLazy')
+      .then((m) => {
+        if (!alive) return;
+        setGreet(m.getSmartGreeting({ name, gender: profile.gender, now }));
+      })
+      .catch(() => {
+        /* לוח עברי נכשל — נשארים בלי ברכה עד ניסיון הבא */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [name, profile.gender, now]);
   const journeyDays = useMemo(() => {
     if (!profile.joinedAt) return null;
     const start = new Date(profile.joinedAt).getTime();
@@ -293,7 +306,7 @@ export default function HomeScreen() {
         </Text>
       </View>
       <Text style={styles.greet}>
-        {greet.line}
+        {greet?.line ?? ''}
       </Text>
       <Text style={styles.sub}>
         {formatPeriod(period)} · {formatRatePercent(profile.rate)}%

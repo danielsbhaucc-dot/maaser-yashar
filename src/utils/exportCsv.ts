@@ -3,7 +3,6 @@ import type { HistoryEntry } from './history';
 import type { LedgerEntry } from '../types/ledger';
 import { formatCsvDate, ledgerKindHe, toCsv } from './csvFormat';
 import type { YearMode, YearSummaryResult } from './yearSummary';
-import { yearLabel } from './yearSummary';
 
 function downloadWeb(filename: string, content: string) {
   if (typeof document === 'undefined') return false;
@@ -97,6 +96,7 @@ export async function exportYearSummaryCsv(
   summary: YearSummaryResult,
   opts: { mode: YearMode; year: number }
 ): Promise<void> {
+  const { yearLabel } = await import('./hebcalLazy');
   const label = yearLabel(opts.mode, opts.year);
   const modeHe = opts.mode === 'hebrew' ? 'עברית' : 'אזרחית';
   const headers = [
@@ -155,6 +155,7 @@ export async function printYearSummary(
   summary: YearSummaryResult,
   opts: { mode: YearMode; year: number }
 ): Promise<void> {
+  const { yearLabel } = await import('./hebcalLazy');
   const label = yearLabel(opts.mode, opts.year);
   const modeHe = opts.mode === 'hebrew' ? 'עברית' : 'אזרחית';
   const t = summary.totals;

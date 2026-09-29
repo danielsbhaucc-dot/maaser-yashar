@@ -1,16 +1,9 @@
 import { getHolidaysOnDate, flags } from '@hebcal/core';
-import type { Gender } from './copy';
-import { t } from './copy';
+import type { Gender } from '../copy';
+import { t } from '../copy';
+import type { GreetingResult } from './types';
 
-export type GreetingResult = {
-  /** מילת ברכה בלבד (בוקר טוב / שבת שלום…) */
-  greeting: string;
-  /** שורה אישית מלאה */
-  line: string;
-  /** משפט נעים מתחת */
-  note?: string;
-  light?: boolean;
-};
+export type { GreetingResult } from './types';
 
 type HolidayKind = 'joy' | 'solemn' | 'fast' | 'memorial' | 'modern' | 'minor';
 

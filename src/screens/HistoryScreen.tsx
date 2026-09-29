@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, Platform, ScrollView } from 'react-native';
 import { Screen } from '../components/Screen';
 import { StatHero, formatMoney, PrimaryButton, Chip, SegmentedRow, Banner } from '../components/ui';
@@ -19,17 +19,12 @@ import {
   exportYearSummaryCsv,
   printYearSummary,
 } from '../utils/exportCsv';
-import {
-  availableYears,
-  hebrewYearLabel,
-  yearLabel,
-  yearSummary,
-  type YearMode,
-} from '../utils/yearSummary';
+import type { YearMode, YearSummaryResult } from '../utils/yearSummary';
 import { fillTaxCalculatorFromYear } from '../utils/taxFillBridge';
 import { useTabNav } from '../navigation/TabNavContext';
 
 type ViewMode = 'months' | 'year';
+type YearSummaryModule = typeof import('../utils/hebcalLazy');
 
 export default function HistoryScreen() {
   const { profile, history: entries, ledger, deleteMonth, clearHistory } = useApp();
@@ -39,6 +34,8 @@ export default function HistoryScreen() {
   const [viewMode, setViewMode] = useState<ViewMode>('months');
   const [yearMode, setYearMode] = useState<YearMode>('hebrew');
   const [selectedYear, setSelectedYear] = useState<number | null>(null);
+  /** T-52: yearSummary + hebcal נטענים רק כשצריך תצוגה שנתית */
+  const [yearMod, setYearMod] = useState<YearSummaryModule | null>(null);
 
   const totalRemaining = entries.reduce((s, e) => s + e.result.remaining, 0);
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
@@ -47,16 +44,31 @@ export default function HistoryScreen() {
     [name, profile.gender, entries]
   );
 
-  const years = useMemo(
-    () => availableYears(ledger, yearMode),
-    [ledger, yearMode]
-  );
+  useEffect(() => {
+    if (viewMode !== 'year') return;
+    let alive = true;
+    import('../utils/hebcalLazy')
+      .then((m) => {
+        if (alive) setYearMod(m);
+      })
+      .catch(() => {
+        /* סיכום שנתי יישאר ריק עד ניסיון הבא */
+      });
+    return () => {
+      alive = false;
+    };
+  }, [viewMode]);
+
+  const years = useMemo(() => {
+    if (!yearMod) return [] as number[];
+    return yearMod.availableYears(ledger, yearMode);
+  }, [yearMod, ledger, yearMode]);
   const activeYear = selectedYear != null && years.includes(selectedYear) ? selectedYear : years[0];
 
-  const summary = useMemo(() => {
-    if (activeYear == null) return null;
-    return yearSummary(ledger, profile, yearMode, activeYear);
-  }, [ledger, profile, yearMode, activeYear]);
+  const summary = useMemo((): YearSummaryResult | null => {
+    if (!yearMod || activeYear == null) return null;
+    return yearMod.yearSummary(ledger, profile, yearMode, activeYear);
+  }, [yearMod, ledger, profile, yearMode, activeYear]);
 
   const hero = (
     <View style={styles.hero}>
@@ -127,6 +139,9 @@ export default function HistoryScreen() {
             />
           </SegmentedRow>
           <View style={{ height: spacing.sm }} />
+          {!yearMod ? (
+            <Text style={styles.emptySub}>טוען לוח שנתי…</Text>
+          ) : (
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -135,19 +150,20 @@ export default function HistoryScreen() {
             {years.map((y) => (
               <Chip
                 key={y}
-                label={yearMode === 'hebrew' ? hebrewYearLabel(y) : String(y)}
+                label={yearMode === 'hebrew' ? yearMod.hebrewYearLabel(y) : String(y)}
                 selected={y === activeYear}
                 onPress={() => setSelectedYear(y)}
               />
             ))}
           </ScrollView>
+          )}
           <View style={{ height: spacing.md }} />
 
-          {summary ? (
+          {summary && yearMod ? (
             <>
               <Glass dark gold style={styles.summaryCard}>
                 <Text style={styles.summaryTitle}>
-                  סיכום {yearLabel(yearMode, activeYear!)}
+                  סיכום {yearMod.yearLabel(yearMode, activeYear!)}
                 </Text>
                 <View style={styles.grid}>
                   <Cell label="הכנסות" value={formatMoney(summary.totals.income)} />
