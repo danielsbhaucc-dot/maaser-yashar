@@ -108,7 +108,7 @@ export function buildRestoreSummary(
           ? ', חודשיים בארכיון'
           : `, ${archiveMonths} חודשים בארכיון`
       : '';
-  return `גיבוי מ-${date}, ${backupTx} תנועות${archivePart}. להחליף את הנתונים הנוכחיים (${currentTx} תנועות)?`;
+  return `גיבוי מתאריך ${date}, ${backupTx} תנועות${archivePart}. להחליף את הנתונים הנוכחיים (${currentTx} תנועות)?`;
 }
 
 export function isBackupStale(lastBackupIso: string | null, now = Date.now()): boolean {
@@ -116,6 +116,23 @@ export function isBackupStale(lastBackupIso: string | null, now = Date.now()): b
   const t = Date.parse(lastBackupIso);
   if (!Number.isFinite(t)) return true;
   return now - t > BACKUP_REMINDER_DAYS * 24 * 60 * 60 * 1000;
+}
+
+/**
+ * באנר «עבר יותר מחודש בלי גיבוי»:
+ * רק כשיש לפחות תנועה אחת, ו־(גיבוי ישן מ־30 יום, או אין גיבוי והתנועה הוותיקה ביותר מעל 30 יום).
+ * פרופיל ריק / נתונים טריים בלי גיבוי — לא מציגים.
+ */
+export function shouldRemindBackup(
+  ledgerLength: number,
+  lastBackupIso: string | null,
+  oldestEntryIso: string | null | undefined,
+  now = Date.now()
+): boolean {
+  if (ledgerLength <= 0) return false;
+  if (lastBackupIso) return isBackupStale(lastBackupIso, now);
+  if (!oldestEntryIso) return false;
+  return isBackupStale(oldestEntryIso, now);
 }
 
 export function parseStored(raw: string): unknown {

@@ -427,6 +427,21 @@ function GlobalAddModal() {
   );
 }
 
+function DevCrashProbe(): null {
+  if (process.env.NODE_ENV === 'production') return null;
+  if (Platform.OS === 'web' && typeof window !== 'undefined') {
+    try {
+      const q = new URLSearchParams(window.location.search);
+      if (q.get('__crash') === '1') {
+        throw new Error('__crash test probe');
+      }
+    } catch (e) {
+      if (e instanceof Error && e.message === '__crash test probe') throw e;
+    }
+  }
+  return null;
+}
+
 function Root() {
   const { ready, profile } = useApp();
   const pin = usePinLock();
@@ -458,6 +473,7 @@ function Root() {
   return (
     <AccessibilityRoot>
       <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
+        <DevCrashProbe />
         <SwipeTabs />
         <GlobalAddModal />
         <PwaInstallBanner />

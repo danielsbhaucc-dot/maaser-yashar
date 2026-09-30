@@ -106,8 +106,17 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    const oldestEntryIso =
+      ledger.length === 0
+        ? null
+        : ledger.reduce((oldest, e) => {
+            const iso = e.date ?? e.createdAt;
+            if (!iso) return oldest;
+            if (!oldest) return iso;
+            return iso < oldest ? iso : oldest;
+          }, null as string | null);
     const refresh = () => {
-      void shouldShowBackupReminder(ledger.length).then((show) => {
+      void shouldShowBackupReminder(ledger.length, oldestEntryIso).then((show) => {
         if (!cancelled) setShowBackupBanner(show);
       });
     };
@@ -117,7 +126,7 @@ export default function HomeScreen() {
       cancelled = true;
       unsub();
     };
-  }, [ledger.length]);
+  }, [ledger]);
 
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
   const [greet, setGreet] = useState<GreetingResult | null>(null);

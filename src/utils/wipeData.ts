@@ -44,7 +44,8 @@ export async function wipeAllData(): Promise<void> {
   }
   await AsyncStorage.multiRemove([...known]);
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    window.location.reload();
+    // SPA: רענון על /settings וכו' נשבר ב־serve סטטי — חוזרים לשורש
+    window.location.assign('/');
     return;
   }
   await reloadAppAsync('wipe-all-data');

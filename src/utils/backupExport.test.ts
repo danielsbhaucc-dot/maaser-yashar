@@ -127,6 +127,7 @@ function run() {
   const summary = buildRestoreSummary(backup, {
     maaser_ledger_v1: new Array(60).fill({ id: 'x' }),
   });
+  assert(summary.includes('גיבוי מתאריך'), `prefix: ${summary}`);
   assert(summary.includes('12.9.2026'), `date in summary: ${summary}`);
   assert(summary.includes('2 תנועות'), `backup tx: ${summary}`);
   assert(summary.includes('6 חודשים בארכיון'), `archive: ${summary}`);
