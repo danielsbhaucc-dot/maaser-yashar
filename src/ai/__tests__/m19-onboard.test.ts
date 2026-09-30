@@ -9,6 +9,7 @@ import {
   isSkipPhrase,
   isYesPhrase,
   localOnboardParse,
+  nameTokenQuality,
   parseGenderPhrase,
   parseMaritalPhrase,
   parseOnboardStep,
@@ -97,6 +98,46 @@ describe('M19 parseOnboardStep refusal vs choice', () => {
   it('skip name continue is gender-neutral', () => {
     expect(skipNameContinue()).toMatch(/בלי שם|הגדרות/);
     expect(skipNameContinue()).not.toMatch(/חבר בינתיים|ממשיכות/);
+  });
+});
+
+describe('name judgment + confirm', () => {
+  it('rejects keyboard smash / gibberish as name', () => {
+    expect(localOnboardParse('שדגכ').intent).toBe('gibberish');
+    expect(localOnboardParse('asdf').intent).toBe('gibberish');
+    expect(localOnboardParse('qwer').intent).toBe('gibberish');
+    expect(nameTokenQuality('שדגכ')).toBe('reject');
+    expect(nameTokenQuality('asdfgh')).toBe('reject');
+  });
+
+  it('accepts clear Hebrew names', () => {
+    expect(localOnboardParse('יוסף').intent).toBe('name');
+    expect(localOnboardParse('מיכל').intent).toBe('name');
+    expect(localOnboardParse('דניאל').name).toBe('דניאל');
+    expect(nameTokenQuality('מיכל')).toBe('high');
+  });
+
+  it('asks confirmation for doubtful short consonant clusters', () => {
+    const r = localOnboardParse('בגד');
+    expect(r.intent).toBe('confirm_name');
+    expect(r.name).toBe('בגד');
+    expect(r.reply).toMatch(/באמת/);
+  });
+
+  it('accepts doubtful name when user affirms in the same message', () => {
+    const r = localOnboardParse('שמי בגד זה באמת השם שלי');
+    expect(r.intent).toBe('name');
+    expect(r.name).toBe('בגד');
+  });
+
+  it('yes phrase detects explicit name confirmation', () => {
+    expect(isYesPhrase('כן זה השם שלי')).toBe(true);
+    expect(isYesPhrase('כן')).toBe(true);
+  });
+
+  it('gibberish on later steps asks for a real answer', () => {
+    expect(parseOnboardStep(1, 'שדגכ').intent).toBe('gibberish');
+    expect(parseOnboardStep(2, 'asdf').intent).toBe('gibberish');
   });
 });
 

@@ -379,7 +379,7 @@ export default function TaxScreen() {
         <Accordion
           items={result.tips.slice(0, 3).map((tip, i) => ({
             id: `tip-${i}`,
-            question: `טיפ ${i + 1}`,
+            question: tip.length > 52 ? `${tip.slice(0, 52)}…` : tip,
             answer: tip,
           }))}
           openId={tipOpenId}

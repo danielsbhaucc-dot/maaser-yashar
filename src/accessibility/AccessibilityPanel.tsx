@@ -30,6 +30,7 @@ import { DIR } from '../rtl';
 import { NATIVE_DRIVER } from '../utils/motion';
 import { fontScale, listActiveChips, smartTips } from './effects';
 import { dialogDomProps, useDialogFocus } from '../hooks/useDialogFocus';
+import { useSheetSwipeDismiss } from '../hooks/useSheetSwipeDismiss';
 import {
   CONTACT_EMAIL,
   CONTACT_PENDING_TEXT,
@@ -1206,15 +1207,46 @@ function DocModal({
   bottomInset: number;
 }) {
   const dialogId = `maaser-a11y-doc-${title.replace(/\s+/g, '-')}`;
-  useDialogFocus({ open: visible, onClose, dialogId });
+  const { translateY, backdrop, panHandlers, dismiss, animateIn } = useSheetSwipeDismiss({
+    onDismiss: onClose,
+    enabled: true,
+  });
+
+  useDialogFocus({ open: visible, onClose: dismiss, dialogId });
+
+  useEffect(() => {
+    if (visible) animateIn();
+  }, [visible, animateIn]);
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="none" transparent onRequestClose={dismiss}>
       <View style={[styles.docBackdrop, DIR]}>
-        <View
+        <Animated.View
+          style={[
+            StyleSheet.absoluteFill,
+            {
+              backgroundColor: colors.overlay,
+              opacity: backdrop.interpolate({
+                inputRange: [0, 1],
+                outputRange: [0, 1],
+              }),
+            },
+          ]}
+        >
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={dismiss}
+            accessibilityRole="button"
+            accessibilityLabel="סגור"
+          />
+        </Animated.View>
+        <Animated.View
           nativeID={dialogId}
           {...dialogDomProps}
-          style={[styles.docCard, { paddingBottom: bottomInset + 16 }]}
+          style={[
+            styles.docCard,
+            { paddingBottom: bottomInset + 16, transform: [{ translateY }] },
+          ]}
           accessibilityViewIsModal
           accessibilityLabel={title}
         >
@@ -1222,12 +1254,15 @@ function DocModal({
             colors={['rgba(42,37,88,0.98)', 'rgba(18,24,44,0.99)']}
             style={StyleSheet.absoluteFill}
           />
+          <View style={styles.docHandleHit} {...panHandlers} accessibilityLabel="גרור לסגירה">
+            <View style={styles.docHandle} />
+          </View>
           <View style={styles.docHead}>
             <Text style={styles.docTitle} accessibilityRole="header">
               {title}
             </Text>
             <Pressable
-              onPress={onClose}
+              onPress={dismiss}
               style={styles.headerBtn}
               accessibilityRole="button"
               accessibilityLabel="סגור"
@@ -1239,7 +1274,7 @@ function DocModal({
           <ScrollView>
             <Text style={styles.docBody}>{body}</Text>
           </ScrollView>
-        </View>
+        </Animated.View>
       </View>
     </Modal>
   );
@@ -1942,7 +1977,6 @@ const styles = StyleSheet.create({
   },
   docBackdrop: {
     flex: 1,
-    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   docCard: {
@@ -1954,6 +1988,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
     backgroundColor: colors.sheet,
+  },
+  docHandleHit: {
+    alignItems: 'center',
+    paddingBottom: 8,
+    marginTop: -4,
+  },
+  docHandle: {
+    width: 44,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.4)',
   },
   docHead: {
     flexDirection: 'row',
