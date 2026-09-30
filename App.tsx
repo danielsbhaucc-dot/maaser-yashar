@@ -28,6 +28,7 @@ import ErrorBoundary from './src/components/ErrorBoundary';
 import AddEntryModal from './src/components/AddEntryModal';
 import { LoadingScreen } from './src/components/LoadingScreen';
 import { SwipeTabs } from './src/navigation/SwipeTabs';
+import { NoamHeaderButton } from './src/components/NoamHeaderButton';
 import { documentTitleFromLocation } from './src/navigation/tabRoutes';
 import PwaInstallBanner from './src/components/PwaInstallBanner';
 import { colors } from './src/theme';
@@ -413,6 +414,7 @@ function Root() {
         >
           <PinLockScreen />
           <AccessibilityWidget />
+          <NoamHeaderButton />
           <StorageAlertBridge />
         </View>
       </AccessibilityRoot>
@@ -428,6 +430,7 @@ function Root() {
         >
           <OnboardingScreen />
           <AccessibilityWidget />
+          <NoamHeaderButton />
           <StorageAlertBridge />
         </View>
       </AccessibilityRoot>
@@ -444,6 +447,7 @@ function Root() {
         <GlobalAddModal />
         <PwaInstallBanner />
         <AccessibilityWidget />
+        <NoamHeaderButton />
         <StorageAlertBridge />
       </View>
     </AccessibilityRoot>

@@ -19,7 +19,7 @@ import {
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { GlassCloseButton } from './Glass';
+import { GlassCloseButton, Glass } from './Glass';
 import { InlineLoader } from './LoadingScreen';
 import { useMotionEnabled } from '../hooks/useMotionEnabled';
 import { NATIVE_DRIVER } from '../utils/motion';
@@ -1077,20 +1077,30 @@ function ChatPane({
 
       {/* N-01: כרטיס אישור מעל השדה — לא נגלל מחוץ למסך */}
       {pending.length > 0 ? (
-        <View style={styles.proposeCardSticky}>
-          <Text style={styles.proposeTitle}>להוסיף לפנקס?</Text>
-          {pending.map((a, i) => {
-            const p =
-              a.period && /^\d{4}-(0[1-9]|1[0-2])$/.test(a.period)
-                ? a.period
-                : currentPeriod();
-            return (
-              <Text key={`${a.kind}-${i}`} style={styles.proposeLine}>
-                · {kindLabel(a.kind, gender)} · {a.category} · {formatMoney(a.amount)}
-                {'\n'}נרשם ל: {formatPeriod(p)}
-              </Text>
-            );
-          })}
+        <Glass gold strong style={styles.proposeCardSticky}>
+          <View style={styles.proposeHead}>
+            <View style={styles.proposeBadge}>
+              <Text style={styles.proposeBadgeTxt}>✦</Text>
+            </View>
+            <Text style={styles.proposeTitle}>להוסיף לפנקס?</Text>
+          </View>
+          <View style={styles.proposeList}>
+            {pending.map((a, i) => {
+              const p =
+                a.period && /^\d{4}-(0[1-9]|1[0-2])$/.test(a.period)
+                  ? a.period
+                  : currentPeriod();
+              return (
+                <View key={`${a.kind}-${i}`} style={styles.proposeItem}>
+                  <Text style={styles.proposeLine}>
+                    {kindLabel(a.kind, gender)} · {a.category}
+                  </Text>
+                  <Text style={styles.proposeAmount}>{formatMoney(a.amount)}</Text>
+                  <Text style={styles.proposePeriod}>נרשם ל: {formatPeriod(p)}</Text>
+                </View>
+              );
+            })}
+          </View>
           <View style={styles.proposeActions}>
             <Pressable
               onPress={onApply}
@@ -1107,7 +1117,7 @@ function ChatPane({
               <Text style={styles.proposeNoTxt}>לא עכשיו</Text>
             </Pressable>
           </View>
-        </View>
+        </Glass>
       ) : null}
 
       {!typing && messages.length <= 2 && pending.length === 0 ? (
@@ -1151,6 +1161,7 @@ function ChatPane({
           onPress={onSend}
           disabled={!draft.trim() || typing}
           style={[styles.sendBtn, (!draft.trim() || typing) && styles.sendDisabled]}
+          accessibilityRole="button"
           accessibilityLabel="שלח"
         >
           <Text style={styles.sendGlyph}>➤</Text>
@@ -1723,29 +1734,73 @@ const styles = StyleSheet.create({
   },
   proposeCardSticky: {
     marginHorizontal: spacing.md,
-    marginBottom: 6,
-    borderRadius: radii.lg,
+    marginBottom: 8,
+    borderRadius: radii.xl,
+    padding: spacing.md,
+    gap: 10,
+    overflow: 'hidden',
+  },
+  proposeHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  proposeBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.goldSoft,
     borderWidth: 1,
     borderColor: colors.glassGoldBorder,
-    backgroundColor: colors.goldSoft,
-    padding: spacing.md,
-    gap: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proposeBadgeTxt: {
+    color: colors.gold,
+    fontFamily: fonts.bold,
+    fontSize: 14,
   },
   proposeTitle: {
     fontFamily: fonts.bold,
-    fontSize: 15,
+    fontSize: 16,
     color: colors.gold,
-    marginBottom: 4,
+    writingDirection: 'rtl',
+  },
+  proposeList: { gap: 8 },
+  proposeItem: {
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.glassBorder,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 2,
   },
   proposeLine: {
-    fontFamily: fonts.regular,
+    fontFamily: fonts.semi,
     fontSize: 14,
     color: colors.ink,
+    writingDirection: 'rtl',
+    textAlign: 'right',
+  },
+  proposeAmount: {
+    fontFamily: fonts.extra,
+    fontSize: 18,
+    color: colors.gold,
+    writingDirection: 'rtl',
+    textAlign: 'right',
+  },
+  proposePeriod: {
+    fontFamily: fonts.regular,
+    fontSize: 12,
+    color: colors.inkMuted,
+    writingDirection: 'rtl',
+    textAlign: 'right',
   },
   proposeActions: {
     flexDirection: 'row',
     gap: 8,
-    marginTop: spacing.sm,
+    marginTop: 2,
   },
   proposeYes: {
     flex: 1,
@@ -1764,6 +1819,7 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     borderWidth: 1,
     borderColor: colors.glassBorder,
+    backgroundColor: 'rgba(255,255,255,0.06)',
     paddingVertical: 12,
     alignItems: 'center',
   },

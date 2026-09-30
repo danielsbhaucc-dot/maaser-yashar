@@ -154,6 +154,9 @@ export function SwipeTabs() {
   const { openAdd } = useApp();
   const bottom = 12 + insets.bottom;
   const useShortLabels = windowWidth <= SHORT_LABEL_MAX;
+  const pageCount = TABS.length;
+  const toScroll = useCallback((tabIndex: number) => pageCount - 1 - tabIndex, [pageCount]);
+  const toTab = useCallback((scrollIndex: number) => pageCount - 1 - scrollIndex, [pageCount]);
 
   useEffect(() => {
     indexRef.current = index;
@@ -185,16 +188,16 @@ export function SwipeTabs() {
       }
       const targetIndex = boot ?? indexRef.current;
       setPageWidth(w);
+      const scrollX = toScroll(targetIndex) * w;
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({
-          x: targetIndex * w,
+          x: scrollX,
           y: 0,
           animated: false,
         });
-        // setTimeout אמין יותר מ־rAF כפול תחת עומס workers ב־e2e
         setTimeout(() => {
           scrollRef.current?.scrollTo({
-            x: targetIndex * w,
+            x: scrollX,
             y: 0,
             animated: false,
           });
@@ -203,23 +206,16 @@ export function SwipeTabs() {
         }, 64);
       });
     },
-    [pageWidth]
+    [pageWidth, toScroll]
   );
 
   const syncIndexFromOffset = useCallback(
     (x: number) => {
       if (!scrollReadyRef.current) return;
       if (pageWidth <= 0) return;
-      setIndexSafe(Math.round(x / pageWidth));
+      setIndexSafe(toTab(Math.round(x / pageWidth)));
     },
-    [pageWidth, setIndexSafe]
-  );
-
-  const onScroll = useCallback(
-    (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-      syncIndexFromOffset(e.nativeEvent.contentOffset.x);
-    },
-    [syncIndexFromOffset]
+    [pageWidth, setIndexSafe, toTab]
   );
 
   const onScrollEnd = useCallback(
@@ -241,13 +237,17 @@ export function SwipeTabs() {
         return;
       }
       requestAnimationFrame(() => {
-        scrollRef.current?.scrollTo({ x: i * pageWidth, y: 0, animated: true });
+        scrollRef.current?.scrollTo({
+          x: toScroll(i) * pageWidth,
+          y: 0,
+          animated: true,
+        });
         setTimeout(() => {
           scrollReadyRef.current = true;
         }, 420);
       });
     },
-    [pageWidth]
+    [pageWidth, toScroll]
   );
 
   /** Deep link + back/forward: sync URL ↔ טאב */
@@ -333,6 +333,8 @@ export function SwipeTabs() {
     );
   };
 
+  const pagesRtl = [...TABS].reverse();
+
   return (
     <TabNavProvider goToIndex={goTo} tabKeys={TAB_KEYS}>
       <View style={styles.root} onLayout={onRootLayout}>
@@ -358,7 +360,7 @@ export function SwipeTabs() {
               : { flexDirection: 'row' }
           }
         >
-          {TABS.map(({ key, Screen }) => (
+          {pagesRtl.map(({ key, Screen }) => (
             <View
               key={key}
               style={[styles.page, pageWidth > 0 ? { width: pageWidth } : styles.pageFlex, DIR]}
@@ -388,26 +390,25 @@ export function SwipeTabs() {
             <View style={styles.tabTint} />
           </View>
           <View style={styles.tabsRow}>
-            {TABS.slice(0, 2).map((tab, i) => renderTab(tab, i))}
-            <View style={styles.fabNotch} pointerEvents="box-none">
-              <Pressable
-                onPress={() => openAdd('tzedaka')}
-                testID="fab-add"
-                style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
-                accessibilityRole="button"
-                accessibilityLabel="הוסף תנועה ✦"
+            {TABS.map((tab, i) => renderTab(tab, i))}
+          </View>
+          <View style={styles.fabCenter} pointerEvents="box-none">
+            <Pressable
+              onPress={() => openAdd('tzedaka')}
+              testID="fab-add"
+              style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
+              accessibilityRole="button"
+              accessibilityLabel="הוסף תנועה"
+            >
+              <LinearGradient
+                colors={[...colors.primaryGradient]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.fabGrad}
               >
-                <LinearGradient
-                  colors={[...colors.primaryGradient]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.fabGrad}
-                >
-                  <Text style={styles.fabIcon}>✦</Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-            {TABS.slice(2).map((tab, i) => renderTab(tab, i + 2))}
+                <Text style={styles.fabIcon}>+</Text>
+              </LinearGradient>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -494,21 +495,23 @@ const styles = StyleSheet.create({
   tabLabelSpacer: {
     height: 16,
   },
-  /** notch מרכזי ל־✦ — לא גוזל מ־flex של הטאבים */
-  fabNotch: {
-    width: 56,
+  /** FAB ממורכז לחלוטין — בוקע מעל מרכז הטאב־בר */
+  fabCenter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: -22,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 3,
-    marginTop: -18,
+    zIndex: 5,
   },
   fab: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: 'rgba(255,255,255,0.45)',
   },
   fabGrad: {
     flex: 1,
@@ -517,8 +520,9 @@ const styles = StyleSheet.create({
   },
   fabIcon: {
     fontFamily: fonts.displayExtra,
-    fontSize: 20,
+    fontSize: 32,
     color: '#fff',
-    lineHeight: 24,
+    lineHeight: 34,
+    marginTop: -2,
   },
 });

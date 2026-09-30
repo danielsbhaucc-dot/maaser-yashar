@@ -19,6 +19,7 @@ import { PrivacyNotice } from '../components/PrivacyNotice';
 import { PinLockSettings } from '../components/PinLockSettings';
 import { Glass, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
+import { SettingsFold } from '../components/SettingsFold';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { useA11y } from '../accessibility';
@@ -78,7 +79,7 @@ export default function SettingsScreen() {
     ledger,
   } = useApp();
   const toast = useToast();
-  const { openPanel, settings, toggle, cycleMetric } = useA11y();
+  const { openPanel, settings, toggle, cycleMetric, showWidget } = useA11y();
   const [saved, setSaved] = React.useState(false);
   const [includeChatBackup, setIncludeChatBackup] = React.useState(false);
   const [backupBusy, setBackupBusy] = React.useState(false);
@@ -143,8 +144,11 @@ export default function SettingsScreen() {
 
   return (
     <Screen sheet hero={hero} scroll contentStyle={{ paddingTop: spacing.lg }}>
-      <Glass light strong style={styles.a11yTop}>
-        <FieldLabel>נגישות</FieldLabel>
+      <SettingsFold
+        title="נגישות"
+        hint="טקסט, תנועה ותפריט נגישות"
+        defaultOpen
+      >
         <Text style={styles.a11yHint}>
           ניגודיות, טקסט מוגדל, סמן ועוד — נשמר במכשיר. גודל הטקסט חל מיד על כל המסך.
         </Text>
@@ -174,14 +178,26 @@ export default function SettingsScreen() {
         </SegmentedRow>
         <View style={{ height: spacing.sm }} />
         <PrimaryButton label="פתח תפריט נגישות ✦" onPress={() => openPanel()} />
-      </Glass>
+        {settings.widgetHidden ? (
+          <>
+            <View style={{ height: spacing.sm }} />
+            <PrimaryButton
+              label="החזר כפתור נגישות צף"
+              onPress={() => {
+                showWidget();
+                openPanel();
+              }}
+            />
+          </>
+        ) : null}
+      </SettingsFold>
 
       <PrivacyNotice light />
 
       <PinLockSettings />
 
       <SmartInsights items={insights} />
-      <Glass light strong style={styles.panel}>
+      <SettingsFold title="פרופיל אישי" hint="שם, מגדר ומצב משפחתי" defaultOpen>
         <FieldLabel>שם</FieldLabel>
         <TextInput
           style={styles.input}
@@ -280,10 +296,9 @@ export default function SettingsScreen() {
             </SegmentedRow>
           </View>
         ) : null}
-      </Glass>
+      </SettingsFold>
 
-      <Glass light gold strong style={styles.ratePanel}>
-        <FieldLabel>שיעור נתינה</FieldLabel>
+      <SettingsFold title="שיעור נתינה" hint={`${ratePct}% · ${rateCaption(profile.rate)}`} gold defaultOpen>
         <Text style={styles.rateHero}>{ratePct}%</Text>
         <Text style={styles.rateCaption}>{rateCaption(profile.rate)}</Text>
         <SegmentedRow>
@@ -355,7 +370,7 @@ export default function SettingsScreen() {
             ]}
           />
         </View>
-      </Glass>
+      </SettingsFold>
 
       <Banner
         light
@@ -363,8 +378,7 @@ export default function SettingsScreen() {
         tone="ok"
       />
 
-      <Glass light strong style={styles.panel}>
-        <FieldLabel>הגדרות חישוב מתקדמות</FieldLabel>
+      <SettingsFold title="חישוב מתקדם" hint="מסים, מתנות, קצבאות ועוד">
         <Text style={styles.recurIntro}>
           חישוב לפי שיטות הלכתיות נפוצות. אינו פסק הלכה — שאלו רב בכל ספק.
         </Text>
@@ -521,10 +535,9 @@ export default function SettingsScreen() {
             </Text>
           </Pressable>
         </View>
-      </Glass>
+      </SettingsFold>
 
-      <Glass light strong style={styles.panel}>
-        <FieldLabel>העברת עודף לחודש הבא</FieldLabel>
+      <SettingsFold title="העברת עודף לחודש הבא" hint={profile.carryForwardSurplus ? 'פעיל' : 'כבוי'}>
         <Text style={styles.recurIntro}>{SURPLUS_CARRY_ENGINE_TEXT}</Text>
         <Text style={styles.advOptHint}>
           דורש התניה מראש לפי חלק מהפוסקים. שאלו רב לפני הפעלה.
@@ -543,9 +556,9 @@ export default function SettingsScreen() {
             onPress={() => patchProfile({ carryForwardSurplus: true })}
           />
         </SegmentedRow>
-      </Glass>
+      </SettingsFold>
 
-      <Glass light strong style={styles.panel}>
+      <SettingsFold title="צ'אט עם נועם" hint="שיתוף סכומים ושמירת היסטוריה">
         <FieldLabel>שיתוף בצ'אט עם נועם</FieldLabel>
         <Text style={styles.recurIntro}>
           תמיד בלי שם, הערות או תנועות בודדות. אפשר לבחור אם לצרף סיכום סכומי החודש.
@@ -597,10 +610,9 @@ export default function SettingsScreen() {
             }}
           />
         </SegmentedRow>
-      </Glass>
+      </SettingsFold>
 
-      <Glass light strong style={styles.panel}>
-        <FieldLabel>תזכורת חודשית</FieldLabel>
+      <SettingsFold title="תזכורת חודשית" hint="התראה לסיכום החודש">
         <Text style={styles.recurIntro}>{reminderSettingsHint()}</Text>
         <PrimaryButton
           label={reminderBusy ? 'מגדיר תזכורת…' : 'הוסף תזכורת חודשית ✦'}
@@ -621,10 +633,9 @@ export default function SettingsScreen() {
             }
           }}
         />
-      </Glass>
+      </SettingsFold>
 
-      <Glass light strong style={styles.panel}>
-        <FieldLabel>גיבוי ושחזור</FieldLabel>
+      <SettingsFold title="גיבוי ושחזור" hint="JSON מלא של הפנקס">
         <View style={styles.warnCard}>
           <Text style={styles.warnCardText}>
             הנתונים נשמרים רק בדפדפן הזה. אם תמחקו נתוני גלישה, תחליפו טלפון, או לא תיכנסו הרבה
@@ -700,10 +711,9 @@ export default function SettingsScreen() {
             }
           }}
         />
-      </Glass>
+      </SettingsFold>
 
-      <Glass light strong style={styles.panel}>
-        <FieldLabel>ייצוא לרו״ח</FieldLabel>
+      <SettingsFold title="ייצוא לרו״ח" hint="CSV של הפנקס">
         <Text style={styles.recurIntro}>
           הורדת CSV של הפנקס או הארכיון — קובץ מקומי במכשיר, בלי שליחה לשרת.
         </Text>
@@ -718,10 +728,12 @@ export default function SettingsScreen() {
             }
           }}
         />
-      </Glass>
+      </SettingsFold>
 
-      <Glass light strong style={styles.panel}>
-        <FieldLabel>הוראות קבע</FieldLabel>
+      <SettingsFold
+        title="הוראות קבע"
+        hint={recurring.length ? `${recurring.length} הוראות` : 'אין הוראות עדיין'}
+      >
         <Text style={styles.recurIntro}>
           הפקדה או תרומה אוטומטית לפי יום בחודש — למשל כל עשירי.
         </Text>
@@ -771,7 +783,7 @@ export default function SettingsScreen() {
           ))
         )}
         <PrimaryButton label="הוסף הוראת קבע ✦" onPress={() => openAdd('income')} />
-      </Glass>
+      </SettingsFold>
 
       <View style={styles.actions}>
         <PrimaryButton
@@ -784,8 +796,7 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <Glass light strong style={styles.panel}>
-        <FieldLabel>שיתוף האפליקציה</FieldLabel>
+      <SettingsFold title="שיתוף האפליקציה" hint="קישור לחברים">
         <Text style={styles.recurIntro}>
           שלחו לחברים קישור ישיר — בלי הרשמה, והנתונים נשארים אצל כל אחד במכשיר שלו.
         </Text>
@@ -803,7 +814,7 @@ export default function SettingsScreen() {
             }
           }}
         />
-      </Glass>
+      </SettingsFold>
 
       <Pressable
         style={styles.privacyLinkWrap}

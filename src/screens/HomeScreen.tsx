@@ -337,7 +337,6 @@ export default function HomeScreen() {
         style={styles.periodWrap}
         onLayout={(e) => setPeriodViewportW(e.nativeEvent.layout.width)}
       >
-        <View style={styles.periodFadeStart} pointerEvents="none" />
         <ScrollView
           ref={periodScrollRef}
           horizontal
@@ -368,7 +367,6 @@ export default function HomeScreen() {
             </Pressable>
           ))}
         </ScrollView>
-        <View style={styles.periodFadeEnd} pointerEvents="none" />
       </View>
 
       <Glass
@@ -878,35 +876,7 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: spacing.md,
     position: 'relative',
-  },
-  periodFadeStart: {
-    position: 'absolute',
-    start: 0,
-    top: 0,
-    bottom: 0,
-    width: 18,
-    zIndex: 2,
-    backgroundColor: 'transparent',
-    ...Platform.select({
-      web: {
-        backgroundImage: `linear-gradient(to left, transparent, ${colors.periodFadeEdge})`,
-      } as object,
-      default: {},
-    }),
-  },
-  periodFadeEnd: {
-    position: 'absolute',
-    end: 0,
-    top: 0,
-    bottom: 0,
-    width: 18,
-    zIndex: 2,
-    ...Platform.select({
-      web: {
-        backgroundImage: `linear-gradient(to right, transparent, ${colors.periodFadeEdge})`,
-      } as object,
-      default: {},
-    }),
+    overflow: 'visible',
   },
   tuneCard: {
     padding: spacing.md,
@@ -946,7 +916,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     marginBottom: spacing.sm,
   },
-  periodRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
+  periodRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 2 },
   periodChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,

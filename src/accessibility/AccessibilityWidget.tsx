@@ -116,8 +116,11 @@ export function AccessibilityWidget() {
       }
       if (e.altKey && (e.key === 'h' || e.key === 'H' || e.key === 'י')) {
         e.preventDefault();
-        if (settings.widgetHidden) a11y.showWidget();
-        else a11y.hideWidget();
+        if (settings.widgetHidden) {
+          a11y.showWidget();
+          setPanelArmed(true);
+          a11y.openPanel();
+        } else a11y.hideWidget();
       }
     };
     window.addEventListener('keydown', onKey);
@@ -135,7 +138,21 @@ export function AccessibilityWidget() {
       <ScreenReaderHintsOverlay />
       <PageStructureModal />
 
-      {settings.widgetHidden ? null : (
+      {settings.widgetHidden ? (
+        <Pressable
+          onPress={() => {
+            a11y.showWidget();
+            setPanelArmed(true);
+            a11y.openPanel();
+          }}
+          style={[styles.restoreBar, { bottom: fabBottom }]}
+          accessibilityLabel="הצג כפתור נגישות"
+          accessibilityRole="button"
+        >
+          <A11yMark size={16} color={colors.gold} />
+          <Text style={styles.restoreTxt}>נגישות</Text>
+        </Pressable>
+      ) : (
         <Pressable
           onPress={openOrClose}
           style={[styles.fab, { bottom: fabBottom }, a11y.active && styles.fabActive]}
@@ -203,6 +220,29 @@ const styles = StyleSheet.create({
     borderColor: colors.bg,
   },
   fabBadgeTxt: { fontSize: 13, color: colors.primaryOn, fontFamily: fonts.bold },
+  restoreBar: {
+    position: 'absolute',
+    start: 14,
+    zIndex: 80,
+    backgroundColor: colors.surfaceSolid,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.glassGoldBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    ...Platform.select({
+      web: { boxShadow: '0 6px 16px rgba(0,0,0,0.35)' } as object,
+      default: { ...shadow.soft },
+    }),
+  },
+  restoreTxt: {
+    color: colors.ink,
+    fontFamily: fonts.bold,
+    fontSize: 13,
+  },
   panelFallback: {
     ...StyleSheet.absoluteFill,
     zIndex: 90,

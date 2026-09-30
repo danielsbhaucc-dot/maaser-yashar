@@ -124,9 +124,8 @@ const SETTINGS_TAB_INDEX = TABS.findIndex((t) => t.key === 'Settings');
 
 /**
  * Native swipe:
- * האפליקציה כבר ב־RTL (I18nManager). PagerView עם layoutDirection="rtl"
- * עושה היפוך כפול — החלקה הפוכה. לכן ה־pager ב־LTR מבודד,
- * והטאב־בר נשאר RTL (בית מימין).
+ * טאב־בר ב־RTL (בית מימין). ה־pager ב־LTR עם סדר עמודים הפוך
+ * (בית בקצה הימני) — כך החלקה ימינה עוברת להיסטוריה וכו'.
  */
 export function SwipeTabs() {
   const pagerRef = useRef<PagerView>(null);
@@ -141,6 +140,9 @@ export function SwipeTabs() {
   /** ריווח מעל פס הבית באייפון */
   const bottom = 12 + insets.bottom;
   const useShortLabels = windowWidth <= SHORT_LABEL_MAX;
+  const pageCount = TABS.length;
+  const toScroll = useCallback((tabIndex: number) => pageCount - 1 - tabIndex, [pageCount]);
+  const toTab = useCallback((scrollIndex: number) => pageCount - 1 - scrollIndex, [pageCount]);
 
   useEffect(() => {
     if (index === TAX_TAB_INDEX) setTaxVisited(true);
@@ -157,27 +159,30 @@ export function SwipeTabs() {
 
   const onPageSelected = useCallback(
     (e: PagerViewOnPageSelectedEvent) => {
-      setIndexSafe(e.nativeEvent.position);
+      setIndexSafe(toTab(e.nativeEvent.position));
     },
-    [setIndexSafe]
+    [setIndexSafe, toTab]
   );
 
   const onPageScroll = useCallback(
     (e: PagerViewOnPageScrollEvent) => {
       const { position, offset } = e.nativeEvent;
-      setIndexSafe(Math.round(position + offset));
+      setIndexSafe(toTab(Math.round(position + offset)));
     },
-    [setIndexSafe]
+    [setIndexSafe, toTab]
   );
 
-  const goTo = useCallback((i: number) => {
-    if (i < 0 || i >= TABS.length) return;
-    indexRef.current = i;
-    setIndex(i);
-    requestAnimationFrame(() => {
-      pagerRef.current?.setPage(i);
-    });
-  }, []);
+  const goTo = useCallback(
+    (i: number) => {
+      if (i < 0 || i >= TABS.length) return;
+      indexRef.current = i;
+      setIndex(i);
+      requestAnimationFrame(() => {
+        pagerRef.current?.setPage(toScroll(i));
+      });
+    },
+    [toScroll]
+  );
 
   const renderTab = (tab: (typeof TABS)[number], i: number) => {
     const focused = i === index;
@@ -224,6 +229,8 @@ export function SwipeTabs() {
     );
   };
 
+  const pagesRtl = [...TABS].reverse();
+
   return (
     <TabNavProvider goToIndex={goTo} tabKeys={TAB_KEYS}>
       <View style={styles.root}>
@@ -231,14 +238,14 @@ export function SwipeTabs() {
           <PagerView
             ref={pagerRef}
             style={styles.pager}
-            initialPage={0}
+            initialPage={toScroll(0)}
             onPageSelected={onPageSelected}
             onPageScroll={onPageScroll}
             layoutDirection="ltr"
             overdrag
             offscreenPageLimit={1}
           >
-            {TABS.map(({ key, Screen }) => (
+            {pagesRtl.map(({ key, Screen }) => (
               <View key={key} style={[styles.page, DIR]} collapsable={false}>
                 {key === 'Tax' ? (
                   <TaxScreenGate armed={taxVisited} />
@@ -270,26 +277,25 @@ export function SwipeTabs() {
             <View style={styles.tabTint} />
           </View>
           <View style={styles.tabsRow}>
-            {TABS.slice(0, 2).map((tab, i) => renderTab(tab, i))}
-            <View style={styles.fabNotch} pointerEvents="box-none">
-              <Pressable
-                onPress={() => openAdd('tzedaka')}
-                testID="fab-add"
-                style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
-                accessibilityRole="button"
-                accessibilityLabel="הוסף תנועה ✦"
+            {TABS.map((tab, i) => renderTab(tab, i))}
+          </View>
+          <View style={styles.fabCenter} pointerEvents="box-none">
+            <Pressable
+              onPress={() => openAdd('tzedaka')}
+              testID="fab-add"
+              style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
+              accessibilityRole="button"
+              accessibilityLabel="הוסף תנועה"
+            >
+              <LinearGradient
+                colors={[...colors.primaryGradient]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.fabGrad}
               >
-                <LinearGradient
-                  colors={[...colors.primaryGradient]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.fabGrad}
-                >
-                  <Text style={styles.fabIcon}>✦</Text>
-                </LinearGradient>
-              </Pressable>
-            </View>
-            {TABS.slice(2).map((tab, i) => renderTab(tab, i + 2))}
+                <Text style={styles.fabIcon}>+</Text>
+              </LinearGradient>
+            </Pressable>
           </View>
         </View>
       </View>
@@ -380,20 +386,23 @@ const styles = StyleSheet.create({
   tabLabelSpacer: {
     height: 16,
   },
-  fabNotch: {
-    width: 56,
+  /** FAB ממורכז לחלוטין — בוקע מעל מרכז הטאב־בר */
+  fabCenter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: -22,
     alignItems: 'center',
     justifyContent: 'center',
-    zIndex: 3,
-    marginTop: -18,
+    zIndex: 5,
   },
   fab: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     overflow: 'hidden',
     borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.4)',
+    borderColor: 'rgba(255,255,255,0.45)',
   },
   fabGrad: {
     flex: 1,
@@ -402,8 +411,9 @@ const styles = StyleSheet.create({
   },
   fabIcon: {
     fontFamily: fonts.displayExtra,
-    fontSize: 20,
+    fontSize: 32,
     color: '#fff',
-    lineHeight: 24,
+    lineHeight: 34,
+    marginTop: -2,
   },
 });
