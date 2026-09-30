@@ -173,9 +173,8 @@ function isKeyboardSmashToken(tkn: string): boolean {
   if (/^[asdfghjkl;']+$/i.test(tkn) && tkn.length >= 3) return true;
   if (/^[qwertyuiop]+$/i.test(tkn) && tkn.length >= 3) return true;
   if (/^[zxcvbnm]+$/i.test(tkn) && tkn.length >= 3) return true;
-  // שורה תחתונה/אמצעית במקלדת עברית
-  if (/^[שדגכעיחלךףם]+$/.test(tkn) && tkn.length >= 3) return true;
-  if (/^[זסבהנמצתץ]+$/.test(tkn) && tkn.length >= 3) return true;
+  // רצפי מקלדת עברית נפוצים (לא שמות אמיתיים כמו «מיכל»)
+  if (/^(שדגכ|יקכחל|דגכעי|כעיחל|בהנמצ|זסבהנ)/.test(tkn)) return true;
   return false;
 }
 
@@ -567,6 +566,15 @@ export function parseOnboardStep(step: number, text: string): OnboardResult {
       name: null,
       reply:
         'שאלה טובה. אפשר גם לבחור מהכפתורים למטה — זה הכי מדויק. או לדלג.',
+    };
+  }
+
+  if (isGibberishInput(raw)) {
+    return {
+      intent: 'gibberish',
+      name: null,
+      reply:
+        'זה לא נשמע כמו תשובה לשלב הזה 😅 בחרו מהכפתורים למטה — או כתבו תשובה ברורה / דילוג.',
     };
   }
 

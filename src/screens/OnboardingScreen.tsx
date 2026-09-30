@@ -36,6 +36,9 @@ import {
 import {
   MAX_ONBOARD_CLARIFY,
   ONBOARD_DEFAULTS,
+  confirmNameAsk,
+  isNoPhrase,
+  isYesPhrase,
   parseOnboardStep,
   refuseFieldForStep,
   skipNameContinue,
@@ -309,6 +312,8 @@ export default function OnboardingScreen() {
     };
   }>(null);
   const [clarifyCount, setClarifyCount] = useState(0);
+  /** שם חשוד שמחכים לאישור מפורש («כן») */
+  const [pendingName, setPendingName] = useState<string | null>(null);
   /** N-14: בועה אחת בפתיחה */
   const [msgs, setMsgs] = useState<Msg[]>(() => [
     { id: 'i1', from: 'bot', text: opening },
@@ -466,6 +471,29 @@ export default function OnboardingScreen() {
     transitioningRef.current = true;
 
     try {
+      // אישור / דחייה של שם חשוד
+      if (step === 0 && pendingName) {
+        if (isYesPhrase(text) || /זה (באמת )?השם/i.test(text)) {
+          const accepted = pendingName;
+          setPendingName(null);
+          setName(accepted);
+          setSkippedName(false);
+          setClarifyCount(0);
+          goToGenderStep(afterName(accepted));
+          return;
+        }
+        if (isNoPhrase(text)) {
+          setPendingName(null);
+          push(
+            'bot',
+            nudgeAfterClarify('בסדר — אז איך באמת קוראים לך? או במפורש בלי שם.')
+          );
+          return;
+        }
+        // ניסיון שם חדש / דילוג — ממשיכים לפרסור רגיל
+        setPendingName(null);
+      }
+
       const result = parseOnboardStep(step, text);
 
       if (step === 0) {
@@ -473,15 +501,26 @@ export default function OnboardingScreen() {
           const reply = result.reply || afterName(result.name);
           setName(result.name);
           setSkippedName(false);
+          setPendingName(null);
           setClarifyCount(0);
           goToGenderStep(reply);
           return;
         }
+        if (result.intent === 'confirm_name' && result.name) {
+          setPendingName(result.name);
+          push(
+            'bot',
+            nudgeAfterClarify(result.reply || confirmNameAsk(result.name))
+          );
+          return;
+        }
         if (result.intent === 'skip_name') {
+          setPendingName(null);
           skipImmediately('name', false);
           return;
         }
         if (result.intent === 'gibberish') {
+          setPendingName(null);
           push(
             'bot',
             nudgeAfterClarify(
@@ -532,6 +571,17 @@ export default function OnboardingScreen() {
       if (result.intent === 'skip_step') {
         const field = refuseFieldForStep(step);
         if (field) skipImmediately(field, false);
+        return;
+      }
+
+      if (result.intent === 'gibberish') {
+        push(
+          'bot',
+          nudgeAfterClarify(
+            result.reply ||
+              'זה לא נשמע כמו תשובה לשלב הזה 😅 בחרו מהכפתורים — או דילוג.'
+          )
+        );
         return;
       }
 

@@ -56,6 +56,7 @@ import { RichMessageText } from './RichMessageText';
 import { PRIVACY_LINK_LABEL, privacyPageUrl } from '../constants/privacy';
 import { useNoamChat } from '../navigation/NoamChatContext';
 import { useShellLayout } from '../hooks/useShellLayout';
+import { useSheetSwipeDismiss } from '../hooks/useSheetSwipeDismiss';
 
 type ViewMode = 'home' | 'chat' | 'history';
 
@@ -387,6 +388,22 @@ export default function NoamChat() {
       void clearAllThreads();
     }
   };
+
+  const swipeEnabled = !isDocked && !isMediumSide;
+  const {
+    translateY: sheetDragY,
+    backdrop: sheetBackdrop,
+    panHandlers: sheetPanHandlers,
+    dismiss: swipeDismiss,
+    animateIn: animateSheetIn,
+  } = useSheetSwipeDismiss({
+    onDismiss: closeMessenger,
+    enabled: swipeEnabled,
+  });
+
+  useEffect(() => {
+    if (open && swipeEnabled) animateSheetIn();
+  }, [open, swipeEnabled, animateSheetIn]);
 
   /** פוקוס לשדה בפתיחה; Escape סוגר (לא ב־dock רחב) */
   useEffect(() => {
@@ -749,17 +766,23 @@ export default function NoamChat() {
       />
 
       {!isDocked && !isMediumSide ? (
-        <Pressable
-          onPress={() => setSheetExpanded((v) => !v)}
+        <View
+          {...sheetPanHandlers}
           style={styles.expandHandle}
-          accessibilityRole="button"
-          accessibilityLabel={sheetExpanded ? 'הקטן את חלון הצ׳אט' : 'הרחב את חלון הצ׳אט'}
+          accessibilityLabel="גרור לסגירה או הרחבה"
         >
-          <View style={styles.expandPill} />
-          <Text style={styles.expandHint}>
-            {sheetExpanded ? 'הקטן' : 'הרחב'}
-          </Text>
-        </Pressable>
+          <Pressable
+            onPress={() => setSheetExpanded((v) => !v)}
+            accessibilityRole="button"
+            accessibilityLabel={sheetExpanded ? 'הקטן את חלון הצ׳אט' : 'הרחב את חלון הצ׳אט'}
+            style={styles.expandHandleInner}
+          >
+            <View style={styles.expandPill} />
+            <Text style={styles.expandHint}>
+              {sheetExpanded ? 'הקטן · או גררו לסגירה' : 'הרחב · או גררו לסגירה'}
+            </Text>
+          </Pressable>
+        </View>
       ) : null}
 
       <TotalsBar
@@ -839,9 +862,9 @@ export default function NoamChat() {
   return (
     <Modal
       visible={open}
-      animationType="slide"
+      animationType="none"
       transparent
-      onRequestClose={closeMessenger}
+      onRequestClose={swipeEnabled ? swipeDismiss : closeMessenger}
       statusBarTranslucent
     >
       <View
@@ -852,8 +875,35 @@ export default function NoamChat() {
         ]}
         {...rtlDomProps}
       >
-        <Pressable style={styles.backdrop} onPress={closeMessenger} />
-        {sheetBody}
+        {swipeEnabled ? (
+          <Animated.View
+            style={[
+              styles.backdrop,
+              {
+                opacity: sheetBackdrop.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0, 1],
+                }),
+              },
+            ]}
+          >
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={swipeDismiss}
+              accessibilityRole="button"
+              accessibilityLabel="סגור"
+            />
+          </Animated.View>
+        ) : (
+          <Pressable style={styles.backdrop} onPress={closeMessenger} />
+        )}
+        {swipeEnabled ? (
+          <Animated.View style={{ transform: [{ translateY: sheetDragY }], width: '100%' }}>
+            {sheetBody}
+          </Animated.View>
+        ) : (
+          sheetBody
+        )}
       </View>
     </Modal>
   );
@@ -1324,7 +1374,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 8,
     paddingBottom: 4,
+  },
+  expandHandleInner: {
+    alignItems: 'center',
     gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 16,
   },
   expandPill: {
     width: 40,

@@ -1,27 +1,21 @@
-import React, { useCallback, useEffect, useId, useRef } from 'react';
+import React, { useEffect, useId } from 'react';
 import {
   Modal,
   View,
   StyleSheet,
   Pressable,
   Animated,
-  PanResponder,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
   Text,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GlassCloseButton } from './Glass';
 import { colors, fonts, spacing, type } from '../theme';
 import { DIR } from '../rtl';
-import { NATIVE_DRIVER } from '../utils/motion';
 import { dialogDomProps, useDialogFocus } from '../hooks/useDialogFocus';
 import { useShellLayout } from '../hooks/useShellLayout';
-
-const SCREEN_H = Dimensions.get('window').height;
-const DISMISS_Y = 110;
-const DISMISS_V = 1.15;
+import { useSheetSwipeDismiss } from '../hooks/useSheetSwipeDismiss';
 
 type Props = {
   visible: boolean;
@@ -30,76 +24,26 @@ type Props = {
   children: React.ReactNode;
 };
 
-/** מגירת iOS: ידית, גרירה למטה, איקס זכוכית */
+/** מגירת iOS בסגנון תגובות טיקטוק: ידית, גרירה עם האצבע, זריקה לסגירה */
 export function BottomSheet({ visible, onClose, title, children }: Props) {
   const insets = useSafeAreaInsets();
   const shell = useShellLayout();
   const sheetMax = shell.mode === 'compact' ? 480 : shell.sheetMaxWidth;
   const centeredSheet = shell.isWeb && shell.mode !== 'compact';
-  const translateY = useRef(new Animated.Value(0)).current;
-  const backdrop = useRef(new Animated.Value(0)).current;
   const safeBottom = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12) + 12;
   const reactId = useId().replace(/:/g, '');
   const dialogId = `maaser-sheet-${reactId}`;
 
-  const dismiss = useCallback(() => {
-    Animated.parallel([
-      Animated.timing(translateY, {
-        toValue: SCREEN_H * 0.55,
-        duration: 220,
-        useNativeDriver: NATIVE_DRIVER,
-      }),
-      Animated.timing(backdrop, {
-        toValue: 0,
-        duration: 200,
-        useNativeDriver: NATIVE_DRIVER,
-      }),
-    ]).start(({ finished }) => {
-      if (finished) onClose();
-    });
-  }, [backdrop, onClose, translateY]);
+  const { translateY, backdrop, panHandlers, dismiss, animateIn } = useSheetSwipeDismiss({
+    onDismiss: onClose,
+    enabled: !centeredSheet,
+  });
 
   useDialogFocus({ open: visible, onClose: dismiss, dialogId });
 
   useEffect(() => {
-    if (visible) {
-      translateY.setValue(40);
-      backdrop.setValue(0);
-      Animated.parallel([
-        Animated.spring(translateY, {
-          toValue: 0,
-          useNativeDriver: NATIVE_DRIVER,
-          bounciness: 4,
-          speed: 14,
-        }),
-        Animated.timing(backdrop, {
-          toValue: 1,
-          duration: 220,
-          useNativeDriver: NATIVE_DRIVER,
-        }),
-      ]).start();
-    }
-  }, [visible, translateY, backdrop]);
-
-  const pan = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => g.dy > 6 && Math.abs(g.dy) > Math.abs(g.dx),
-      onPanResponderMove: (_, g) => {
-        if (g.dy > 0) translateY.setValue(g.dy);
-      },
-      onPanResponderRelease: (_, g) => {
-        if (g.dy > DISMISS_Y || g.vy > DISMISS_V) {
-          dismiss();
-        } else {
-          Animated.spring(translateY, {
-            toValue: 0,
-            useNativeDriver: NATIVE_DRIVER,
-            bounciness: 3,
-          }).start();
-        }
-      },
-    })
-  ).current;
+    if (visible) animateIn();
+  }, [visible, animateIn]);
 
   return (
     <Modal visible={visible} animationType="none" transparent onRequestClose={dismiss}>
@@ -144,13 +88,16 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
                 maxWidth: sheetMax,
               },
             ]}
-            {...(centeredSheet ? {} : pan.panHandlers)}
             accessibilityRole="summary"
             accessibilityViewIsModal
             accessibilityLabel={title || 'חלון'}
           >
             {!centeredSheet ? (
-              <View style={styles.handleHit} accessibilityLabel="גרור לסגירה">
+              <View
+                style={styles.handleHit}
+                accessibilityLabel="גרור לסגירה"
+                {...panHandlers}
+              >
                 <View style={styles.handle} />
               </View>
             ) : (
@@ -226,7 +173,8 @@ const styles = StyleSheet.create({
   handleHit: {
     alignItems: 'center',
     paddingTop: 12,
-    paddingBottom: 6,
+    paddingBottom: 10,
+    minHeight: 36,
   },
   handle: {
     width: 48,
