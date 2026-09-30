@@ -414,7 +414,7 @@ export default function AccessibilityPanel() {
   const { settings } = a11y;
   const toast = useToast();
   const insets = useSafeAreaInsets();
-  const [openId, setOpenId] = useState<string | null>('content');
+  const [openId, setOpenId] = useState<string | null>(null);
   const [colorTarget, setColorTarget] = useState<'bg' | 'text' | 'headings'>('bg');
   const [statementOpen, setStatementOpen] = useState(false);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);

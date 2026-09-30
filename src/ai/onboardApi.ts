@@ -5,6 +5,7 @@ import type { MaaserRate } from '../types';
 
 export type OnboardIntent =
   | 'name'
+  | 'confirm_name'
   | 'skip_name'
   | 'skip_step'
   | 'gender'
@@ -87,9 +88,23 @@ export function refuseButtonLabel(field: RefuseField): string {
 
 export function isYesPhrase(raw: string): boolean {
   const t = raw.trim();
-  return /^(כן|כן\.|כן!|y|yes|ok|okay|בטוח|בטוחה|בטוחים|מאשר|מאשרת|מאשרים|סבבה כן|יאללה)$/i.test(
-    t
-  );
+  if (
+    /^(כן|כן\.|כן!|y|yes|ok|okay|בטוח|בטוחה|בטוחים|מאשר|מאשרת|מאשרים|סבבה כן|יאללה)$/i.test(
+      t
+    )
+  ) {
+    return true;
+  }
+  // אישור מפורש לשם / תשובה
+  if (
+    /^כן[,.]?\s*(זה|שזה)?\s*(באמת\s+)?(השם|שמי|קוראים|התשובה)/i.test(t) ||
+    /^(זה )?(באמת )?השם (שלי|של[יו])$/i.test(t) ||
+    /^(מאשר|מאשרת)\s+(את\s+)?השם/i.test(t) ||
+    /yes[,.]?\s*(that('?s| is)?\s+)?(really\s+)?my name/i.test(t)
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function isNoPhrase(raw: string): boolean {
@@ -98,6 +113,9 @@ export function isNoPhrase(raw: string): boolean {
 }
 
 const NAME_MAX = 20;
+
+/** אותיות עבריות שמשמשות כתנועות / אם־קריאה */
+const HEB_MATRES = /[אהוויע]/;
 
 /** מילים שלא יכולות להיות שם פרטי */
 const NOT_A_NAME = new Set(
@@ -142,16 +160,71 @@ function cleanToken(token: string): string {
   return token.replace(/[^\u0590-\u05FFa-zA-Z\-']/g, '').trim();
 }
 
-function looksLikeNameToken(token: string): boolean {
-  const tkn = cleanToken(token);
-  if (tkn.length < 2 || tkn.length > NAME_MAX) return false;
-  if (NOT_A_NAME.has(tkn.toLowerCase())) return false;
-  if (!/^[\u0590-\u05FFa-zA-Z][\u0590-\u05FFa-zA-Z\-']*$/.test(tkn)) return false;
-  if (/(.)\1{3,}/.test(tkn)) return false;
-  if (/^[\u05D0-\u05EA]{5,}$/.test(tkn) && !/[אעיהווי]/.test(tkn)) {
-    return false;
+/** זיהוי גיבריש / הקלדת מקלדת בלי שיקול דעת של שם */
+function isKeyboardSmashToken(tkn: string): boolean {
+  const lower = tkn.toLowerCase();
+  if (
+    /^(asdf+|qwer+|zxcv+|hjkl+|qaz+|wsx+|שדגכ+|יקכחל+|חחח+|lol+|xxx+|test+|aaa+|bbb+|zzz+|abc+|אבגד+|יייי+|עעע+)/i.test(
+      lower
+    )
+  ) {
+    return true;
   }
-  return true;
+  if (/^[asdfghjkl;']+$/i.test(tkn) && tkn.length >= 3) return true;
+  if (/^[qwertyuiop]+$/i.test(tkn) && tkn.length >= 3) return true;
+  if (/^[zxcvbnm]+$/i.test(tkn) && tkn.length >= 3) return true;
+  // שורה תחתונה/אמצעית במקלדת עברית
+  if (/^[שדגכעיחלךףם]+$/.test(tkn) && tkn.length >= 3) return true;
+  if (/^[זסבהנמצתץ]+$/.test(tkn) && tkn.length >= 3) return true;
+  return false;
+}
+
+/**
+ * שיקול דעת לשם: reject = לא שם, low = חשוד (לבקש אישור), high = נראה סביר.
+ */
+export function nameTokenQuality(token: string): 'reject' | 'low' | 'high' {
+  const tkn = cleanToken(token);
+  if (tkn.length < 2 || tkn.length > NAME_MAX) return 'reject';
+  if (NOT_A_NAME.has(tkn.toLowerCase())) return 'reject';
+  if (!/^[\u0590-\u05FFa-zA-Z][\u0590-\u05FFa-zA-Z\-']*$/.test(tkn)) return 'reject';
+  if (/(.)\1{3,}/.test(tkn)) return 'reject';
+  if (isKeyboardSmashToken(tkn)) return 'reject';
+
+  const onlyHeb = /^[\u05D0-\u05EA\-']+$/.test(tkn);
+  const onlyLat = /^[a-zA-Z\-']+$/.test(tkn);
+
+  // עברית בלי אם־קריאה באורך ≥4 — כמעט תמיד גיבריש
+  if (onlyHeb && tkn.replace(/[\-']/g, '').length >= 4 && !HEB_MATRES.test(tkn)) {
+    return 'reject';
+  }
+  // לטינית בלי תנועות
+  if (onlyLat && tkn.replace(/[\-']/g, '').length >= 3 && !/[aeiouy]/i.test(tkn)) {
+    return 'reject';
+  }
+  // חזרת הברה
+  if (/(.{2,})\1{2,}/i.test(tkn)) return 'reject';
+
+  // עברית קצרה בלי תנועות — לבקש אישור
+  if (onlyHeb && tkn.replace(/[\-']/g, '').length === 3 && !HEB_MATRES.test(tkn)) {
+    return 'low';
+  }
+  // ערבוב כתב
+  if (/[\u0590-\u05FF]/.test(tkn) && /[a-zA-Z]/.test(tkn)) return 'low';
+  // ארוך מדי לשם פרטי בודד בלי מקף
+  if (tkn.length >= 12 && !/[\-']/.test(tkn)) return 'low';
+
+  return 'high';
+}
+
+function looksLikeNameToken(token: string): boolean {
+  return nameTokenQuality(token) !== 'reject';
+}
+
+/** המשתמש מאשר במפורש באותה הודעה שזה השם (לא רק «כן») */
+export function hasStrongNameAffirmation(raw: string): boolean {
+  return /זה (באמת )?(השם|שמי)|קוראים לי כך|מאשר\s+(את\s+)?השם|really my name|that is (really )?my name/i.test(
+    raw
+  );
 }
 
 /** חילוץ שם ממשפטים כמו שמי דני, קוראים לי יוסף, אני נועה */
@@ -185,6 +258,10 @@ function extractNameFromText(raw: string): string | null {
   }
 
   return null;
+}
+
+export function confirmNameAsk(name: string): string {
+  return `«${name}» — זה באמת השם שלך? כתבו «כן» לאישור, או שם אחר / בלי שם.`;
 }
 
 function isSkipName(raw: string): boolean {
@@ -368,7 +445,17 @@ export function localOnboardParse(text: string): OnboardResult {
 
   const extracted = extractNameFromText(raw);
   if (extracted && !isRealQuestion(raw)) {
-    return { intent: 'name', name: extracted, reply: '' };
+    const quality = nameTokenQuality(extracted);
+    if (quality === 'high' || hasStrongNameAffirmation(raw)) {
+      return { intent: 'name', name: extracted, reply: '' };
+    }
+    if (quality === 'low') {
+      return {
+        intent: 'confirm_name',
+        name: extracted,
+        reply: confirmNameAsk(extracted),
+      };
+    }
   }
 
   if (isRealQuestion(raw)) {
@@ -377,7 +464,9 @@ export function localOnboardParse(text: string): OnboardResult {
 
   const letters = raw.replace(/[\s\-']/g, '');
   const onlyJunk = !/[a-zA-Z\u0590-\u05FF]{2,}/.test(raw);
-  const keyboardSmash = /^(asdf|qwer|zxcv|שדגכ|חחח+|lol+|xxx+|test+|aaa+)$/i.test(lower);
+  const keyboardSmash =
+    /^(asdf|qwer|zxcv|שדגכ|חחח+|lol+|xxx+|test+|aaa+)$/i.test(lower) ||
+    isKeyboardSmashToken(cleanToken(raw.split(/\s+/)[0] || ''));
 
   if (onlyJunk || keyboardSmash || letters.length < 2) {
     return {
@@ -388,7 +477,17 @@ export function localOnboardParse(text: string): OnboardResult {
   }
 
   if (extracted) {
-    return { intent: 'name', name: extracted, reply: '' };
+    const quality = nameTokenQuality(extracted);
+    if (quality === 'high' || hasStrongNameAffirmation(raw)) {
+      return { intent: 'name', name: extracted, reply: '' };
+    }
+    if (quality === 'low') {
+      return {
+        intent: 'confirm_name',
+        name: extracted,
+        reply: confirmNameAsk(extracted),
+      };
+    }
   }
 
   return {
@@ -396,6 +495,20 @@ export function localOnboardParse(text: string): OnboardResult {
     name: null,
     reply: `שם פרטי מספיק — קצר ופשוט. או בלי שם אם מעדיפים.`,
   };
+}
+
+/** האם הקלט נראה כמו גיבריש / לא תשובה לשלב */
+export function isGibberishInput(raw: string): boolean {
+  const t = raw.trim();
+  if (!t) return true;
+  if (isYesPhrase(t) || isNoPhrase(t) || isSkipPhrase(t)) return false;
+  const letters = t.replace(/[\s\-']/g, '');
+  if (letters.length < 2) return true;
+  if (!/[a-zA-Z\u0590-\u05FF]{2,}/.test(t)) return true;
+  const first = cleanToken(t.split(/\s+/)[0] || '');
+  if (first && isKeyboardSmashToken(first)) return true;
+  if (/^(asdf|qwer|zxcv|שדגכ|חחח+|lol+|xxx+|test+|aaa+)$/i.test(t)) return true;
+  return false;
 }
 
 /**

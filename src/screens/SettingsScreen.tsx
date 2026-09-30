@@ -169,7 +169,6 @@ export default function SettingsScreen() {
       <SettingsFold
         title="נגישות"
         hint="טקסט, תנועה ותפריט נגישות"
-        defaultOpen
       >
         <Text style={styles.a11yHint}>
           ניגודיות, טקסט מוגדל, סמן ועוד — נשמר במכשיר. גודל הטקסט חל מיד על כל המסך.
@@ -219,7 +218,7 @@ export default function SettingsScreen() {
       <PinLockSettings />
 
       <SmartInsights items={insights} />
-      <SettingsFold title="פרופיל אישי" hint="שם, מגדר ומצב משפחתי" defaultOpen>
+      <SettingsFold title="פרופיל אישי" hint="שם, מגדר ומצב משפחתי">
         <FieldLabel>שם</FieldLabel>
         <TextInput
           style={styles.input}
@@ -320,7 +319,7 @@ export default function SettingsScreen() {
         ) : null}
       </SettingsFold>
 
-      <SettingsFold title="שיעור נתינה" hint={`${ratePct}% · ${rateCaption(profile.rate)}`} gold defaultOpen>
+      <SettingsFold title="שיעור נתינה" hint={`${ratePct}% · ${rateCaption(profile.rate)}`} gold>
         <Text style={styles.rateHero}>{ratePct}%</Text>
         <Text style={styles.rateCaption}>{rateCaption(profile.rate)}</Text>
         <SegmentedRow>

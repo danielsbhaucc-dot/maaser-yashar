@@ -21,31 +21,41 @@ type Props = {
   title: string;
   hint?: string;
   children: React.ReactNode;
-  /** פתוח בהתחלה */
+  /** פתוח בהתחלה (לא־מבוקר) */
   defaultOpen?: boolean;
+  /** מצב מבוקר — כשמועבר, פתיחה/סגירה חיצונית */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   gold?: boolean;
   testID?: string;
 };
 
 /**
  * סקשן מתקפל להגדרות — מפחית עומס; רק כותרת גלויה עד לפתיחה.
+ * כברירת מחדל סגור.
  */
 export function SettingsFold({
   title,
   hint,
   children,
   defaultOpen = false,
+  open: openProp,
+  onOpenChange,
   gold,
   testID,
 }: Props) {
-  const [open, setOpen] = useState(defaultOpen);
+  const controlled = openProp !== undefined;
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const open = controlled ? !!openProp : internalOpen;
   const motionOk = useMotionEnabled();
 
   const toggle = () => {
     if (motionOk) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     }
-    setOpen((v) => !v);
+    const next = !open;
+    if (!controlled) setInternalOpen(next);
+    onOpenChange?.(next);
   };
 
   return (

@@ -34,24 +34,37 @@ export type AccordionItemData = {
 
 type Props = {
   items: AccordionItemData[];
-  /** איזה פריט פתוח בהתחלה (אופציונלי) */
+  /** איזה פריט פתוח בהתחלה (לא־מבוקר). ברירת מחדל: הכול סגור */
   defaultOpenId?: string | null;
+  /** מצב מבוקר */
+  openId?: string | null;
+  onOpenChange?: (id: string | null) => void;
   style?: StyleProp<ViewStyle>;
 };
 
 /**
  * אקורדיון בלעדי בסגנון NuraWell — מותאם לפלטת מעשר ישר.
- * פתיחת שאלה אחת סוגרת את הקודמת.
+ * פתיחת שאלה אחת סוגרת את הקודמת. כברירת מחדל הכול סגור.
  */
-export function Accordion({ items, defaultOpenId = null, style }: Props) {
-  const [openId, setOpenId] = useState<string | null>(defaultOpenId);
+export function Accordion({
+  items,
+  defaultOpenId = null,
+  openId: openIdProp,
+  onOpenChange,
+  style,
+}: Props) {
+  const controlled = openIdProp !== undefined;
+  const [internalOpenId, setInternalOpenId] = useState<string | null>(defaultOpenId);
+  const openId = controlled ? openIdProp : internalOpenId;
   const motionOk = useMotionEnabled();
 
   const toggle = (id: string) => {
     if (motionOk) {
       LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     }
-    setOpenId((cur) => (cur === id ? null : id));
+    const next = openId === id ? null : id;
+    if (!controlled) setInternalOpenId(next);
+    onOpenChange?.(next);
   };
 
   return (

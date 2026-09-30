@@ -12,8 +12,10 @@ import {
   formatMoney,
 } from '../components/ui';
 import { PrivacyNotice } from '../components/PrivacyNotice';
-import { Glass, GlassNumber, GlassPill } from '../components/Glass';
+import { Glass, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
+import { SettingsFold } from '../components/SettingsFold';
+import { TableOfContents } from '../components/TableOfContents';
 import { SmartInsights } from '../components/SmartInsights';
 import { colors, fonts, spacing, type } from '../theme';
 import {
@@ -41,7 +43,6 @@ import { subscribeTaxFill } from '../utils/taxFillBridge';
 import { shareApp } from '../utils/shareApp';
 
 const YEARS = [2026, 2025, 2024, 2023, 2022];
-const TIP_COLORS = [colors.primary, colors.gold, colors.accent, colors.success];
 
 const TAX_EXPLAIN_SHORT = `יחיד: זיכוי 35% מתרומה למוסד עם אישור 46 (בכפוף למינימום ותקרות). חברה: 30%. הזיכוי מקזז מס ששולם — בלי מס ששולם אין החזר.`;
 
@@ -50,6 +51,12 @@ const TAX_EXPLAIN_DETAIL = `שמרו קבלות תקינות. מ־2026 חשוב 
 
 const UNSURE_INCOME_NOTE =
   'אומדן בלי בדיקת תקרת 30% מההכנסה החייבת. אם התרומות גבוהות — כדאי לבדוק את המספר בתלוש או בדוח השנתי.';
+
+const TAX_TOC = [
+  { id: 'explain', label: 'סעיף 46 בקצרה' },
+  { id: 'calc', label: 'מחשבון — פרטים וסכומים' },
+  { id: 'tips', label: 'טיפים חשובים' },
+] as const;
 
 export default function TaxScreen() {
   const { profile, ledger } = useApp();
@@ -62,6 +69,9 @@ export default function TaxScreen() {
   const [isCompany, setIsCompany] = useState(false);
   const [taxYear, setYear] = useState(2026);
   const [knowsIncome, setKnowsIncome] = useState(true);
+  const [sectionId, setSectionId] = useState<string | null>(null);
+  const [explainOpenId, setExplainOpenId] = useState<string | null>(null);
+  const [tipOpenId, setTipOpenId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -190,167 +200,212 @@ export default function TaxScreen() {
       />
       <View style={{ height: spacing.md }} />
       <SmartInsights items={insights} onAction={onInsightAction} />
-      <Accordion
-        items={[
-          {
-            id: 'section46',
-            question: 'סעיף 46 בקצרה',
-            answer: `${TAX_EXPLAIN_SHORT}\n\n${TAX_EXPLAIN_DETAIL}`,
-          },
-        ]}
-        style={{ marginBottom: spacing.lg }}
+
+      <TableOfContents
+        items={[...TAX_TOC]}
+        activeId={sectionId}
+        onSelect={(id) => {
+          setSectionId((cur) => {
+            const next = cur === id ? null : id;
+            if (next !== 'explain') setExplainOpenId(null);
+            if (next !== 'tips') setTipOpenId(null);
+            return next;
+          });
+        }}
       />
 
-      <View style={styles.block}>
-        {!canShowEstimate ? (
-          <Glass light gold style={styles.missingGlass}>
-            <Text style={styles.missingTitle}>חסר נתון</Text>
-            <Text style={styles.missingText}>
-              {!hasDonations
-                ? 'אין עדיין תרומות. אפשר להזין סכום ידנית'
-                : 'הזינו הכנסה חייבת, או בחרו לא בטוח אם אין לכם את המספר.'}
-            </Text>
-          </Glass>
-        ) : result.eligible ? (
-          <>
-            {taxPaid <= 0 ? (
-              <Glass light gold style={styles.missingGlass}>
-                <Text style={styles.missingTitle}>חסר נתון</Text>
-                <Text style={styles.missingText}>
-                  הזינו מס ששולם — בלי זה האומדן עלול להיות גבוה מדי (הזיכוי לא עובר את המס ששילמתם).
-                </Text>
-              </Glass>
-            ) : null}
-            {!knowsIncome ? (
-              <Glass light style={styles.noteGlass}>
-                <Text style={styles.noteText}>{UNSURE_INCOME_NOTE}</Text>
-              </Glass>
-            ) : null}
-            <StatHero
-              label="זיכוי משוער"
-              value={formatMoney(effectiveCredit)}
-              hint={`עלות אחרי זיכוי: ${formatMoney(Math.max(0, donationsTotal - effectiveCredit))}${
-                taxPaid <= 0 ? ' · אומדן בלי תקרת מס ששולם' : ''
-              }`}
-            />
-            <Text
-              style={[
-                styles.freshnessText,
-                freshness.kind === 'unverified' && styles.freshnessWarn,
-              ]}
-              accessibilityLabel={freshness.label}
-            >
-              {freshness.label}
-            </Text>
-          </>
-        ) : (
-          <Glass light gold style={styles.infoGlass}>
-            <Text style={styles.infoText}>
-              נדרשות לפחות{' '}
-              <Text style={styles.infoEm}>{result.minDonation} ₪</Text> תרומות למוסד עם אישור 46.
-            </Text>
-            {!knowsIncome ? (
-              <Text style={[styles.noteText, { marginTop: spacing.md }]}>{UNSURE_INCOME_NOTE}</Text>
-            ) : null}
-            <Text
-              style={[
-                styles.freshnessText,
-                styles.freshnessInCard,
-                freshness.kind === 'unverified' && styles.freshnessWarn,
-              ]}
-              accessibilityLabel={freshness.label}
-            >
-              {freshness.label}
-            </Text>
-          </Glass>
-        )}
-      </View>
-
-      <SectionHeader title="פרטים" light />
-      <Glass light strong style={styles.card}>
-        <SegmentedRow>
-          <Chip fill label="יחיד" selected={!isCompany} onPress={() => setIsCompany(false)} />
-          <Chip fill label="חברה" selected={isCompany} onPress={() => setIsCompany(true)} />
-        </SegmentedRow>
-        <Text style={styles.label}>שנת מס</Text>
-        <View style={styles.yearRow}>
-          {YEARS.map((y) => (
-            <Chip key={y} label={String(y)} selected={taxYear === y} onPress={() => setYear(y)} />
-          ))}
-        </View>
-      </Glass>
-
-      <SectionHeader title="סכומים" light />
-      <Glass light strong gold style={styles.card}>
-        <MoneyField label="סה״כ תרומות" value={donationsTotal} onChange={setDonations} />
-        <View style={{ marginTop: spacing.lg }}>
-          <SegmentedRow>
-          <Chip
-            fill
-            label="יודע הכנסה חייבת"
-            selected={knowsIncome}
-            onPress={() => setKnowsIncome(true)}
-          />
-          <Chip
-            fill
-            label="לא בטוח"
-            selected={!knowsIncome}
-            onPress={() => setKnowsIncome(false)}
-          />
-          </SegmentedRow>
-        </View>
-        {knowsIncome ? (
-          <View style={{ marginTop: spacing.md }}>
-            <MoneyField label="הכנסה חייבת" value={taxableIncome} onChange={setTaxable} />
-            {missingIncome ? (
-              <Text style={styles.fieldWarn}>חסר נתון — בלי הכנסה חייבת האומדן מוסתר</Text>
-            ) : null}
-          </View>
-        ) : (
-          <Text style={styles.unsureHint}>{UNSURE_INCOME_NOTE}</Text>
-        )}
-        <View style={{ marginTop: spacing.md }}>
-          <MoneyField
-            label="מס ששולם (מומלץ)"
-            value={taxPaid}
-            onChange={setTaxPaid}
-            hint="הזיכוי לא עובר את המס ששילמתם — בלי מס ששולם האומדן עלול להיות גבוה מדי"
-          />
-        </View>
-      </Glass>
-
-      <SectionHeader title="טיפים חשובים" light />
-      {result.tips.slice(0, 3).map((tip, i) => {
-        const color = TIP_COLORS[i % TIP_COLORS.length];
-        return (
-          <View key={i} style={styles.tipRow}>
-            <GlassNumber n={i + 1} color={color} />
-            <Glass light style={[styles.tipCard, { borderColor: `${color}44` }]}>
-              <Text style={styles.tipText}>{tip}</Text>
-            </Glass>
-          </View>
-        );
-      })}
-
-      <Glass light style={styles.metaCard}>
-        <Text style={styles.meta}>
-          מינימום <Text style={styles.metaEm}>{formatMoney(result.minDonation)}</Text>
-          {' · '}
-          תקרה <Text style={styles.metaEm}>{formatMoney(result.absoluteCap)}</Text>
-          {' · '}
-          רטרו עד <Text style={styles.metaEm}>{SECTION_46.retroactiveYears} שנים</Text>
-        </Text>
-        <Text
-          style={[
-            styles.freshnessText,
-            styles.freshnessInCard,
-            freshness.kind === 'unverified' && styles.freshnessWarn,
+      <SettingsFold
+        title="סעיף 46 בקצרה"
+        hint="הסבר קצר · סגור כברירת מחדל"
+        open={sectionId === 'explain'}
+        onOpenChange={(open) => {
+          setSectionId(open ? 'explain' : null);
+          if (!open) setExplainOpenId(null);
+        }}
+      >
+        <Accordion
+          items={[
+            {
+              id: 'section46',
+              question: 'איך עובד הזיכוי?',
+              answer: `${TAX_EXPLAIN_SHORT}\n\n${TAX_EXPLAIN_DETAIL}`,
+            },
           ]}
-          accessibilityLabel={freshness.label}
-        >
-          {freshness.label}
-        </Text>
-      </Glass>
+          openId={explainOpenId}
+          onOpenChange={setExplainOpenId}
+          style={{ marginBottom: spacing.sm }}
+        />
+      </SettingsFold>
+
+      <SettingsFold
+        title="מחשבון — פרטים וסכומים"
+        hint="יחיד/חברה · שנה · תרומות"
+        open={sectionId === 'calc'}
+        onOpenChange={(open) => setSectionId(open ? 'calc' : null)}
+        gold
+      >
+        <View style={styles.block}>
+          {!canShowEstimate ? (
+            <Glass light gold style={styles.missingGlass}>
+              <Text style={styles.missingTitle}>חסר נתון</Text>
+              <Text style={styles.missingText}>
+                {!hasDonations
+                  ? 'אין עדיין תרומות. אפשר להזין סכום ידנית'
+                  : 'הזינו הכנסה חייבת, או בחרו לא בטוח אם אין לכם את המספר.'}
+              </Text>
+            </Glass>
+          ) : result.eligible ? (
+            <>
+              {taxPaid <= 0 ? (
+                <Glass light gold style={styles.missingGlass}>
+                  <Text style={styles.missingTitle}>חסר נתון</Text>
+                  <Text style={styles.missingText}>
+                    הזינו מס ששולם — בלי זה האומדן עלול להיות גבוה מדי (הזיכוי לא עובר את המס
+                    ששילמתם).
+                  </Text>
+                </Glass>
+              ) : null}
+              {!knowsIncome ? (
+                <Glass light style={styles.noteGlass}>
+                  <Text style={styles.noteText}>{UNSURE_INCOME_NOTE}</Text>
+                </Glass>
+              ) : null}
+              <StatHero
+                label="זיכוי משוער"
+                value={formatMoney(effectiveCredit)}
+                hint={`עלות אחרי זיכוי: ${formatMoney(Math.max(0, donationsTotal - effectiveCredit))}${
+                  taxPaid <= 0 ? ' · אומדן בלי תקרת מס ששולם' : ''
+                }`}
+              />
+              <Text
+                style={[
+                  styles.freshnessText,
+                  freshness.kind === 'unverified' && styles.freshnessWarn,
+                ]}
+                accessibilityLabel={freshness.label}
+              >
+                {freshness.label}
+              </Text>
+            </>
+          ) : (
+            <Glass light gold style={styles.infoGlass}>
+              <Text style={styles.infoText}>
+                נדרשות לפחות{' '}
+                <Text style={styles.infoEm}>{result.minDonation} ₪</Text> תרומות למוסד עם אישור
+                46.
+              </Text>
+              {!knowsIncome ? (
+                <Text style={[styles.noteText, { marginTop: spacing.md }]}>
+                  {UNSURE_INCOME_NOTE}
+                </Text>
+              ) : null}
+              <Text
+                style={[
+                  styles.freshnessText,
+                  styles.freshnessInCard,
+                  freshness.kind === 'unverified' && styles.freshnessWarn,
+                ]}
+                accessibilityLabel={freshness.label}
+              >
+                {freshness.label}
+              </Text>
+            </Glass>
+          )}
+        </View>
+
+        <SectionHeader title="פרטים" light />
+        <Glass light strong style={styles.card}>
+          <SegmentedRow>
+            <Chip fill label="יחיד" selected={!isCompany} onPress={() => setIsCompany(false)} />
+            <Chip fill label="חברה" selected={isCompany} onPress={() => setIsCompany(true)} />
+          </SegmentedRow>
+          <Text style={styles.label}>שנת מס</Text>
+          <View style={styles.yearRow}>
+            {YEARS.map((y) => (
+              <Chip key={y} label={String(y)} selected={taxYear === y} onPress={() => setYear(y)} />
+            ))}
+          </View>
+        </Glass>
+
+        <SectionHeader title="סכומים" light />
+        <Glass light strong gold style={styles.card}>
+          <MoneyField label="סה״כ תרומות" value={donationsTotal} onChange={setDonations} />
+          <View style={{ marginTop: spacing.lg }}>
+            <SegmentedRow>
+              <Chip
+                fill
+                label="יודע הכנסה חייבת"
+                selected={knowsIncome}
+                onPress={() => setKnowsIncome(true)}
+              />
+              <Chip
+                fill
+                label="לא בטוח"
+                selected={!knowsIncome}
+                onPress={() => setKnowsIncome(false)}
+              />
+            </SegmentedRow>
+          </View>
+          {knowsIncome ? (
+            <View style={{ marginTop: spacing.md }}>
+              <MoneyField label="הכנסה חייבת" value={taxableIncome} onChange={setTaxable} />
+              {missingIncome ? (
+                <Text style={styles.fieldWarn}>חסר נתון — בלי הכנסה חייבת האומדן מוסתר</Text>
+              ) : null}
+            </View>
+          ) : (
+            <Text style={styles.unsureHint}>{UNSURE_INCOME_NOTE}</Text>
+          )}
+          <View style={{ marginTop: spacing.md }}>
+            <MoneyField
+              label="מס ששולם (מומלץ)"
+              value={taxPaid}
+              onChange={setTaxPaid}
+              hint="הזיכוי לא עובר את המס ששילמתם — בלי מס ששולם האומדן עלול להיות גבוה מדי"
+            />
+          </View>
+        </Glass>
+      </SettingsFold>
+
+      <SettingsFold
+        title="טיפים חשובים"
+        hint="מינימום · תקרה · רטרו"
+        open={sectionId === 'tips'}
+        onOpenChange={(open) => {
+          setSectionId(open ? 'tips' : null);
+          if (!open) setTipOpenId(null);
+        }}
+      >
+        <Accordion
+          items={result.tips.slice(0, 3).map((tip, i) => ({
+            id: `tip-${i}`,
+            question: `טיפ ${i + 1}`,
+            answer: tip,
+          }))}
+          openId={tipOpenId}
+          onOpenChange={setTipOpenId}
+          style={{ marginBottom: spacing.md }}
+        />
+        <Glass light style={styles.metaCard}>
+          <Text style={styles.meta}>
+            מינימום <Text style={styles.metaEm}>{formatMoney(result.minDonation)}</Text>
+            {' · '}
+            תקרה <Text style={styles.metaEm}>{formatMoney(result.absoluteCap)}</Text>
+            {' · '}
+            רטרו עד <Text style={styles.metaEm}>{SECTION_46.retroactiveYears} שנים</Text>
+          </Text>
+          <Text
+            style={[
+              styles.freshnessText,
+              styles.freshnessInCard,
+              freshness.kind === 'unverified' && styles.freshnessWarn,
+            ]}
+            accessibilityLabel={freshness.label}
+          >
+            {freshness.label}
+          </Text>
+        </Glass>
+      </SettingsFold>
 
       <Banner
         light
@@ -435,20 +490,6 @@ const styles = StyleSheet.create({
     marginTop: 14,
     textAlign: 'center',
     width: '100%',
-  },
-  tipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: spacing.lg,
-  },
-  tipCard: { flex: 1, padding: spacing.lg, borderRadius: 22 },
-  tipText: {
-    ...type.bodySm,
-    fontFamily: fonts.medium,
-    color: colors.sheetInk,
-    lineHeight: 22,
-    textAlign: 'center',
   },
   metaCard: {
     padding: spacing.lg,
