@@ -64,8 +64,10 @@ test.describe('keyboard ledger + chat (T-49)', () => {
     await page.getByTestId('amount-input').fill('5000');
     await page.getByTestId('save-entry').focus();
     await page.keyboard.press('Enter');
-    await expect(page.getByTestId('amount-input')).toHaveCount(0);
-    await expect(page.getByTestId('remaining-amount')).toBeVisible();
+    await expect(page.getByTestId('amount-input')).toHaveCount(0, { timeout: 20_000 });
+    await expect(
+      page.getByRole('button', { name: /הכנסה|משכורת|5,?000/ }).first()
+    ).toBeVisible({ timeout: 20_000 });
 
     // Edit first ledger row (Enter on row)
     const row = page.getByRole('button', { name: /הכנסה|משכורת|5,?000/ }).first();

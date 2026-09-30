@@ -141,6 +141,8 @@ export function SwipeTabs() {
   const skipPushRef = useRef(true);
   /** עד יישור גלילה ראשוני — לא לסנכרן index מ־onScroll (מונע איפוס ל־Home ב־deep link) */
   const scrollReadyRef = useRef(false);
+  /** נשמר עד אחרי יישור הגלילה הראשון — onScroll מוקדם לא ידרוס deep link */
+  const bootIndexRef = useRef<number | null>(initialIndexFromLocation());
   const initial = initialIndexFromLocation();
   const [taxVisited, setTaxVisited] = useState(() => initial === TAX_TAB_INDEX);
   const [guideVisited, setGuideVisited] = useState(() => initial === GUIDE_TAB_INDEX);
@@ -176,17 +178,29 @@ export function SwipeTabs() {
       if (w <= 0) return;
       if (Math.abs(w - pageWidth) < 1) return;
       scrollReadyRef.current = false;
+      const boot = bootIndexRef.current;
+      if (boot != null) {
+        indexRef.current = boot;
+        setIndex(boot);
+      }
+      const targetIndex = boot ?? indexRef.current;
       setPageWidth(w);
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({
-          x: indexRef.current * w,
+          x: targetIndex * w,
           y: 0,
           animated: false,
         });
-        // אחרי פריים נוסף — מותר לסנכרן מ־scroll
-        requestAnimationFrame(() => {
+        // setTimeout אמין יותר מ־rAF כפול תחת עומס workers ב־e2e
+        setTimeout(() => {
+          scrollRef.current?.scrollTo({
+            x: targetIndex * w,
+            y: 0,
+            animated: false,
+          });
+          bootIndexRef.current = null;
           scrollReadyRef.current = true;
-        });
+        }, 64);
       });
     },
     [pageWidth]
