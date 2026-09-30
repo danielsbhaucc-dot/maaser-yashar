@@ -51,7 +51,7 @@ describe('N-15 free-text parser', () => {
     expect(isSkipPhrase('לא רוצה להגיד')).toBe(true);
     expect(isSkipPhrase("don't want to say")).toBe(true);
     expect(isSkipPhrase('prefer not to say')).toBe(true);
-    expect(isSkipPhrase('מיכאל')).toBe(false);
+    expect(isSkipPhrase('יוסף')).toBe(false);
   });
 
   it('parses divorced with kids and widow', () => {
@@ -77,8 +77,8 @@ describe('N-15 free-text parser', () => {
   });
 
   it('still extracts names on step 0', () => {
-    const r = localOnboardParse('מיכאל');
+    const r = localOnboardParse('יוסף');
     expect(r.intent).toBe('name');
-    expect(r.name).toBe('מיכאל');
+    expect(r.name).toBe('יוסף');
   });
 });

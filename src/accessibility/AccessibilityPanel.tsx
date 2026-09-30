@@ -30,6 +30,12 @@ import { DIR } from '../rtl';
 import { NATIVE_DRIVER } from '../utils/motion';
 import { fontScale, listActiveChips, smartTips } from './effects';
 import { dialogDomProps, useDialogFocus } from '../hooks/useDialogFocus';
+import {
+  CONTACT_EMAIL,
+  CONTACT_PENDING_TEXT,
+  contactMailto,
+} from '../config/contact';
+import { useToast } from '../context/ToastContext';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -364,7 +370,9 @@ function InfoRow({
   );
 }
 
-const STATEMENT = `הצהרת נגישות — מעשר ישר
+function buildAccessibilityStatement(): string {
+  const contactLine = CONTACT_EMAIL ?? CONTACT_PENDING_TEXT;
+  return `הצהרת נגישות — מעשר ישר
 
 אפליקציית מעשר ישר שואפת לעמוד בתקן ישראלי ת״י 5568 ו־WCAG 2.2 ברמת AA.
 עד להשלמת ואימות כל תיקוני הנגישות איננו מצהירים על עמידה מלאה בתקן.
@@ -377,7 +385,7 @@ const STATEMENT = `הצהרת נגישות — מעשר ישר
 • רכיבי צד שלישי (אם יופעלו) עשויים שלא לעמוד באותה רמת נגישות
 
 יצירת קשר לנגישות (דיווח בעיות / שאלות):
-accessibility@maaser-yashar.app
+${contactLine}
 נושא מומלץ: «דיווח נגישות — מעשר ישר»
 
 מה כלול בתוסף הנגישות:
@@ -399,10 +407,12 @@ accessibility@maaser-yashar.app
 • Alt + H — הסתרה / הצגה
 
 עודכן: ספטמבר 2026`;
+}
 
 export default function AccessibilityPanel() {
   const a11y = useA11y();
   const { settings } = a11y;
+  const toast = useToast();
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>('content');
   const [colorTarget, setColorTarget] = useState<'bg' | 'text' | 'headings'>('bg');
@@ -1089,17 +1099,21 @@ export default function AccessibilityPanel() {
               sub="מדריך מקשי קיצור מלא"
               onPress={() => setShortcutsOpen(true)}
             />
-            <InfoRow
-              glyph="⚠"
-              title="דיווח הפרה"
-              sub="דווחו על בעיית נגישות"
-              onPress={() => {
-                Linking.openURL(
-                  'mailto:accessibility@maaser-yashar.app?subject=' +
-                    encodeURIComponent('דיווח נגישות — מעשר ישר')
-                ).catch(() => {});
-              }}
-            />
+            {CONTACT_EMAIL ? (
+              <InfoRow
+                glyph="⚠"
+                title="דיווח הפרה"
+                sub="דווחו על בעיית נגישות"
+                onPress={() => {
+                  const href = contactMailto('דיווח נגישות — מעשר ישר');
+                  if (!href) {
+                    toast.info(CONTACT_PENDING_TEXT);
+                    return;
+                  }
+                  Linking.openURL(href).catch(() => {});
+                }}
+              />
+            ) : null}
             <InfoRow
               glyph="☺"
               title="מורשה נגישות"
@@ -1149,7 +1163,7 @@ export default function AccessibilityPanel() {
       <DocModal
         visible={statementOpen}
         title="הצהרת נגישות"
-        body={STATEMENT}
+        body={buildAccessibilityStatement()}
         onClose={() => setStatementOpen(false)}
         bottomInset={insets.bottom}
       />

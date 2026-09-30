@@ -55,7 +55,7 @@ describe('M19 yes/no + skip phrases', () => {
     expect(isYesPhrase('yes')).toBe(true);
     expect(isNoPhrase('לא')).toBe(true);
     expect(isNoPhrase('ביטול')).toBe(true);
-    expect(isYesPhrase('מיכאל')).toBe(false);
+    expect(isYesPhrase('יוסף')).toBe(false);
   });
 
   it('treats prefer-not / skip as skip phrases', () => {
@@ -69,7 +69,7 @@ describe('M19 yes/no + skip phrases', () => {
 describe('M19 parseOnboardStep refusal vs choice', () => {
   it('skip_name on intro', () => {
     expect(localOnboardParse('בלי שם').intent).toBe('skip_name');
-    expect(localOnboardParse('מיכאל').intent).toBe('name');
+    expect(localOnboardParse('יוסף').intent).toBe('name');
   });
 
   it('skip phrases become skip_step (UI runs confirm button flow)', () => {

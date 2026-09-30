@@ -59,6 +59,25 @@ export type ConfirmedProposal = {
   period: string;
 };
 
+/** שגיאת HTTP מנועם — asBubble=true → להציג כבועת עוזר בלי קידומת «אופס —» */
+export class NoamHttpError extends Error {
+  status: number;
+  code?: string;
+  asBubble: boolean;
+  constructor(
+    message: string,
+    status: number,
+    code?: string,
+    asBubble = false
+  ) {
+    super(message);
+    this.name = 'NoamHttpError';
+    this.status = status;
+    this.code = code;
+    this.asBubble = asBubble;
+  }
+}
+
 export async function sendToNoam(params: {
   messages: { role: ChatRole; content: string }[];
   /** אם undefined — נשלחת רק ההודעה, בלי סיכום חודש */
@@ -116,7 +135,14 @@ export async function sendToNoam(params: {
     if (timer) clearTimeout(timer);
   }
 
-  const data = await res.json().catch(() => ({}));
+  const rawText = await res.text();
+  let data: Record<string, unknown> = {};
+  try {
+    data = rawText ? (JSON.parse(rawText) as Record<string, unknown>) : {};
+  } catch {
+    throw new Error('נועם לא זמין כרגע. נסה שוב בעוד רגע.');
+  }
+
   const ms = Date.now() - started;
   console.info(
     `[noam] client_ms=${ms} status=${res.status} model=${typeof data?.model === 'string' ? data.model : '?'}`
@@ -126,7 +152,15 @@ export async function sendToNoam(params: {
       typeof data?.error === 'string'
         ? data.error
         : 'לא הצלחתי להגיע לנועם. בדוק חיבור / מפתח בשרת.';
-    // שגיאות timeout מהשרת גם מקבלות ניסוח ידידותי
+    const code = typeof data?.code === 'string' ? data.code : undefined;
+    // 429 / תקציב / כיבוי — מציגים את טקסט השרת כבועה רגילה (בלי «אופס —»)
+    if (
+      res.status === 429 ||
+      (res.status === 503 &&
+        (code === 'ai_disabled' || code === 'ai_daily_limit'))
+    ) {
+      throw new NoamHttpError(msg, res.status, code, true);
+    }
     if (/timeout|ETIMEDOUT|aborted|זמן/i.test(msg)) {
       throw new Error('נסה שוב');
     }

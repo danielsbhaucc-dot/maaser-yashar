@@ -40,6 +40,7 @@ import {
   messagesForModel,
   msgId,
   newThreadId,
+  NoamHttpError,
   saveThreads,
   sendToNoam,
   type ChatMessage,
@@ -198,6 +199,9 @@ export default function NoamChat() {
   const [slowHint, setSlowHint] = useState(false);
   const [pending, setPending] = useState<ProposedEntry[]>([]);
   const [applying, setApplying] = useState(false);
+  /** נעילת שליחה אחרי 429 (60 שניות) */
+  const [sendLockedUntil, setSendLockedUntil] = useState(0);
+  const [sendLockTick, setSendLockTick] = useState(0);
   /** N-17 מובייל: חצי מסך שניתן להרחבה */
   const [sheetExpanded, setSheetExpanded] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
@@ -220,6 +224,21 @@ export default function NoamChat() {
   useEffect(() => {
     profileRef.current = profile;
   }, [profile]);
+
+  const sendLocked = sendLockedUntil > Date.now();
+  useEffect(() => {
+    if (!sendLockedUntil) return;
+    const left = sendLockedUntil - Date.now();
+    if (left <= 0) {
+      setSendLockedUntil(0);
+      return;
+    }
+    const t = setTimeout(() => {
+      setSendLockedUntil(0);
+      setSendLockTick((n) => n + 1);
+    }, left);
+    return () => clearTimeout(t);
+  }, [sendLockedUntil, sendLockTick]);
 
   /** N-18: אחרי 5ש׳ בלי תשובה — «רק רגע…» */
   useEffect(() => {
@@ -442,7 +461,7 @@ export default function NoamChat() {
     opts?: { shareTotals?: boolean }
   ) => {
     const trimmed = text.trim();
-    if (!trimmed || typing || sendingRef.current) return;
+    if (!trimmed || typing || sendingRef.current || sendLockedUntil > Date.now()) return;
     if (!profile.chatConsentDone && opts?.shareTotals === undefined) {
       // ממתין למסך הסכמה
       return;
@@ -519,12 +538,24 @@ export default function NoamChat() {
       );
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'שגיאה לא ידועה';
+      const httpErr = err instanceof NoamHttpError ? err : null;
+      if (httpErr?.status === 429) {
+        setSendLockedUntil(Date.now() + 60_000);
+      }
       const offline = msg === 'אין חיבור';
       const retry = msg === 'נסה שוב' || /נסה שוב/i.test(msg);
+      // 429 / ai_disabled / ai_daily_limit — טקסט השרת כבועה רגילה (בלי «אופס —»)
+      const content = httpErr?.asBubble
+        ? msg
+        : offline
+          ? 'אין חיבור'
+          : retry
+            ? 'נסה שוב'
+            : `אופס — ${msg}`;
       const botMsg: ChatMessage = {
         id: msgId(),
         role: 'assistant',
-        content: offline ? 'אין חיבור' : retry ? 'נסה שוב' : `אופס — ${msg}`,
+        content,
         createdAt: new Date().toISOString(),
       };
       patchThread(tid, (cur) => {
@@ -731,6 +762,7 @@ export default function NoamChat() {
           slowHint={slowHint}
           pending={pending}
           applying={applying}
+          sendLocked={sendLocked}
           scrollRef={scrollRef}
           onClose={closeMessenger}
           onBack={() => {
@@ -940,6 +972,7 @@ function ChatPane({
   slowHint,
   pending,
   applying,
+  sendLocked,
   scrollRef,
   onClose,
   onBack,
@@ -960,6 +993,7 @@ function ChatPane({
   slowHint: boolean;
   pending: ProposedEntry[];
   applying: boolean;
+  sendLocked: boolean;
   scrollRef: React.RefObject<ScrollView | null>;
   onClose: () => void;
   onBack: () => void;
@@ -1181,8 +1215,8 @@ function ChatPane({
         />
         <Pressable
           onPress={onSend}
-          disabled={!draft.trim() || typing}
-          style={[styles.sendBtn, (!draft.trim() || typing) && styles.sendDisabled]}
+          disabled={!draft.trim() || typing || sendLocked}
+          style={[styles.sendBtn, (!draft.trim() || typing || sendLocked) && styles.sendDisabled]}
           accessibilityLabel="שלח"
         >
           <Text style={styles.sendGlyph}>➤</Text>

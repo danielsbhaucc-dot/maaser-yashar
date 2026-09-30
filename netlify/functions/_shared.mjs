@@ -1,10 +1,15 @@
 /**
  * אבטחה משותפת לפונקציות AI —
- * CORS מצומצם, בדיקת Origin, ומניעת שימוש חופשי כפרוקסי כללי.
+ * CORS מצומצם, בדיקת Origin/Referer/Content-Type, ומניעת שימוש חופשי כפרוקסי.
+ *
+ * חשוב (כנות): Origin/Referer ניתנים לזיוף ע״י לקוחות שאינם דפדפן.
+ * זו שכבת חיכוך נגד שימוש שגוי/מקרי מהדפדפן — לא אבטחה מוחלטת.
+ * ההגנות האמיתיות: rate-limit (Netlify + per-IP), תקציב יומי, ו־credit cap במפתח OpenRouter.
  */
 
-const DEFAULT_ORIGINS = [
-  'https://maaser-yashar.netlify.app',
+const PROD_DEFAULT_ORIGINS = ['https://maaser-yashar.netlify.app'];
+
+const LOCAL_ORIGINS = [
   'http://localhost:8081',
   'http://localhost:19006',
   'http://localhost:8888',
@@ -13,15 +18,42 @@ const DEFAULT_ORIGINS = [
   'http://127.0.0.1:8888',
 ];
 
+/** CONTEXT=production או לא ב־netlify dev מקומי */
+export function isProdLike() {
+  return (
+    process.env.CONTEXT === 'production' || process.env.NETLIFY_DEV !== 'true'
+  );
+}
+
+export function isProductionContext() {
+  return process.env.CONTEXT === 'production';
+}
+
 function allowedOrigins() {
   const fromEnv = (process.env.AI_ALLOWED_ORIGINS || '')
     .split(',')
     .map((s) => s.trim())
     .filter(Boolean);
-  const site = [process.env.URL, process.env.DEPLOY_PRIME_URL, process.env.DEPLOY_URL]
-    .map((s) => (typeof s === 'string' ? s.replace(/\/$/, '') : ''))
-    .filter(Boolean);
-  return [...new Set([...DEFAULT_ORIGINS, ...fromEnv, ...site])];
+
+  const site = [];
+  const url = typeof process.env.URL === 'string' ? process.env.URL.replace(/\/$/, '') : '';
+  if (url) site.push(url);
+
+  // DEPLOY_PRIME_URL / DEPLOY_URL — רק מחוץ ל־production (preview / branch)
+  if (!isProductionContext()) {
+    for (const key of ['DEPLOY_PRIME_URL', 'DEPLOY_URL']) {
+      const v =
+        typeof process.env[key] === 'string'
+          ? process.env[key].replace(/\/$/, '')
+          : '';
+      if (v) site.push(v);
+    }
+  }
+
+  // localhost בברירת מחדל רק מחוץ ל־production; ב־prod רק אם מופיע ב־AI_ALLOWED_ORIGINS
+  const locals = isProductionContext() ? [] : LOCAL_ORIGINS;
+
+  return [...new Set([...PROD_DEFAULT_ORIGINS, ...locals, ...fromEnv, ...site])];
 }
 
 export function corsHeaders(event) {
@@ -51,17 +83,36 @@ export function corsHeaders(event) {
   };
 }
 
+function header(headers, name) {
+  const lower = name.toLowerCase();
+  for (const [k, v] of Object.entries(headers || {})) {
+    if (k.toLowerCase() === lower) return typeof v === 'string' ? v : '';
+  }
+  return '';
+}
+
 /**
- * דפדפן מאתר זר → חסום.
- * בקשות בלי Origin/Referer (curl / סקריפט) → חסומות, חוץ מ־Netlify Dev מקומי.
- * אפליקציה נייטיב שולחת Origin ריק — מותרת רק אם יש App-Token תואם או שאין Origin
- * ממקור דפדפן; בפועל RN שולח בלי Origin ולכן נשען על rate-limit + הנחיה קבועה בשרת.
+ * מאמת שהקריאה מגיעה ממקור מורשה + Content-Type תקין.
+ * ב־production / מחוץ ל־netlify dev: חובה Origin או Referer ברשימה.
+ * פטור בלי Origin רק אם AI_ALLOW_NO_ORIGIN=true (ברירת מחדל כבוי) או NETLIFY_DEV.
  */
 export function assertAllowedCaller(event) {
   const headers = event.headers || {};
-  const origin = headers.origin || headers.Origin || '';
-  const referer = headers.referer || headers.Referer || '';
+  const origin = header(headers, 'origin');
+  const referer = header(headers, 'referer');
   const allowed = allowedOrigins();
+
+  const contentType = header(headers, 'content-type').toLowerCase();
+  if (!contentType.startsWith('application/json')) {
+    return { ok: false, status: 415, error: 'Content-Type חייב להיות application/json' };
+  }
+
+  const secFetchSite = header(headers, 'sec-fetch-site').toLowerCase();
+  if (secFetchSite) {
+    if (secFetchSite !== 'same-origin' && secFetchSite !== 'same-site') {
+      return { ok: false, status: 403, error: 'מקור לא מורשה' };
+    }
+  }
 
   if (origin) {
     if (!allowed.includes(origin)) {
@@ -82,34 +133,30 @@ export function assertAllowedCaller(event) {
     }
   }
 
-  // בלי Origin ובלי Referer: לאפשר רק בסביבת פיתוח מקומית / קריאות native
-  const context = event.requestContext || {};
-  const isLocal =
-    process.env.NETLIFY_DEV === 'true' ||
-    process.env.CONTEXT === 'dev' ||
-    String(context.siteUrl || '').includes('localhost');
+  // בלי Origin ובלי Referer
+  const isLocalDev = process.env.NETLIFY_DEV === 'true';
+  if (isLocalDev) return { ok: true };
 
-  if (isLocal) return { ok: true };
+  // פטור מפורש (למשל בדיקות) — ברירת מחדל כבוי
+  if (process.env.AI_ALLOW_NO_ORIGIN === 'true') {
+    return { ok: true };
+  }
 
-  // Native apps — אין Origin. מאפשרים עם rate limit; ההנחיה בכל מקרה נבנית בשרת.
-  const ua = headers['user-agent'] || headers['User-Agent'] || '';
-  const looksLikeBrowser =
-    /Mozilla|Chrome|Safari|Firefox|Edg\//i.test(ua) &&
-    !/Expo|okhttp|CFNetwork|Darwin|ReactNative/i.test(ua);
-
-  if (looksLikeBrowser) {
+  // ב־production / preview: דפדפן תמיד שולח Origin ב־POST — בלי זה → 403
+  if (isProdLike()) {
     return { ok: false, status: 403, error: 'מקור לא מורשה' };
   }
 
-  return { ok: true };
+  return { ok: false, status: 403, error: 'מקור לא מורשה' };
 }
 
-export function json(event, statusCode, body) {
+export function json(event, statusCode, body, extraHeaders = {}) {
   return {
     statusCode,
     headers: {
       'Content-Type': 'application/json; charset=utf-8',
       ...corsHeaders(event),
+      ...extraHeaders,
     },
     body: JSON.stringify(body),
   };
@@ -118,3 +165,6 @@ export function json(event, statusCode, body) {
 export function optionsResponse(event) {
   return { statusCode: 204, headers: corsHeaders(event), body: '' };
 }
+
+/** ייצוא לבדיקות */
+export { allowedOrigins };
