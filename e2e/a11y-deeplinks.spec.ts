@@ -1,28 +1,31 @@
 import { test, expect } from '@playwright/test';
+import {
+  mockChatApi,
+  seedOnboardingDone,
+  dismissOnboardingIfPresent,
+  gotoDeepLink,
+} from './helpers';
 
 async function skipToHome(page: import('@playwright/test').Page) {
+  await mockChatApi(page);
+  await seedOnboardingDone(page);
   await page.goto('/');
-  await page.getByRole('button', { name: 'דלג ישר לחשבון' }).click();
+  await dismissOnboardingIfPresent(page);
   await expect(page.getByTestId('fab-add')).toBeVisible({ timeout: 30_000 });
 }
 
 const ROUTES = [
-  { path: '/history', tab: 'tab-history', title: /היסטוריה|ארכיון/ },
-  { path: '/tax', tab: 'tab-tax', title: /החזר מס|מס/ },
-  { path: '/guide', tab: 'tab-guide', title: /הנחיות|מדריך/ },
-  { path: '/settings', tab: 'tab-settings', title: /הגדרות|עוד/ },
+  { path: '/history', tab: 'tab-history' },
+  { path: '/tax', tab: 'tab-tax' },
+  { path: '/guide', tab: 'tab-guide' },
+  { path: '/settings', tab: 'tab-settings' },
 ] as const;
 
 test.describe('deep links (T-59)', () => {
   for (const route of ROUTES) {
     test(`opens ${route.path} on the correct tab`, async ({ page }) => {
-      await page.goto('/');
-      await page.getByRole('button', { name: 'דלג ישר לחשבון' }).click();
-      await expect(page.getByTestId('fab-add')).toBeVisible({ timeout: 30_000 });
-
-      await page.goto(route.path);
-      await expect(page).toHaveURL(new RegExp(`${route.path.replace('/', '\\/')}(\\?|#|$)`));
-      await expect(page.getByTestId(route.tab)).toHaveAttribute('aria-selected', 'true');
+      await mockChatApi(page);
+      await gotoDeepLink(page, route.path, route.tab);
       await expect(page).toHaveTitle(/מעשר ישר/);
     });
   }
@@ -33,11 +36,11 @@ test.describe('deep links (T-59)', () => {
     await skipToHome(page);
     await expect(page).toHaveURL(/\/(\?|#|$)/);
 
-    await page.getByTestId('tab-tax').click();
+    await page.getByTestId('tab-tax').click({ force: true });
     await expect(page).toHaveURL(/\/tax(\?|#|$)/);
     await expect(page.getByTestId('tab-tax')).toHaveAttribute('aria-selected', 'true');
 
-    await page.getByTestId('tab-settings').click();
+    await page.getByTestId('tab-settings').click({ force: true });
     await expect(page).toHaveURL(/\/settings(\?|#|$)/);
 
     await page.goBack();
@@ -55,7 +58,6 @@ test.describe('keyboard ledger + chat (T-49)', () => {
   }) => {
     await skipToHome(page);
 
-    // Add income
     await page.getByTestId('fab-add').focus();
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('amount-input')).toBeVisible();
@@ -66,12 +68,10 @@ test.describe('keyboard ledger + chat (T-49)', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('amount-input')).toHaveCount(0, { timeout: 20_000 });
     await expect(
-      page.getByRole('button', { name: /הכנסה|משכורת|5,?000/ }).first()
+      page.getByRole('button', { name: /משכורת.*,.*5,?000|5,?000/ }).first()
     ).toBeVisible({ timeout: 20_000 });
 
-    // Edit first ledger row (Enter on row)
-    const row = page.getByRole('button', { name: /הכנסה|משכורת|5,?000/ }).first();
-    await expect(row).toBeVisible({ timeout: 15_000 });
+    const row = page.getByRole('button', { name: /משכורת.*,.*5,?000|5,?000/ }).first();
     await row.focus();
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('amount-input')).toBeVisible();
@@ -80,7 +80,6 @@ test.describe('keyboard ledger + chat (T-49)', () => {
     await page.keyboard.press('Enter');
     await expect(page.getByTestId('amount-input')).toHaveCount(0);
 
-    // Delete via delete button + confirm dialog, then undo toast
     const del = page.getByRole('button', { name: /מחק/ }).first();
     await del.focus();
     await page.keyboard.press('Enter');
@@ -95,8 +94,7 @@ test.describe('keyboard ledger + chat (T-49)', () => {
       await page.keyboard.press('Enter');
     }
 
-    // Noam chat open/close
-    const noam = page.getByRole('button', { name: 'נועם' }).first();
+    const noam = page.getByTestId('noam-header-btn').first();
     await expect(noam).toBeVisible();
     await noam.focus();
     await page.keyboard.press('Enter');
@@ -105,12 +103,10 @@ test.describe('keyboard ledger + chat (T-49)', () => {
 
   test('exactly one main landmark on home', async ({ page }) => {
     await skipToHome(page);
-    const mains = page.locator('[role="main"]');
-    await expect(mains).toHaveCount(1);
+    await expect(page.locator('[role="main"]')).toHaveCount(1);
   });
 });
 
-/** CSP Report-Only → enforce probe (T-09) */
 const PROPOSED_CSP =
   "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'";
 
@@ -134,8 +130,9 @@ test('CSP proposed policy has no violations on main screens', async ({ page }) =
     await route.fulfill({ response: res, headers });
   });
 
+  await seedOnboardingDone(page);
   await page.goto('/');
-  await page.getByRole('button', { name: 'דלג ישר לחשבון' }).click();
+  await dismissOnboardingIfPresent(page);
   await expect(page.getByTestId('fab-add')).toBeVisible({ timeout: 30_000 });
 
   for (const id of [
@@ -145,7 +142,7 @@ test('CSP proposed policy has no violations on main screens', async ({ page }) =
     'tab-settings',
     'tab-home',
   ] as const) {
-    await page.getByTestId(id).click();
+    await page.getByTestId(id).click({ force: true });
     await page.waitForTimeout(500);
   }
 

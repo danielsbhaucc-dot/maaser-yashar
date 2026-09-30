@@ -199,7 +199,7 @@ export function SwipeTabs() {
         accessibilityState={{ selected: focused }}
         accessibilityLabel={tab.title}
         {...(Platform.OS === 'web'
-          ? ({ 'aria-selected': focused } as object)
+          ? ({ 'aria-selected': focused ? 'true' : 'false' } as object)
           : {})}
         hitSlop={4}
       >

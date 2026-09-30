@@ -1084,6 +1084,8 @@ export default function OnboardingScreen() {
                     ]}
                     onPress={() => void handleFreeText()}
                     disabled={!draft.trim() || thinking}
+                    accessibilityRole="button"
+                    accessibilityLabel="שלח"
                   >
                     <Text style={styles.sendLabel}>{thinking ? '…' : 'שלח'}</Text>
                   </Pressable>

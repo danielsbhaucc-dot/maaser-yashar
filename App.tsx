@@ -40,8 +40,13 @@ import { APP_URL } from './src/utils/monthlyReminderCore';
 /** N-17: דסקטופ רחב — פנקס + צ'אט זה לצד זה (~480 + ~400) */
 const DESKTOP_CHAT_BREAKPOINT = 1000;
 
-/** Deep-link paths for tabs (SwipeTabs syncs history; config documents the routes) */
+/**
+ * Deep-link path table (documentation + documentTitle).
+ * URL ↔ tab sync lives in SwipeTabs.web — do NOT enable React Navigation
+ * linking here (no matching navigator; it rewrites cold deep links back to `/`).
+ */
 const linking = {
+  enabled: false as const,
   prefixes: [APP_URL, 'https://maaser-yashar.netlify.app', 'http://localhost:8081'],
   config: {
     screens: {

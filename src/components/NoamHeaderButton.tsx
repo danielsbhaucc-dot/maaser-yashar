@@ -41,8 +41,9 @@ export function NoamHeaderButton() {
   return (
     <Pressable
       onPress={openChat}
+      testID="noam-header-btn"
       accessibilityRole="button"
-      accessibilityLabel={BOT_NAME}
+      accessibilityLabel={`פתח צ'אט עם ${BOT_NAME}`}
       style={({ pressed }) => [styles.hit, pressed && { opacity: 0.85 }]}
       hitSlop={2}
     >

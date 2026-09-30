@@ -232,11 +232,19 @@ export function SwipeTabs() {
   const goTo = useCallback(
     (i: number) => {
       if (i < 0 || i >= TABS.length) return;
+      // בזמן אנימציית גלילה — לא לסנכרן מ־onScroll (מונע דחיפת `/` להיסטוריה)
+      scrollReadyRef.current = false;
       indexRef.current = i;
       setIndex(i);
-      if (pageWidth <= 0) return;
+      if (pageWidth <= 0) {
+        scrollReadyRef.current = true;
+        return;
+      }
       requestAnimationFrame(() => {
         scrollRef.current?.scrollTo({ x: i * pageWidth, y: 0, animated: true });
+        setTimeout(() => {
+          scrollReadyRef.current = true;
+        }, 420);
       });
     },
     [pageWidth]
@@ -300,7 +308,8 @@ export function SwipeTabs() {
         accessibilityRole="tab"
         accessibilityState={{ selected: focused }}
         accessibilityLabel={tab.title}
-        {...({ 'aria-selected': focused } as object)}
+        // RN-web coerces boolean aria-selected to "" — use "true"|"false" strings
+        {...({ 'aria-selected': focused ? 'true' : 'false' } as object)}
         hitSlop={4}
       >
         <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>
@@ -337,7 +346,7 @@ export function SwipeTabs() {
           bounces={false}
           decelerationRate="fast"
           disableIntervalMomentum
-          onScroll={onScroll}
+          // Avoid continuous onScroll→index on web (programmatic scrollTo races)
           onMomentumScrollEnd={onScrollEnd}
           onScrollEndDrag={onScrollEnd}
           scrollEventThrottle={16}
