@@ -318,6 +318,17 @@ export default function HomeScreen() {
 
   const isEmptyMonth = monthEntries.length === 0;
   const celebrateDone = totals.remaining <= 0 && totals.obligation > 0;
+  const celebrateSeenRef = useRef(false);
+
+  useEffect(() => {
+    if (!celebrateDone) {
+      celebrateSeenRef.current = false;
+      return;
+    }
+    if (celebrateSeenRef.current || isEmptyMonth) return;
+    celebrateSeenRef.current = true;
+    toast.success('כיסית את המעשר החודש');
+  }, [celebrateDone, isEmptyMonth, toast]);
 
   return (
     <Screen sheet hero={hero} scroll>
@@ -367,7 +378,7 @@ export default function HomeScreen() {
         accessibilityRole="summary"
         accessibilityLabel={
           celebrateDone
-            ? `החודש כוסה. חובה ${formatMoney(totals.obligation)}`
+            ? 'כיסית את המעשר החודש'
             : totals.obligation <= 0
               ? ringStatusLine || 'אין חובה החודש'
               : `יתרה לתת ${formatMoney(totals.remaining)} מתוך חובה של ${formatMoney(totals.obligation)}`
@@ -418,7 +429,7 @@ export default function HomeScreen() {
                 accessibilityHidden
                 accessibilityLabel={
                   celebrateDone || savedFlash
-                    ? `החודש כוסה. חובה ${formatMoney(totals.obligation)}`
+                    ? 'כיסית את המעשר החודש'
                     : totals.obligation <= 0
                       ? ringStatusLine || 'אין חובה החודש'
                       : `יתרה לתת ${formatMoney(totals.remaining)} מתוך חובה של ${formatMoney(totals.obligation)}`
@@ -878,7 +889,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     ...Platform.select({
       web: {
-        backgroundImage: 'linear-gradient(to left, transparent, rgba(20,27,48,0.95))',
+        backgroundImage: `linear-gradient(to left, transparent, ${colors.periodFadeEdge})`,
       } as object,
       default: {},
     }),
@@ -892,7 +903,7 @@ const styles = StyleSheet.create({
     zIndex: 2,
     ...Platform.select({
       web: {
-        backgroundImage: 'linear-gradient(to right, transparent, rgba(20,27,48,0.95))',
+        backgroundImage: `linear-gradient(to right, transparent, ${colors.periodFadeEdge})`,
       } as object,
       default: {},
     }),

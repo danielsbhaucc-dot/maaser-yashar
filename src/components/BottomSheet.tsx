@@ -181,7 +181,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.glassBorder,
     borderBottomWidth: 0,
-    backgroundColor: '#141B30',
+    backgroundColor: colors.sheetSolid,
     maxHeight: '100%',
     width: '100%',
     maxWidth: 480,
@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
       web: {
         backdropFilter: 'blur(28px)',
         WebkitBackdropFilter: 'blur(28px)',
-        backgroundColor: 'rgba(20, 27, 48, 0.94)',
+        backgroundColor: colors.sheetSolidAlpha,
       } as object,
       default: {},
     }),
@@ -217,11 +217,11 @@ const styles = StyleSheet.create({
   title: {
     ...type.h2,
     fontFamily: fonts.displayExtra,
-    color: '#fff',
+    color: colors.ink,
     flex: 1,
     backgroundColor: 'transparent',
     ...Platform.select({
-      web: { userSelect: 'none' } as object,
+      web: { userSelect: 'none', caretColor: 'transparent' } as object,
       default: {},
     }),
   },

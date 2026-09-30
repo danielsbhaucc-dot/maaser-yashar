@@ -20,14 +20,21 @@ import { colors, fonts } from '../theme';
 import { DIR } from '../rtl';
 import HomeScreen from '../screens/HomeScreen';
 import HistoryScreen from '../screens/HistoryScreen';
-import GuideScreen from '../screens/GuideScreen';
-import SettingsScreen from '../screens/SettingsScreen';
 import { TabNavProvider, type TabKey } from './TabNavContext';
 import { useApp } from '../context/AppContext';
 
 const TaxScreen = React.lazy(() => import('../screens/TaxScreen'));
+const GuideScreen = React.lazy(() => import('../screens/GuideScreen'));
+const SettingsScreen = React.lazy(() => import('../screens/SettingsScreen'));
 
-function TaxScreenGate() {
+function LazyScreenGate({
+  armed,
+  children,
+}: {
+  armed: boolean;
+  children: React.ReactNode;
+}) {
+  if (!armed) return null;
   return (
     <Suspense
       fallback={
@@ -36,8 +43,32 @@ function TaxScreenGate() {
         </View>
       }
     >
-      <TaxScreen />
+      {children}
     </Suspense>
+  );
+}
+
+function TaxScreenGate({ armed }: { armed: boolean }) {
+  return (
+    <LazyScreenGate armed={armed}>
+      <TaxScreen />
+    </LazyScreenGate>
+  );
+}
+
+function GuideScreenGate({ armed }: { armed: boolean }) {
+  return (
+    <LazyScreenGate armed={armed}>
+      <GuideScreen />
+    </LazyScreenGate>
+  );
+}
+
+function SettingsScreenGate({ armed }: { armed: boolean }) {
+  return (
+    <LazyScreenGate armed={armed}>
+      <SettingsScreen />
+    </LazyScreenGate>
   );
 }
 
@@ -48,7 +79,7 @@ const TABS = [
     shortTitle: 'בית',
     icon: 'home',
     iconOut: 'home-outline',
-    Screen: HomeScreen,
+    Screen: HomeScreen as React.ComponentType,
   },
   {
     key: 'History' as const,
@@ -56,7 +87,7 @@ const TABS = [
     shortTitle: 'ארכיון',
     icon: 'time',
     iconOut: 'time-outline',
-    Screen: HistoryScreen,
+    Screen: HistoryScreen as React.ComponentType,
   },
   {
     key: 'Tax' as const,
@@ -64,7 +95,7 @@ const TABS = [
     shortTitle: 'מס',
     icon: 'receipt',
     iconOut: 'receipt-outline',
-    Screen: TaxScreenGate,
+    Screen: null,
   },
   {
     key: 'Guide' as const,
@@ -72,7 +103,7 @@ const TABS = [
     shortTitle: 'מדריך',
     icon: 'book',
     iconOut: 'book-outline',
-    Screen: GuideScreen,
+    Screen: null,
   },
   {
     key: 'Settings' as const,
@@ -80,7 +111,7 @@ const TABS = [
     shortTitle: 'עוד',
     icon: 'settings',
     iconOut: 'settings-outline',
-    Screen: SettingsScreen,
+    Screen: null,
   },
 ] as const;
 
@@ -88,6 +119,8 @@ const TAB_KEYS: TabKey[] = TABS.map((t) => t.key);
 /** מתחת לרוחב זה — תוויות מקוצרות (תמיד גלויות) */
 const SHORT_LABEL_MAX = 430;
 const TAX_TAB_INDEX = TABS.findIndex((t) => t.key === 'Tax');
+const GUIDE_TAB_INDEX = TABS.findIndex((t) => t.key === 'Guide');
+const SETTINGS_TAB_INDEX = TABS.findIndex((t) => t.key === 'Settings');
 
 /**
  * Native swipe:
@@ -100,6 +133,8 @@ export function SwipeTabs() {
   const [index, setIndex] = useState(0);
   const indexRef = useRef(0);
   const [taxVisited, setTaxVisited] = useState(false);
+  const [guideVisited, setGuideVisited] = useState(false);
+  const [settingsVisited, setSettingsVisited] = useState(false);
   const insets = useSafeAreaInsets();
   const { width: windowWidth } = useWindowDimensions();
   const { openAdd } = useApp();
@@ -109,6 +144,8 @@ export function SwipeTabs() {
 
   useEffect(() => {
     if (index === TAX_TAB_INDEX) setTaxVisited(true);
+    if (index === GUIDE_TAB_INDEX) setGuideVisited(true);
+    if (index === SETTINGS_TAB_INDEX) setSettingsVisited(true);
   }, [index]);
 
   const setIndexSafe = useCallback((i: number) => {
@@ -161,6 +198,9 @@ export function SwipeTabs() {
         accessibilityRole="tab"
         accessibilityState={{ selected: focused }}
         accessibilityLabel={tab.title}
+        {...(Platform.OS === 'web'
+          ? ({ 'aria-selected': focused } as object)
+          : {})}
         hitSlop={4}
       >
         <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>
@@ -200,7 +240,15 @@ export function SwipeTabs() {
           >
             {TABS.map(({ key, Screen }) => (
               <View key={key} style={[styles.page, DIR]} collapsable={false}>
-                {key === 'Tax' && !taxVisited ? null : <Screen />}
+                {key === 'Tax' ? (
+                  <TaxScreenGate armed={taxVisited} />
+                ) : key === 'Guide' ? (
+                  <GuideScreenGate armed={guideVisited} />
+                ) : key === 'Settings' ? (
+                  <SettingsScreenGate armed={settingsVisited} />
+                ) : Screen ? (
+                  <Screen />
+                ) : null}
               </View>
             ))}
           </PagerView>
@@ -229,7 +277,7 @@ export function SwipeTabs() {
                 testID="fab-add"
                 style={({ pressed }) => [styles.fab, pressed && { opacity: 0.9 }]}
                 accessibilityRole="button"
-                accessibilityLabel="תנועה חדשה"
+                accessibilityLabel="הוסף תנועה ✦"
               >
                 <LinearGradient
                   colors={[...colors.primaryGradient]}

@@ -797,7 +797,7 @@ export default function SettingsScreen() {
             if (result === 'shared') {
               toast.success('שותף ✦');
             } else if (result === 'copied') {
-              toast.success('הקישור הועתק ✦', 'אפשר להדביק בוואטסאפ או במייל');
+              toast.success('הקישור הועתק', 'אפשר להדביק בוואטסאפ או במייל');
             } else if (result === 'failed') {
               toast.error('השיתוף נכשל', 'נסה שוב');
             }

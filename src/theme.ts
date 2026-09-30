@@ -20,10 +20,15 @@ export const colors = {
    * פאנל מעוגל — קרוב לגרדיאנט (בלי קופסה אפורה)
    */
   sheet: '#161338',
+  /** רקע מוצק לגיליונות/מודלים (web blur fallback) */
+  sheetSolid: '#141B30',
+  sheetSolidAlpha: 'rgba(20, 27, 48, 0.94)',
   sheetCard: 'rgba(255,255,255,0.05)',
   sheetInk: 'rgba(255,255,255,0.96)',
   sheetMuted: 'rgba(255,255,255,0.74)',
   sheetBorder: 'rgba(255,255,255,0.10)',
+  /** שקיפות לקצה fade של שבבי חודש */
+  periodFadeEdge: 'rgba(20, 27, 48, 0.95)',
   ink: 'rgba(255,255,255,0.96)',
   inkDark: '#0F172A',
   inkMuted: 'rgba(255,255,255,0.86)',

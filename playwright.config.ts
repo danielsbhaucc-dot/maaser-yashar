@@ -21,7 +21,8 @@ export default defineConfig({
     locale: 'he-IL',
   },
   webServer: {
-    command: `npx --yes serve dist -l ${PORT} --no-port-switching`,
+    // -s = SPA fallback (כמו Netlify redirects ל־/history|/tax|/guide|/settings)
+    command: `npx --yes serve dist -s -l ${PORT} --no-port-switching`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

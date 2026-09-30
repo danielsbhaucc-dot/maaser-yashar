@@ -2,12 +2,13 @@ import React from 'react';
 import {
   View,
   Text,
-  TextInput,
   StyleSheet,
   Pressable,
   Platform,
+  type ViewStyle,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
 import { usePinLock, type PinAttempt } from '../context/PinLockContext';
@@ -16,6 +17,8 @@ import { t } from '../utils/copy';
 import { colors, fonts, radii, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import { PrimaryButton } from './ui';
+import { PinPad } from './PinPad';
+import { Glass } from './Glass';
 
 function messageFor(result: PinAttempt, gender: 'male' | 'female' | 'unspecified'): string {
   if (result === 'format') return 'הקוד צריך 4 עד 6 ספרות';
@@ -32,23 +35,26 @@ export default function PinLockScreen() {
   const [error, setError] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [forgot, setForgot] = React.useState(false);
-  const inputRef = React.useRef<TextInput>(null);
+  const [shakeToken, setShakeToken] = React.useState(0);
 
   const onChange = (text: string) => {
-    setPin(text.replace(/\D/g, '').slice(0, 6));
+    setPin(text);
     if (error) setError('');
   };
 
-  const submit = async () => {
-    if (busy || pin.length < 4) return;
+  const submit = async (code?: string) => {
+    const next = code ?? pin;
+    if (busy || next.length < 4) return;
     setBusy(true);
-    const result = await pinLock.unlock(pin);
+    const result = await pinLock.unlock(next);
     setBusy(false);
     if (result === 'ok') return;
     setPin('');
     setError(messageFor(result, profile.gender));
-    inputRef.current?.focus();
+    setShakeToken((n) => n + 1);
   };
+
+  const useNativeBlur = Platform.OS !== 'web';
 
   return (
     <View style={[styles.root, DIR]} {...rtlDomProps} accessibilityViewIsModal>
@@ -59,10 +65,17 @@ export default function PinLockScreen() {
         end={{ x: 1, y: 1 }}
         style={StyleSheet.absoluteFill}
       />
+      {/* אורבים רכים ברקע — תחושת מסך נעילה */}
+      <View pointerEvents="none" style={[styles.orb, styles.orbA]} />
+      <View pointerEvents="none" style={[styles.orb, styles.orbB]} />
+
       <View
         style={[
           styles.body,
-          { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + 120 },
+          {
+            paddingTop: insets.top + spacing.xl,
+            paddingBottom: Math.max(insets.bottom, spacing.lg) + spacing.md,
+          },
         ]}
       >
         <Text style={styles.mark} accessibilityElementsHidden importantForAccessibility="no">
@@ -72,26 +85,29 @@ export default function PinLockScreen() {
           הפנקס נעול
         </Text>
         <Text style={styles.sub}>
-          {t(
-            profile.gender,
-            'הכנס קוד של 4 עד 6 ספרות. זו הגנה מעיניים סקרניות — לא הצפנה של הפנקס.',
-            'הכניסי קוד של 4 עד 6 ספרות. זו הגנה מעיניים סקרניות — לא הצפנה של הפנקס.'
-          )}
+          {forgot
+            ? t(profile.gender, 'שכחת את הקוד?', 'שכחת את הקוד?')
+            : t(
+                profile.gender,
+                'הכנס קוד של 4 עד 6 ספרות. זו הגנה מעיניים סקרניות — לא הצפנה של הפנקס.',
+                'הכניסי קוד של 4 עד 6 ספרות. זו הגנה מעיניים סקרניות — לא הצפנה של הפנקס.'
+              )}
         </Text>
 
         {forgot ? (
-          <View style={styles.card}>
+          <Glass strong style={styles.card}>
             <Text style={styles.forgotTitle} accessibilityRole="header">
               {t(profile.gender, 'שכחת את הקוד?', 'שכחת את הקוד?')}
             </Text>
             <Text style={styles.forgotBody}>
-              אין שחזור. הקוד עצמו לא נשמר בשום מקום, רק טביעת אצבע שלו, ולכן אי אפשר לאפס אותו.
+              אין איפוס קוד. הקוד עצמו לא נשמר בשום מקום, רק טביעת אצבע שלו.
             </Text>
             <Text style={styles.forgotBody}>
-              כדי להיכנס בלי הקוד צריך למחוק את כל מה שנשמר במכשיר — הפנקס, הפרופיל, השיחות והנעילה — ולהתחיל מחדש.
+              שתי אפשרויות: (1) לשחזר מגיבוי JSON ששמרתם בעבר — אחרי מחיקה או ממכשיר אחר דרך ההגדרות;
+              (2) למחוק כאן את כל מה שנשמר במכשיר ולהתחיל מחדש.
             </Text>
             <Text style={styles.forgotBody}>
-              אם ייצאת בעבר קובץ CSV, הוא נשאר אצלך מחוץ לאפליקציה. אין כאן שחזור אוטומטי ממנו.
+              אם ייצאתם CSV או גיבוי JSON, הם נשארים אצלכם מחוץ לאפליקציה.
             </Text>
             <PrimaryButton
               label={busy ? 'מוחק…' : 'מחק את כל הנתונים'}
@@ -109,56 +125,56 @@ export default function PinLockScreen() {
             >
               <Text style={styles.textBtnLabel}>חזרה להזנת הקוד</Text>
             </Pressable>
-          </View>
+          </Glass>
         ) : (
-          <View style={styles.card}>
-            <Text style={styles.fieldLabel}>קוד נעילה</Text>
-            <TextInput
-              ref={inputRef}
-              value={pin}
-              onChangeText={onChange}
-              onSubmitEditing={() => void submit()}
-              keyboardType="number-pad"
-              inputMode="numeric"
-              secureTextEntry
-              maxLength={6}
-              autoFocus
-              autoCorrect={false}
-              autoComplete="off"
-              textContentType="none"
-              importantForAutofill="no"
-              textAlign="center"
-              placeholder="••••"
-              placeholderTextColor={colors.sheetMuted}
-              style={styles.input}
-              accessibilityLabel="קוד נעילה, 4 עד 6 ספרות"
-              accessibilityHint="הקלד את הקוד ולחץ על פתיחה"
-              returnKeyType="done"
-            />
-            {error ? (
-              <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
-                {error}
-              </Text>
+          <View style={styles.lockShell}>
+            {useNativeBlur ? (
+              <BlurView
+                intensity={Platform.OS === 'ios' ? 48 : 28}
+                tint="systemChromeMaterialDark"
+                style={[StyleSheet.absoluteFill, styles.lockBlur]}
+              />
             ) : (
-              <Text style={styles.hint}>4 עד 6 ספרות</Text>
+              <View
+                pointerEvents="none"
+                style={[
+                  StyleSheet.absoluteFill,
+                  styles.lockBlur,
+                  styles.lockWebGlass,
+                ]}
+              />
             )}
-            <PrimaryButton
-              label={busy ? 'בודק…' : 'פתח'}
-              disabled={busy || pin.length < 4}
-              onPress={() => void submit()}
-            />
-            <Pressable
-              onPress={() => {
-                setForgot(true);
-                setError('');
-                setPin('');
-              }}
-              style={styles.textBtn}
-              accessibilityRole="button"
-              accessibilityLabel="שכחתי את הקוד"
-            >
-              <Text style={styles.textBtnLabel}>שכחתי את הקוד</Text>
-            </Pressable>
+            <View style={styles.lockInner}>
+              <Text style={styles.fieldLabel}>קוד נעילה</Text>
+              <PinPad
+                value={pin}
+                onChange={onChange}
+                onSubmit={(code) => void submit(code)}
+                disabled={busy}
+                error={!!error}
+                errorKey={shakeToken}
+                accessibilityLabel="קוד נעילה"
+              />
+              {error ? (
+                <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
+                  {error}
+                </Text>
+              ) : (
+                <Text style={styles.hint}>{busy ? 'בודק…' : '4 עד 6 ספרות · ✓ לאישור'}</Text>
+              )}
+              <Pressable
+                onPress={() => {
+                  setForgot(true);
+                  setError('');
+                  setPin('');
+                }}
+                style={styles.textBtn}
+                accessibilityRole="button"
+                accessibilityLabel="שכחתי את הקוד"
+              >
+                <Text style={styles.textBtnLabel}>שכחתי את הקוד</Text>
+              </Pressable>
+            </View>
           </View>
         )}
       </View>
@@ -173,6 +189,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: spacing.lg,
   },
+  orb: {
+    position: 'absolute',
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+    opacity: 0.35,
+  },
+  orbA: {
+    top: '8%',
+    start: -80,
+    backgroundColor: colors.orbA,
+  },
+  orbB: {
+    bottom: '12%',
+    end: -100,
+    backgroundColor: colors.orbC,
+    opacity: 0.22,
+  },
   mark: {
     fontFamily: fonts.displayExtra,
     fontSize: 28,
@@ -182,7 +216,7 @@ const styles = StyleSheet.create({
   },
   title: {
     ...type.h1,
-    color: '#fff',
+    color: colors.ink,
     textAlign: 'center',
   },
   sub: {
@@ -194,49 +228,70 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     paddingHorizontal: spacing.sm,
   },
-  card: {
-    backgroundColor: 'rgba(255,255,255,0.06)',
+  lockShell: {
+    borderRadius: radii.xxl,
     borderWidth: 1,
     borderColor: colors.glassBorder,
+    backgroundColor: colors.glass,
+    overflow: 'hidden',
+    ...Platform.select({
+      web: { boxShadow: '0 24px 64px rgba(0,0,0,0.45)' } as object,
+      default: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 18 },
+        shadowOpacity: 0.35,
+        shadowRadius: 28,
+        elevation: 12,
+      },
+    }),
+  },
+  lockBlur: {
     borderRadius: radii.xxl,
+  },
+  lockWebGlass: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    ...(Platform.OS === 'web'
+      ? ({
+          backdropFilter: 'blur(28px)',
+          WebkitBackdropFilter: 'blur(28px)',
+        } as ViewStyle)
+      : null),
+  },
+  lockInner: {
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  card: {
     padding: spacing.lg,
+    borderRadius: radii.xxl,
   },
   fieldLabel: {
     ...type.eyebrow,
     color: colors.gold,
     textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: radii.lg,
-    paddingHorizontal: 16,
-    paddingVertical: Platform.OS === 'ios' ? 16 : 14,
-    fontFamily: fonts.num,
-    fontSize: 28,
-    letterSpacing: 6,
-    color: colors.sheetInk,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
   hint: {
     ...type.caption,
     color: colors.sheetMuted,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginTop: spacing.sm,
+    writingDirection: 'rtl',
   },
   error: {
     ...type.caption,
     color: colors.danger,
     textAlign: 'center',
-    marginBottom: spacing.md,
+    marginTop: spacing.sm,
     writingDirection: 'rtl',
   },
   textBtn: {
     alignItems: 'center',
     paddingVertical: spacing.md,
     marginTop: spacing.xs,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   textBtnLabel: {
     fontFamily: fonts.semi,
@@ -248,7 +303,7 @@ const styles = StyleSheet.create({
   },
   forgotTitle: {
     ...type.h2,
-    color: '#fff',
+    color: colors.ink,
     textAlign: 'center',
     marginBottom: spacing.sm,
   },
