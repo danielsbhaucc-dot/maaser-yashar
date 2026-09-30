@@ -255,12 +255,20 @@ const styles = StyleSheet.create({
     ...type.h1,
     color: colors.ink,
     textAlign: 'center',
+    ...Platform.select({
+      web: { userSelect: 'none', caretColor: 'transparent' } as object,
+      default: {},
+    }),
   },
   screenSub: {
     ...type.bodySm,
     color: colors.inkSoft,
     marginTop: 6,
     textAlign: 'center',
+    ...Platform.select({
+      web: { userSelect: 'none', caretColor: 'transparent' } as object,
+      default: {},
+    }),
   },
   inkDark: { color: colors.sheetInk },
   inkMutedDark: { color: colors.sheetMuted },

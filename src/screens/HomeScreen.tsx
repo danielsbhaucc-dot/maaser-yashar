@@ -327,6 +327,17 @@ export default function HomeScreen() {
 
   const isEmptyMonth = monthEntries.length === 0;
   const celebrateDone = totals.remaining <= 0 && totals.obligation > 0;
+  const celebrateSeenRef = useRef(false);
+
+  useEffect(() => {
+    if (!celebrateDone) {
+      celebrateSeenRef.current = false;
+      return;
+    }
+    if (celebrateSeenRef.current || isEmptyMonth) return;
+    celebrateSeenRef.current = true;
+    toast.success('כיסית את המעשר החודש');
+  }, [celebrateDone, isEmptyMonth, toast]);
 
   return (
     <Screen sheet hero={hero} scroll>
@@ -335,7 +346,6 @@ export default function HomeScreen() {
         style={styles.periodWrap}
         onLayout={(e) => setPeriodViewportW(e.nativeEvent.layout.width)}
       >
-        <View style={styles.periodFadeStart} pointerEvents="none" />
         <ScrollView
           ref={periodScrollRef}
           horizontal
@@ -366,7 +376,6 @@ export default function HomeScreen() {
             </Pressable>
           ))}
         </ScrollView>
-        <View style={styles.periodFadeEnd} pointerEvents="none" />
       </View>
 
       <Glass
@@ -376,7 +385,7 @@ export default function HomeScreen() {
         accessibilityRole="summary"
         accessibilityLabel={
           celebrateDone
-            ? `החודש כוסה. חובה ${formatMoney(totals.obligation)}`
+            ? 'כיסית את המעשר החודש'
             : totals.obligation <= 0
               ? ringStatusLine || 'אין חובה החודש'
               : `יתרה לתת ${formatMoney(totals.remaining)} מתוך חובה של ${formatMoney(totals.obligation)}`
@@ -427,7 +436,7 @@ export default function HomeScreen() {
                 accessibilityHidden
                 accessibilityLabel={
                   celebrateDone || savedFlash
-                    ? `החודש כוסה. חובה ${formatMoney(totals.obligation)}`
+                    ? 'כיסית את המעשר החודש'
                     : totals.obligation <= 0
                       ? ringStatusLine || 'אין חובה החודש'
                       : `יתרה לתת ${formatMoney(totals.remaining)} מתוך חובה של ${formatMoney(totals.obligation)}`
@@ -876,35 +885,7 @@ const styles = StyleSheet.create({
     width: '100%',
     marginBottom: spacing.md,
     position: 'relative',
-  },
-  periodFadeStart: {
-    position: 'absolute',
-    start: 0,
-    top: 0,
-    bottom: 0,
-    width: 18,
-    zIndex: 2,
-    backgroundColor: 'transparent',
-    ...Platform.select({
-      web: {
-        backgroundImage: 'linear-gradient(to left, transparent, rgba(20,27,48,0.95))',
-      } as object,
-      default: {},
-    }),
-  },
-  periodFadeEnd: {
-    position: 'absolute',
-    end: 0,
-    top: 0,
-    bottom: 0,
-    width: 18,
-    zIndex: 2,
-    ...Platform.select({
-      web: {
-        backgroundImage: 'linear-gradient(to right, transparent, rgba(20,27,48,0.95))',
-      } as object,
-      default: {},
-    }),
+    overflow: 'visible',
   },
   tuneCard: {
     padding: spacing.md,
@@ -944,7 +925,7 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
     marginBottom: spacing.sm,
   },
-  periodRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 4 },
+  periodRow: { flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 2 },
   periodChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,

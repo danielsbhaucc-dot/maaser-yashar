@@ -1,5 +1,5 @@
 [build]
-  command = "npx expo export -p web && node scripts/apply-contact.mjs"
+  command = "npx expo export -p web --source-maps true && node scripts/post-export-web.mjs && node scripts/apply-contact.mjs"
   publish = "dist"
 
 [functions]
@@ -23,10 +23,9 @@
     X-Frame-Options = "DENY"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=(), payment=()"
-    # Enforcing: חוסם embedding. גופנים מקומיים בלבד (WOFF2 ב־/fonts).
-    Content-Security-Policy = "frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
-    # Report-Only — מתאים ל־Expo web (inline + eval במטרו). אחרי redeploy בדקו Console.
-    Content-Security-Policy-Report-Only = "default-src 'self'; img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; connect-src 'self' https:; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'"
+    # Enforcing CSP מלא. Expo web צריך 'unsafe-inline' (סגנונות/סקריפטים מוזרקים)
+    # ו־'unsafe-eval' (מטרו). connect-src = self בלבד (/api/chat same-origin).
+    Content-Security-Policy = "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'; frame-ancestors 'none'; base-uri 'self'; object-src 'none'; form-action 'self'"
 
 [[headers]]
   for = "/version.json"

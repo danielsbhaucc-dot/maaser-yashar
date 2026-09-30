@@ -1,8 +1,10 @@
 import React from 'react';
-import { View, Text, TextInput, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { Glass } from './Glass';
 import { PrimaryButton } from './ui';
+import { PinPad } from './PinPad';
 import { usePinLock, type PinAttempt } from '../context/PinLockContext';
+import { verifyPinLock } from '../utils/pinLock';
 import { useApp } from '../context/AppContext';
 import { useToast } from '../context/ToastContext';
 import { t } from '../utils/copy';
@@ -10,41 +12,38 @@ import { colors, fonts, radii, spacing, type } from '../theme';
 
 type Mode = 'idle' | 'create' | 'change' | 'remove';
 
-function digitsOnly(text: string) {
-  return text.replace(/\D/g, '').slice(0, 6);
+type Step =
+  | 'new'
+  | 'confirm'
+  | 'current'
+  | 'change-new'
+  | 'change-confirm'
+  | 'remove-current';
+
+function failMessage(result: PinAttempt): string {
+  if (result === 'format') return 'הקוד צריך 4 עד 6 ספרות';
+  if (result === 'mismatch') return 'שני הקודים לא זהים';
+  if (result === 'wrong') return 'הקוד הנוכחי לא נכון';
+  if (result === 'unavailable') return 'אי אפשר להפעיל נעילה במכשיר הזה';
+  return '';
 }
 
-function PinField({
-  label,
-  value,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.inputLabel}>{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={(txt) => onChange(digitsOnly(txt))}
-        keyboardType="number-pad"
-        inputMode="numeric"
-        secureTextEntry
-        maxLength={6}
-        autoCorrect={false}
-        autoComplete="off"
-        textContentType="none"
-        importantForAutofill="no"
-        textAlign="center"
-        placeholder="4–6 ספרות"
-        placeholderTextColor={colors.sheetMuted}
-        style={styles.input}
-        accessibilityLabel={label}
-      />
-    </View>
-  );
+function stepTitle(step: Step): string {
+  switch (step) {
+    case 'new':
+      return 'בחרו קוד חדש';
+    case 'confirm':
+      return 'אמתו את הקוד';
+    case 'current':
+    case 'remove-current':
+      return 'הקוד הנוכחי';
+    case 'change-new':
+      return 'קוד חדש';
+    case 'change-confirm':
+      return 'אימות הקוד החדש';
+    default:
+      return 'קוד נעילה';
+  }
 }
 
 export function PinLockSettings() {
@@ -52,67 +51,131 @@ export function PinLockSettings() {
   const { profile } = useApp();
   const toast = useToast();
   const [mode, setMode] = React.useState<Mode>('idle');
+  const [step, setStep] = React.useState<Step>('new');
+  const [draft, setDraft] = React.useState('');
   const [a, setA] = React.useState('');
   const [b, setB] = React.useState('');
-  const [c, setC] = React.useState('');
   const [error, setError] = React.useState('');
+  const [errorKey, setErrorKey] = React.useState(0);
   const [busy, setBusy] = React.useState(false);
 
   const reset = () => {
     setMode('idle');
+    setStep('new');
+    setDraft('');
     setA('');
     setB('');
-    setC('');
     setError('');
+    setErrorKey(0);
   };
 
-  const edit = (setter: (v: string) => void) => (value: string) => {
-    setter(value);
-    if (error) setError('');
+  const bumpError = (msg: string) => {
+    setError(msg);
+    setErrorKey((n) => n + 1);
+    setDraft('');
   };
 
-  const fail = (result: PinAttempt) => {
-    if (result === 'format') setError('הקוד צריך 4 עד 6 ספרות');
-    else if (result === 'mismatch') setError('שני הקודים לא זהים');
-    else if (result === 'wrong') setError('הקוד הנוכחי לא נכון');
-    else if (result === 'unavailable') setError('אי אפשר להפעיל נעילה במכשיר הזה');
-    else setError('');
+  const start = (next: Mode) => {
+    setError('');
+    setErrorKey(0);
+    setDraft('');
+    setA('');
+    setB('');
+    setMode(next);
+    if (next === 'create') setStep('new');
+    else if (next === 'change') setStep('current');
+    else if (next === 'remove') setStep('remove-current');
   };
 
-  const onCreate = async () => {
+  const onCreateSubmit = async (pin: string) => {
+    if (step === 'new') {
+      if (pin.length < 4) {
+        bumpError('הקוד צריך 4 עד 6 ספרות');
+        return;
+      }
+      setA(pin);
+      setDraft('');
+      setError('');
+      setStep('confirm');
+      return;
+    }
     setBusy(true);
-    const result = await pinLock.enable(a, b);
+    const result = await pinLock.enable(a, pin);
     setBusy(false);
     if (result !== 'ok') {
-      fail(result);
+      bumpError(failMessage(result));
+      if (result === 'mismatch') {
+        setA('');
+        setStep('new');
+      }
       return;
     }
     reset();
     toast.success('נעילת הקוד פעילה ✦', 'רענון הדף יציג את מסך הנעילה');
   };
 
-  const onChange = async () => {
+  const onChangeSubmit = async (pin: string) => {
+    if (step === 'current') {
+      setBusy(true);
+      const ok = await verifyPinLock(pin);
+      setBusy(false);
+      if (!ok) {
+        bumpError('הקוד הנוכחי לא נכון');
+        return;
+      }
+      setA(pin);
+      setDraft('');
+      setError('');
+      setStep('change-new');
+      return;
+    }
+    if (step === 'change-new') {
+      if (pin.length < 4) {
+        bumpError('הקוד צריך 4 עד 6 ספרות');
+        return;
+      }
+      setB(pin);
+      setDraft('');
+      setError('');
+      setStep('change-confirm');
+      return;
+    }
     setBusy(true);
-    const result = await pinLock.change(a, b, c);
+    const result = await pinLock.change(a, b, pin);
     setBusy(false);
     if (result !== 'ok') {
-      fail(result);
+      bumpError(failMessage(result));
+      if (result === 'wrong') {
+        setA('');
+        setB('');
+        setStep('current');
+      } else if (result === 'mismatch') {
+        setB('');
+        setStep('change-new');
+      }
       return;
     }
     reset();
     toast.success('הקוד עודכן ✦');
   };
 
-  const onRemove = async () => {
+  const onRemoveSubmit = async (pin: string) => {
     setBusy(true);
-    const result = await pinLock.disable(a);
+    const result = await pinLock.disable(pin);
     setBusy(false);
     if (result !== 'ok') {
-      fail(result);
+      bumpError(failMessage(result));
       return;
     }
     reset();
     toast.info('נעילת הקוד כבויה');
+  };
+
+  const handleSubmit = (pin: string) => {
+    if (busy) return;
+    if (mode === 'create') void onCreateSubmit(pin);
+    else if (mode === 'change') void onChangeSubmit(pin);
+    else if (mode === 'remove') void onRemoveSubmit(pin);
   };
 
   return (
@@ -134,9 +197,9 @@ export function PinLockSettings() {
         <View style={styles.actions}>
           {pinLock.enabled ? (
             <>
-              <PrimaryButton label="שינוי קוד" onPress={() => { setError(''); setMode('change'); }} />
+              <PrimaryButton label="שינוי קוד" onPress={() => start('change')} />
               <Pressable
-                onPress={() => { setError(''); setMode('remove'); }}
+                onPress={() => start('remove')}
                 style={styles.quietBtn}
                 accessibilityRole="button"
                 accessibilityLabel="ביטול נעילת הקוד"
@@ -147,72 +210,48 @@ export function PinLockSettings() {
           ) : (
             <PrimaryButton
               label={t(profile.gender, 'הפעל נעילת קוד ✦', 'הפעילי נעילת קוד ✦')}
-              onPress={() => { setError(''); setMode('create'); }}
+              onPress={() => start('create')}
             />
           )}
         </View>
-      ) : null}
-
-      {mode === 'create' ? (
+      ) : (
         <View style={styles.form}>
-          <PinField label="קוד חדש" value={a} onChange={edit(setA)} />
-          <PinField label="אימות הקוד" value={b} onChange={edit(setB)} />
+          <Text style={styles.stepTitle} accessibilityRole="header">
+            {stepTitle(step)}
+          </Text>
+          {mode === 'remove' ? (
+            <Text style={styles.stepHint}>כדי לכבות את הנעילה צריך את הקוד הנוכחי.</Text>
+          ) : null}
+          <PinPad
+            value={draft}
+            onChange={(v) => {
+              setDraft(v);
+              if (error) setError('');
+            }}
+            onSubmit={handleSubmit}
+            disabled={busy}
+            error={!!error}
+            errorKey={errorKey}
+            compact
+            accessibilityLabel={stepTitle(step)}
+          />
           {error ? (
             <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
               {error}
             </Text>
-          ) : null}
-          <PrimaryButton
-            label={busy ? 'שומר…' : 'שמור קוד'}
-            disabled={busy || a.length < 4 || b.length < 4}
-            onPress={() => void onCreate()}
-          />
-          <Pressable onPress={reset} style={styles.quietBtn} accessibilityRole="button">
+          ) : (
+            <Text style={styles.stepHint}>{busy ? 'שומר…' : '4 עד 6 ספרות · ✓ לאישור'}</Text>
+          )}
+          <Pressable
+            onPress={reset}
+            style={styles.quietBtn}
+            accessibilityRole="button"
+            accessibilityLabel="ביטול"
+          >
             <Text style={styles.quietTxt}>ביטול</Text>
           </Pressable>
         </View>
-      ) : null}
-
-      {mode === 'change' ? (
-        <View style={styles.form}>
-          <PinField label="קוד נוכחי" value={a} onChange={edit(setA)} />
-          <PinField label="קוד חדש" value={b} onChange={edit(setB)} />
-          <PinField label="אימות הקוד החדש" value={c} onChange={edit(setC)} />
-          {error ? (
-            <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
-              {error}
-            </Text>
-          ) : null}
-          <PrimaryButton
-            label={busy ? 'מעדכן…' : 'עדכן קוד'}
-            disabled={busy || a.length < 4 || b.length < 4 || c.length < 4}
-            onPress={() => void onChange()}
-          />
-          <Pressable onPress={reset} style={styles.quietBtn} accessibilityRole="button">
-            <Text style={styles.quietTxt}>ביטול</Text>
-          </Pressable>
-        </View>
-      ) : null}
-
-      {mode === 'remove' ? (
-        <View style={styles.form}>
-          <Text style={styles.intro}>כדי לכבות את הנעילה צריך את הקוד הנוכחי.</Text>
-          <PinField label="קוד נוכחי" value={a} onChange={edit(setA)} />
-          {error ? (
-            <Text style={styles.error} accessibilityRole="alert" accessibilityLiveRegion="polite">
-              {error}
-            </Text>
-          ) : null}
-          <PrimaryButton
-            label={busy ? 'מכבה…' : 'כבה נעילה'}
-            disabled={busy || a.length < 4}
-            onPress={() => void onRemove()}
-          />
-          <Pressable onPress={reset} style={styles.quietBtn} accessibilityRole="button">
-            <Text style={styles.quietTxt}>ביטול</Text>
-          </Pressable>
-        </View>
-      ) : null}
+      )}
     </Glass>
   );
 }
@@ -257,27 +296,22 @@ const styles = StyleSheet.create({
     writingDirection: 'rtl',
   },
   actions: { gap: 4 },
-  form: { gap: 4 },
-  field: { marginBottom: spacing.sm },
-  inputLabel: {
+  form: {
+    gap: 4,
+    alignItems: 'center',
+  },
+  stepTitle: {
+    ...type.h3,
+    color: colors.ink,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
+  },
+  stepHint: {
     ...type.caption,
     color: colors.sheetMuted,
     textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: spacing.sm,
     writingDirection: 'rtl',
-  },
-  input: {
-    backgroundColor: 'rgba(255,255,255,0.04)',
-    borderRadius: radii.lg,
-    paddingHorizontal: 16,
-    paddingVertical: Platform.OS === 'ios' ? 14 : 12,
-    fontFamily: fonts.num,
-    fontSize: 22,
-    letterSpacing: 4,
-    color: colors.sheetInk,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.10)',
-    width: '100%',
   },
   error: {
     ...type.caption,
@@ -289,6 +323,8 @@ const styles = StyleSheet.create({
   quietBtn: {
     alignItems: 'center',
     paddingVertical: 12,
+    minHeight: 44,
+    justifyContent: 'center',
   },
   quietTxt: {
     fontFamily: fonts.semi,

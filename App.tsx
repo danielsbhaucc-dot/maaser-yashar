@@ -38,8 +38,13 @@ import { registerWebPwa } from './src/pwa/registerWebPwa';
 import { APP_URL } from './src/utils/monthlyReminderCore';
 import { useShellLayout } from './src/hooks/useShellLayout';
 
-/** Deep-link paths for tabs (SwipeTabs syncs history; config documents the routes) */
+/**
+ * Deep-link path table (documentation + documentTitle).
+ * URL ↔ tab sync lives in SwipeTabs.web — do NOT enable React Navigation
+ * linking here (no matching navigator; it rewrites cold deep links back to `/`).
+ */
 const linking = {
+  enabled: false as const,
   prefixes: [APP_URL, 'https://maaser-yashar.netlify.app', 'http://localhost:8081'],
   config: {
     screens: {

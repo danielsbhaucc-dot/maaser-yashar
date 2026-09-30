@@ -87,7 +87,8 @@ export type A11ySettings = {
 export const A11Y_STORAGE_KEY = '@maaser/a11y-v2';
 
 export const DEFAULT_A11Y: A11ySettings = {
-  widgetHidden: true,
+  /** כפתור צף גלוי כברירת מחדל — מוסתר רק בבחירת המשתמש */
+  widgetHidden: false,
   panelOpen: false,
   profile: 'none',
 

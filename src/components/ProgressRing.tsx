@@ -97,7 +97,7 @@ export function ProgressRing({
           : 'ריק';
 
   const defaultLabel = celebrate
-    ? 'החודש כוסה'
+    ? 'כיסית את המעשר החודש'
     : ring.kind === 'progress'
       ? `${pct} אחוז ניתן`
       : ring.kind === 'none'
@@ -151,7 +151,7 @@ const styles = StyleSheet.create({
   pct: {
     fontFamily: fonts.numBold,
     fontSize: 17,
-    color: '#fff',
+    color: colors.ink,
     lineHeight: 20,
   },
   pctMuted: {

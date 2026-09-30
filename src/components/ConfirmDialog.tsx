@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: 'rgba(6, 8, 18, 0.72)',
+    backgroundColor: colors.overlay,
   },
   dialog: {
     width: '100%',
@@ -133,8 +133,8 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     borderRadius: radii.xl,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.16)',
-    backgroundColor: 'rgba(22, 26, 48, 0.98)',
+    borderColor: colors.border,
+    backgroundColor: colors.sheetSolidAlpha,
     padding: spacing.lg,
     gap: 10,
     zIndex: 2,

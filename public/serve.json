@@ -1,0 +1,10 @@
+{
+  "rewrites": [
+    { "source": "/history", "destination": "/index.html" },
+    { "source": "/tax", "destination": "/index.html" },
+    { "source": "/guide", "destination": "/index.html" },
+    { "source": "/settings", "destination": "/index.html" },
+    { "source": "/privacy", "destination": "/privacy.html" },
+    { "source": "/about", "destination": "/about.html" }
+  ]
+}

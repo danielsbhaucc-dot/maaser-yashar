@@ -14,6 +14,7 @@ type Props = {
   keyboardShouldPersistTaps?: 'handled' | 'always' | 'never';
   sheet?: boolean;
   hero?: React.ReactNode;
+  /** כפתור נועם עבר ל־FAB צף גלובלי — ברירת מחדל כבוי */
   showNoam?: boolean;
 };
 
@@ -25,9 +26,9 @@ export function Screen({
   keyboardShouldPersistTaps = 'handled',
   sheet = false,
   hero,
-  showNoam,
+  showNoam = false,
 }: Props) {
-  const withNoam = showNoam ?? sheet;
+  const withNoam = showNoam;
   const page = sheet ? (
     <View style={styles.sheetRoot}>
       {hero ? (

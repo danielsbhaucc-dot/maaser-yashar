@@ -69,8 +69,13 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
         }
         if (raw && !cancelled) {
           const parsed = JSON.parse(raw) as Partial<A11ySettings>;
-          // נגישות רק מהגדרות — בלי FAB / פס שחזור שמסתירים תוכן
-          setSettings({ ...DEFAULT_A11Y, ...parsed, panelOpen: false, widgetHidden: true });
+          // שומרים widgetHidden כפי שבחר המשתמש; פאנל תמיד סגור בטעינה
+          setSettings({
+            ...DEFAULT_A11Y,
+            ...parsed,
+            panelOpen: false,
+            widgetHidden: parsed.widgetHidden === true,
+          });
         }
       } catch {
         // ignore
@@ -169,7 +174,7 @@ export function AccessibilityProvider({ children }: { children: React.ReactNode 
   }, []);
 
   const showWidget = useCallback(() => {
-    setSettings((cur) => ({ ...cur, widgetHidden: false, panelOpen: true }));
+    setSettings((cur) => ({ ...cur, widgetHidden: false }));
   }, []);
 
   const speak = useCallback(
