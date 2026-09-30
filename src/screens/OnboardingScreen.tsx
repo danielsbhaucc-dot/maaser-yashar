@@ -416,6 +416,7 @@ export default function OnboardingScreen() {
   const applyRefuseDefaults = (field: RefuseField) => {
     setClarifyCount(0);
     if (field === 'name') {
+      setPendingName(null);
       setName(ONBOARD_DEFAULTS.displayName);
       setSkippedName(true);
       goToGenderStep(skipNameContinue());
