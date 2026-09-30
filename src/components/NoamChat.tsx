@@ -626,8 +626,14 @@ export default function NoamChat() {
         setPending([]);
         return;
       }
-      // A: מקור אמת יחיד — addEntries מחזיר את הפנקס המלא אחרי ההוספה
-      const nextLedger = await addEntries(payloads);
+      // A: מקור אמת יחיד — snapshot לפני await; אם ledgerRef גדל בזמן ה־await
+      // (useEffect אחרי persist) משתמשים בו לבד, אחרת ממזגים פעם אחת מ־addEntries.
+      const snapshotLen = ledgerRef.current.length;
+      const fromAdd = await addEntries(payloads);
+      const nextLedger =
+        ledgerRef.current.length > snapshotLen
+          ? ledgerRef.current
+          : fromAdd;
       ledgerRef.current = nextLedger;
       const afterCtx = buildNoamContext({
         profile: profileRef.current,

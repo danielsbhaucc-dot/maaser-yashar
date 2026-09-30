@@ -401,7 +401,11 @@ function Root() {
   if (pin.locked) {
     return (
       <AccessibilityRoot>
-        <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
+        <View
+          style={[styles.mainShell, DIR]}
+          accessibilityRole="main"
+          {...rtlDomProps}
+        >
           <PinLockScreen />
           <AccessibilityWidget />
           <StorageAlertBridge />
@@ -412,7 +416,11 @@ function Root() {
   if (!profile.onboardingDone) {
     return (
       <AccessibilityRoot>
-        <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
+        <View
+          style={[styles.mainShell, DIR]}
+          accessibilityRole="main"
+          {...rtlDomProps}
+        >
           <OnboardingScreen />
           <AccessibilityWidget />
           <StorageAlertBridge />
@@ -422,7 +430,11 @@ function Root() {
   }
   return (
     <AccessibilityRoot>
-      <View style={[styles.mainShell, DIR]} {...rtlDomProps}>
+      <View
+        style={[styles.mainShell, DIR]}
+        accessibilityRole="main"
+        {...rtlDomProps}
+      >
         <SwipeTabs />
         <GlobalAddModal />
         <PwaInstallBanner />

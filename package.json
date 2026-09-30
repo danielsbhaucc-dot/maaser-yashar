@@ -52,7 +52,9 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
-    "test:noam": "node scripts/noam-regression.mjs"
+    "test:noam": "node scripts/noam-regression.mjs",
+    "test:all": "vitest run && playwright test && node scripts/noam-regression.mjs --mode=mock",
+    "verify:hygiene": "vitest run src/ai/__tests__/hygiene.test.ts"
   },
   "private": true
 }

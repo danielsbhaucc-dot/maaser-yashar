@@ -1,6 +1,5 @@
-# T-55: required check on PRs — unit tests + web export + Playwright smoke.
-# Mark this workflow as a required status check in GitHub branch protection
-# (Settings → Branches → Require status checks → "CI").
+# CI — unit + hygiene, Playwright e2e, Noam mock regression.
+# Mark jobs / workflow as required checks in branch protection as needed.
 name: CI
 
 on:
@@ -13,10 +12,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  test:
-    name: CI
+  unit:
+    name: unit
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -31,15 +30,110 @@ jobs:
         run: npm ci
 
       - name: Unit tests
+        id: unit
         run: npm test
 
-      - name: Export web
-        run: npx expo export -p web
+      - name: Hygiene
+        id: hygiene
+        run: npm run verify:hygiene
 
-      - name: Install Playwright browsers
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## unit"
+            echo "| Step | Result |"
+            echo "| --- | --- |"
+            echo "| npm test | ${{ steps.unit.outcome }} |"
+            echo "| verify:hygiene | ${{ steps.hygiene.outcome }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  e2e:
+    name: e2e
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Export web
+        id: export
+        run: npm run export:web
+
+      - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: E2E smoke (Playwright)
+      - name: E2E (Playwright)
+        id: e2e
         run: npm run test:e2e
         env:
           CI: true
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results/**
+            docs/review-screenshots/**
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## e2e"
+            echo "| Step | Result |"
+            echo "| --- | --- |"
+            echo "| export:web | ${{ steps.export.outcome }} |"
+            echo "| playwright | ${{ steps.e2e.outcome }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  noam-mock:
+    name: noam-mock
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Noam regression (mock, no secrets)
+        id: noam
+        run: npm run test:noam -- --mode=mock
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "## noam-mock"
+            echo "| Step | Result |"
+            echo "| --- | --- |"
+            echo "| test:noam --mode=mock | ${{ steps.noam.outcome }} |"
+            echo ""
+            echo "## Summary table"
+            echo "| Group | Result |"
+            echo "| --- | --- |"
+            echo "| unit | see unit job |"
+            echo "| e2e | see e2e job |"
+            echo "| noam-mock | ${{ steps.noam.outcome }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

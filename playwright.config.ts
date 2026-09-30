@@ -5,6 +5,7 @@ const BASE_URL = `http://127.0.0.1:${PORT}`;
 
 /**
  * Smoke + acceptance widths (320–430 mobile, 1280 desktop).
+ * Serves static `dist/` — run `npm run export:web` first (CI does this).
  */
 export default defineConfig({
   testDir: './e2e',
@@ -12,16 +13,21 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? 'github' : 'list',
+  reporter: process.env.CI ? [['github'], ['list']] : 'list',
   timeout: 60_000,
   expect: { timeout: 15_000 },
   use: {
     baseURL: BASE_URL,
-    trace: 'on-first-retry',
     locale: 'he-IL',
+    screenshot: 'only-on-failure',
+    trace: 'on-first-retry',
+    video: 'retain-on-failure',
   },
+  outputDir: 'test-results',
   webServer: {
-    command: `npx --yes serve dist -l ${PORT} --no-port-switching`,
+    // Prerequisite: dist/ from `npm run export:web` (stale dist → flaky UI assertions)
+    // -s: SPA fallback so /history|/tax|/guide|/settings deep links hit index.html (like Netlify redirects)
+    command: `npx --yes serve dist -s -l tcp://127.0.0.1:${PORT} --no-port-switching`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

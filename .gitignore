@@ -57,3 +57,8 @@ yarn-error.*
 # Scratch / local agent leftovers
 .claude/
 _verify*
+
+/scripts/fixtures/last-run.json
+/docs/noam-regression-report.md
+/playwright-report/
+

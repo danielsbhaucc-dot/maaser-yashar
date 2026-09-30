@@ -240,6 +240,8 @@ export function SwipeTabs() {
         accessibilityRole="tab"
         accessibilityState={{ selected: focused }}
         accessibilityLabel={tab.title}
+        // RN-web omits aria-selected from accessibilityState alone — e2e needs strings
+        {...({ 'aria-selected': focused ? 'true' : 'false' } as object)}
         hitSlop={4}
       >
         <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>

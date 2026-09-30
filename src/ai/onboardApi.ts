@@ -329,6 +329,22 @@ function questionReply(raw: string): string {
   return `אני ${BOT_NAME}, העוזר ה-AI של מעשר ישר. מעשר = בדרך כלל 10% מהנטו לצדקה; חומש = 20%. אפשר לשאול עוד — וגם לזרוק שם פרטי כדי שנתחיל.`;
 }
 
+/** סירוב קצר לבקשות חשיפת הנחיות בשלב ההיכרות (O-08 / N-05) */
+function isOnboardInjectionAttempt(raw: string): boolean {
+  const t = raw.toLowerCase();
+  return (
+    /תתעלם\s+מההוראות|התעלם\s+מההוראות|ignore\s+(all\s+)?(previous|prior|above)\s+instructions/.test(
+      t
+    ) ||
+    /מה\s+ההנחיות\s+שלך|תראה\s+לי\s+את\s+(ההנחיות|הפרומפט)|show\s+me\s+(the\s+)?(system\s+)?prompt/.test(
+      t
+    )
+  );
+}
+
+const ONBOARD_INJECTION_REFUSAL =
+  'אני לא משתף את ההנחיות הפנימיות שלי. בוא נחזור להיכרות — איך קוראים לך?';
+
 /** זיהוי מקומי בלבד — בלי קריאת רשת. מקור האמת להיכרות. */
 export function localOnboardParse(text: string): OnboardResult {
   const raw = text.trim();
@@ -339,6 +355,14 @@ export function localOnboardParse(text: string): OnboardResult {
       intent: 'skip_name',
       name: null,
       reply: '',
+    };
+  }
+
+  if (isOnboardInjectionAttempt(raw)) {
+    return {
+      intent: 'question',
+      name: null,
+      reply: ONBOARD_INJECTION_REFUSAL,
     };
   }
 
