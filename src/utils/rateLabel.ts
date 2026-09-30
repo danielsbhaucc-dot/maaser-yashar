@@ -48,7 +48,7 @@ export type ParseRateResult =
   | { ok: true; rate: number; percent: number }
   | { ok: false; error: string };
 
-/** מפרסר אחוז מהשדה (1–50, ספרה אחת) → rate כשבר */
+/** מפרסר אחוז מהשדה (1–50, לכל היותר ספרה אחת אחרי הנקודה) → rate כשבר */
 export function parseRatePercentInput(raw: string): ParseRateResult {
   const cleaned = String(raw ?? '')
     .trim()
@@ -56,6 +56,9 @@ export function parseRatePercentInput(raw: string): ParseRateResult {
     .replace(',', '.');
   if (!cleaned) {
     return { ok: false, error: 'הזינו אחוז בין 1% ל־50%' };
+  }
+  if (!/^\d+(\.\d)?$/.test(cleaned)) {
+    return { ok: false, error: 'הזינו מספר תקין (עד ספרה אחת אחרי הנקודה)' };
   }
   const n = Number(cleaned);
   if (!Number.isFinite(n)) {

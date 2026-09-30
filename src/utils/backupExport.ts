@@ -14,6 +14,7 @@ import {
   parseBackupJson,
   parseStored,
   serializeForStorage,
+  shouldRemindBackup,
   validateBackup,
   type Backup,
 } from './backupFormat';
@@ -29,6 +30,7 @@ export {
   formatBackupDateHe,
   isBackupStale,
   parseBackupJson,
+  shouldRemindBackup,
   validateBackup,
 };
 export type { Backup };
@@ -170,7 +172,7 @@ export async function restoreBackup(backup: Backup): Promise<void> {
   notifyBackupReminder();
 
   if (Platform.OS === 'web' && typeof window !== 'undefined') {
-    window.location.reload();
+    window.location.assign('/');
     return;
   }
   await reloadAppAsync('restore-backup');
@@ -180,11 +182,13 @@ export async function getLastBackupAt(): Promise<string | null> {
   return AsyncStorage.getItem(LAST_BACKUP_KEY);
 }
 
-/** באנר תזכורת: יש תנועות בפנקס ואין גיבוי עדכני (30 יום) */
-export async function shouldShowBackupReminder(ledgerLength: number): Promise<boolean> {
-  if (ledgerLength <= 0) return false;
+/** באנר תזכורת: יש תנועות + גיבוי ישן / חסר כשהתנועה הוותיקה מעל 30 יום */
+export async function shouldShowBackupReminder(
+  ledgerLength: number,
+  oldestEntryIso?: string | null
+): Promise<boolean> {
   const last = await getLastBackupAt();
-  return isBackupStale(last);
+  return shouldRemindBackup(ledgerLength, last, oldestEntryIso);
 }
 
 /** בחירת קובץ גיבוי (web) */

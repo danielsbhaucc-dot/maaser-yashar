@@ -19,6 +19,7 @@ import {
   NET_GROSS_CLARIFY_EN,
 } from './chatSafety.mjs';
 import { reconcileReplyWithContext } from './chatLedger.mjs';
+import { neutralizeHalakhaOverclaim } from './chatHalakha.mjs';
 
 export const SCRIPT_FALLBACK = 'רגע, נתקעתי. אפשר לנסח שוב בקצרה?';
 
@@ -196,9 +197,10 @@ export function capSentences(text, lastUser) {
   const s = String(text || '');
   if (/^\s*\d+[.)]\s/m.test(s)) return { text: s, notes };
   const parts = splitSentences(s);
-  if (parts.length <= 4) return { text: s, notes };
+  // N-07: תשובות מחלוקת עד 5 שורות קצרות (max_tokens נשאר 280)
+  if (parts.length <= 5) return { text: s, notes };
   notes.push('sentence_cap');
-  return { text: joinSentences(parts.slice(0, 4)), notes };
+  return { text: joinSentences(parts.slice(0, 5)), notes };
 }
 
 function messageHasAmount(text) {
@@ -238,6 +240,10 @@ function applyOutputQuality(reply, messages, context, notes) {
   const capped = capSentences(text, lastUser);
   text = capped.text;
   notes.push(...capped.notes);
+
+  const halakha = neutralizeHalakhaOverclaim(text);
+  text = halakha.text;
+  notes.push(...halakha.notes);
 
   return text;
 }

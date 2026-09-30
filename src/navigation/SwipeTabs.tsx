@@ -23,6 +23,7 @@ import HistoryScreen from '../screens/HistoryScreen';
 import GuideScreen from '../screens/GuideScreen';
 import SettingsScreen from '../screens/SettingsScreen';
 import { TabNavProvider, type TabKey } from './TabNavContext';
+import { tabLabel, TAB_LABELS_LONG } from './tabRoutes';
 import { useApp } from '../context/AppContext';
 
 const TaxScreen = React.lazy(() => import('../screens/TaxScreen'));
@@ -41,53 +42,18 @@ function TaxScreenGate() {
   );
 }
 
-const TABS = [
-  {
-    key: 'Home' as const,
-    title: 'בית',
-    shortTitle: 'בית',
-    icon: 'home',
-    iconOut: 'home-outline',
-    Screen: HomeScreen,
-  },
-  {
-    key: 'History' as const,
-    title: 'היסטוריה',
-    shortTitle: 'ארכיון',
-    icon: 'time',
-    iconOut: 'time-outline',
-    Screen: HistoryScreen,
-  },
-  {
-    key: 'Tax' as const,
-    title: 'החזר מס',
-    shortTitle: 'מס',
-    icon: 'receipt',
-    iconOut: 'receipt-outline',
-    Screen: TaxScreenGate,
-  },
-  {
-    key: 'Guide' as const,
-    title: 'הנחיות',
-    shortTitle: 'מדריך',
-    icon: 'book',
-    iconOut: 'book-outline',
-    Screen: GuideScreen,
-  },
-  {
-    key: 'Settings' as const,
-    title: 'הגדרות',
-    shortTitle: 'עוד',
-    icon: 'settings',
-    iconOut: 'settings-outline',
-    Screen: SettingsScreen,
-  },
+const TAB_META = [
+  { key: 'Home' as const, icon: 'home', iconOut: 'home-outline', Screen: HomeScreen },
+  { key: 'History' as const, icon: 'time', iconOut: 'time-outline', Screen: HistoryScreen },
+  { key: 'Tax' as const, icon: 'receipt', iconOut: 'receipt-outline', Screen: TaxScreenGate },
+  { key: 'Guide' as const, icon: 'book', iconOut: 'book-outline', Screen: GuideScreen },
+  { key: 'Settings' as const, icon: 'settings', iconOut: 'settings-outline', Screen: SettingsScreen },
 ] as const;
 
-const TAB_KEYS: TabKey[] = TABS.map((t) => t.key);
-/** מתחת לרוחב זה — תוויות מקוצרות (תמיד גלויות) */
+const TAB_KEYS: TabKey[] = TAB_META.map((t) => t.key);
+/** native: מתחת לרוחב זה — תוויות מקוצרות (התנהגות קיימת) */
 const SHORT_LABEL_MAX = 430;
-const TAX_TAB_INDEX = TABS.findIndex((t) => t.key === 'Tax');
+const TAX_TAB_INDEX = TAB_META.findIndex((t) => t.key === 'Tax');
 
 /**
  * Native swipe:
@@ -112,7 +78,7 @@ export function SwipeTabs() {
   }, [index]);
 
   const setIndexSafe = useCallback((i: number) => {
-    const next = Math.max(0, Math.min(TABS.length - 1, i));
+    const next = Math.max(0, Math.min(TAB_META.length - 1, i));
     if (next === indexRef.current) return;
     indexRef.current = next;
     setIndex(next);
@@ -134,7 +100,7 @@ export function SwipeTabs() {
   );
 
   const goTo = useCallback((i: number) => {
-    if (i < 0 || i >= TABS.length) return;
+    if (i < 0 || i >= TAB_META.length) return;
     indexRef.current = i;
     setIndex(i);
     requestAnimationFrame(() => {
@@ -142,9 +108,9 @@ export function SwipeTabs() {
     });
   }, []);
 
-  const renderTab = (tab: (typeof TABS)[number], i: number) => {
+  const renderTab = (tab: (typeof TAB_META)[number], i: number) => {
     const focused = i === index;
-    const label = useShortLabels ? tab.shortTitle : tab.title;
+    const label = tabLabel(tab.key, useShortLabels);
     const testIdByKey: Record<string, string> = {
       Home: 'tab-home',
       History: 'tab-history',
@@ -160,7 +126,7 @@ export function SwipeTabs() {
         style={({ pressed }) => [styles.tabItem, pressed && styles.tabPressed]}
         accessibilityRole="tab"
         accessibilityState={{ selected: focused }}
-        accessibilityLabel={tab.title}
+        accessibilityLabel={TAB_LABELS_LONG[tab.key]}
         hitSlop={4}
       >
         <View style={[styles.tabIconWrap, focused && styles.tabIconActive]}>
@@ -198,7 +164,7 @@ export function SwipeTabs() {
             overdrag
             offscreenPageLimit={1}
           >
-            {TABS.map(({ key, Screen }) => (
+            {TAB_META.map(({ key, Screen }) => (
               <View key={key} style={[styles.page, DIR]} collapsable={false}>
                 {key === 'Tax' && !taxVisited ? null : <Screen />}
               </View>
@@ -222,7 +188,7 @@ export function SwipeTabs() {
             <View style={styles.tabTint} />
           </View>
           <View style={styles.tabsRow}>
-            {TABS.slice(0, 2).map((tab, i) => renderTab(tab, i))}
+            {TAB_META.slice(0, 2).map((tab, i) => renderTab(tab, i))}
             <View style={styles.fabNotch} pointerEvents="box-none">
               <Pressable
                 onPress={() => openAdd('tzedaka')}
@@ -241,7 +207,7 @@ export function SwipeTabs() {
                 </LinearGradient>
               </Pressable>
             </View>
-            {TABS.slice(2).map((tab, i) => renderTab(tab, i + 2))}
+            {TAB_META.slice(2).map((tab, i) => renderTab(tab, i + 2))}
           </View>
         </View>
       </View>

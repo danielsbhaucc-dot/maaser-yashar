@@ -59,31 +59,28 @@ export default class ErrorBoundary extends React.Component<
     if (this.state.error) {
       return (
         <View style={[styles.wrap, DIR]} {...rtlDomProps}>
-          <Text style={styles.title}>משהו השתבש</Text>
-          <Text style={styles.safe}>
-            הנתונים שלך בטוחים במכשיר. אפשר לרענן את האפליקציה או להוריד גיבוי.
-          </Text>
+          <Text style={styles.title}>משהו השתבש. הנתונים שלך שמורים במכשיר</Text>
 
           <View style={styles.actions}>
             <Pressable
               onPress={this.reload}
               style={[styles.btn, styles.btnPrimary]}
               accessibilityRole="button"
-              accessibilityLabel="רענון"
+              accessibilityLabel="טען מחדש"
             >
-              <Text style={styles.btnPrimaryText}>רענון</Text>
+              <Text style={styles.btnPrimaryText}>טען מחדש</Text>
             </Pressable>
             <Pressable
               onPress={() => void this.downloadBackup()}
               disabled={this.state.backingUp}
               style={[styles.btn, styles.btnGhost, this.state.backingUp && { opacity: 0.6 }]}
               accessibilityRole="button"
-              accessibilityLabel="הורדת גיבוי"
+              accessibilityLabel="הורד גיבוי"
             >
               {this.state.backingUp ? (
                 <ActivityIndicator color={colors.ink} />
               ) : (
-                <Text style={styles.btnGhostText}>הורדת גיבוי</Text>
+                <Text style={styles.btnGhostText}>הורד גיבוי</Text>
               )}
             </Pressable>
           </View>
@@ -120,16 +117,8 @@ const styles = StyleSheet.create({
     color: '#fff',
     textAlign: 'right',
     writingDirection: 'rtl',
-    marginBottom: 10,
-  },
-  safe: {
-    fontFamily: fonts.regular,
-    fontSize: 15,
-    color: colors.inkMuted,
-    textAlign: 'right',
-    writingDirection: 'rtl',
-    lineHeight: 22,
     marginBottom: 20,
+    lineHeight: 34,
   },
   actions: {
     gap: 10,

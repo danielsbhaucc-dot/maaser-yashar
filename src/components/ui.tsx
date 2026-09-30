@@ -264,7 +264,13 @@ const styles = StyleSheet.create({
   },
   inkDark: { color: colors.sheetInk },
   inkMutedDark: { color: colors.sheetMuted },
-  field: { marginBottom: spacing.md, alignItems: 'center' },
+  field: {
+    marginBottom: spacing.md,
+    alignItems: 'center',
+    width: '100%',
+    maxWidth: 560,
+    alignSelf: 'center',
+  },
   label: {
     ...type.caption,
     fontFamily: fonts.bold,

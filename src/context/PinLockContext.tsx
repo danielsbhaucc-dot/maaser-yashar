@@ -8,7 +8,10 @@ import {
   verifyPinLock,
 } from '../utils/pinLock';
 
-export type PinAttempt = 'ok' | 'format' | 'mismatch' | 'wrong' | 'unavailable';
+export type PinAttempt = 'ok' | 'format' | 'mismatch' | 'wrong' | 'unavailable' | 'delayed';
+
+/** השהייה אחרי 5 ניסיונות שגויים (מ״ש) */
+export const PIN_LOCKOUT_MS = 15_000;
 
 type PinLockValue = {
   ready: boolean;
@@ -27,6 +30,8 @@ export function PinLockProvider({ children }: { children: React.ReactNode }) {
   const [enabled, setEnabled] = useState(false);
   const [locked, setLocked] = useState(false);
   const hiddenAt = useRef<number | null>(null);
+  const failCount = useRef(0);
+  const lockUntil = useRef(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -80,8 +85,24 @@ export function PinLockProvider({ children }: { children: React.ReactNode }) {
 
   const unlock = async (pin: string): Promise<PinAttempt> => {
     if (!/^\d{4,6}$/.test(pin)) return 'format';
+    const waitMs = lockUntil.current - Date.now();
+    if (waitMs > 0) {
+      await new Promise((r) => setTimeout(r, Math.min(waitMs, PIN_LOCKOUT_MS)));
+      if (Date.now() < lockUntil.current) return 'delayed';
+    }
     const ok = await verifyPinLock(pin);
-    if (!ok) return 'wrong';
+    if (!ok) {
+      failCount.current += 1;
+      if (failCount.current >= 5) {
+        failCount.current = 0;
+        lockUntil.current = Date.now() + PIN_LOCKOUT_MS;
+        await new Promise((r) => setTimeout(r, PIN_LOCKOUT_MS));
+        return 'delayed';
+      }
+      return 'wrong';
+    }
+    failCount.current = 0;
+    lockUntil.current = 0;
     setLocked(false);
     return 'ok';
   };

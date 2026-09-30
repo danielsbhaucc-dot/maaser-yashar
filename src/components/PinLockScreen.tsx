@@ -20,6 +20,7 @@ import { PrimaryButton } from './ui';
 function messageFor(result: PinAttempt, gender: 'male' | 'female' | 'unspecified'): string {
   if (result === 'format') return 'הקוד צריך 4 עד 6 ספרות';
   if (result === 'wrong') return 'הקוד לא נכון';
+  if (result === 'delayed') return 'יותר מדי ניסיונות — המתינו כמה שניות ונסו שוב';
   if (result === 'unavailable') return 'אי אפשר להפעיל נעילה במכשיר הזה';
   return t(gender, 'נסו שוב', 'נסי שוב', 'נסו שוב');
 }
@@ -85,13 +86,14 @@ export default function PinLockScreen() {
               {t(profile.gender, 'שכחת את הקוד?', 'שכחת את הקוד?')}
             </Text>
             <Text style={styles.forgotBody}>
-              אין שחזור. הקוד עצמו לא נשמר בשום מקום, רק טביעת אצבע שלו, ולכן אי אפשר לאפס אותו.
+              אין איפוס קוד. הקוד עצמו לא נשמר בשום מקום, רק טביעת אצבע שלו.
             </Text>
             <Text style={styles.forgotBody}>
-              כדי להיכנס בלי הקוד צריך למחוק את כל מה שנשמר במכשיר — הפנקס, הפרופיל, השיחות והנעילה — ולהתחיל מחדש.
+              שתי אפשרויות: (1) לשחזר מגיבוי JSON ששמרתם בעבר — אחרי מחיקה או ממכשיר אחר דרך ההגדרות;
+              (2) למחוק כאן את כל מה שנשמר במכשיר ולהתחיל מחדש.
             </Text>
             <Text style={styles.forgotBody}>
-              אם ייצאת בעבר קובץ CSV, הוא נשאר אצלך מחוץ לאפליקציה. אין כאן שחזור אוטומטי ממנו.
+              אם ייצאתם CSV או גיבוי JSON, הם נשארים אצלכם מחוץ לאפליקציה.
             </Text>
             <PrimaryButton
               label={busy ? 'מוחק…' : 'מחק את כל הנתונים'}

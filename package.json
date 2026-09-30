@@ -32,6 +32,7 @@
     "@playwright/test": "^1.56.1",
     "@types/react": "~19.2.2",
     "@vitest/coverage-v8": "^4.1.11",
+    "node-ical": "^0.20.1",
     "serve": "^14.2.5",
     "typescript": "~6.0.3",
     "vitest": "^4.1.11"
@@ -54,7 +55,9 @@
     "test:e2e": "playwright test",
     "test:noam": "node scripts/noam-regression.mjs",
     "test:all": "vitest run && playwright test && node scripts/noam-regression.mjs --mode=mock",
-    "verify:hygiene": "vitest run src/ai/__tests__/hygiene.test.ts"
+    "verify:hygiene": "vitest run src/ai/__tests__/hygiene.test.ts",
+    "sync:halakha": "node scripts/sync-halakha.mjs",
+    "export:halakha": "node scripts/export-halakha-for-rabbi.mjs"
   },
   "private": true
 }

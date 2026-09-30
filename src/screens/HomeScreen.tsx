@@ -39,6 +39,7 @@ import type { LedgerEntry } from '../types/ledger';
 import { homeSmartInsights } from '../utils/smartInsights';
 import type { SmartInsight } from '../utils/smartInsights';
 import { EXPLAIN } from '../utils/chatScript';
+import halakha from '../../shared/halakha.json';
 import { daysLabel, entriesLabel } from '../utils/plural';
 import { formatRatePercent } from '../utils/rateLabel';
 import { formatRelativeTime } from '../utils/relativeTime';
@@ -57,9 +58,8 @@ import {
 } from '../utils/monthlyReminder';
 import { useTabNav } from '../navigation/TabNavContext';
 
-/** T-60: נוסח מרוכך — ממתין לאישור רב */
-const BASE_EXPLAIN_SHORT = `בסיס המעשר כאן = הכנסות שרשמת פחות הוצאות מותרות (מס / ביטוח / בריאות / הוצאות עסק).
-לפי המקובל, הוצאות מחיה (שכירות, אוכל) לא מנוכות. בשאלות גבוליות כדאי לשאול רב. צדקה לא מורידה מהבסיס — רק נספרת מול החובה.`;
+/** T-60: נוסח מרוכך — מ־shared/halakha.json */
+const BASE_EXPLAIN_SHORT = halakha.explainers.baseShort as string;
 
 export default function HomeScreen() {
   const {
@@ -106,8 +106,17 @@ export default function HomeScreen() {
 
   useEffect(() => {
     let cancelled = false;
+    const oldestEntryIso =
+      ledger.length === 0
+        ? null
+        : ledger.reduce((oldest, e) => {
+            const iso = e.date ?? e.createdAt;
+            if (!iso) return oldest;
+            if (!oldest) return iso;
+            return iso < oldest ? iso : oldest;
+          }, null as string | null);
     const refresh = () => {
-      void shouldShowBackupReminder(ledger.length).then((show) => {
+      void shouldShowBackupReminder(ledger.length, oldestEntryIso).then((show) => {
         if (!cancelled) setShowBackupBanner(show);
       });
     };
@@ -117,7 +126,7 @@ export default function HomeScreen() {
       cancelled = true;
       unsub();
     };
-  }, [ledger.length]);
+  }, [ledger]);
 
   const name = profile.displayName || t(profile.gender, 'חבר', 'חברה');
   const [greet, setGreet] = useState<GreetingResult | null>(null);
@@ -759,7 +768,7 @@ function LedgerRow({
             </Text>
           </View>
           <View style={styles.rowBottom}>
-            <Text style={styles.rowNote} numberOfLines={1}>
+            <Text style={styles.rowNote} numberOfLines={1} ellipsizeMode="tail">
               {note || kindLabel}
             </Text>
             <Text style={styles.rowDate} numberOfLines={1}>

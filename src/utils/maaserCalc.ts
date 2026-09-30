@@ -81,7 +81,7 @@ export function calculateMaaser(inputs: MaaserInputs): MaaserResult {
         label: 'הוצאות עסק מוכרות',
         amount: -bizExp,
         kind: 'deduction',
-        note: 'הוצאות ליצירת ההכנסה — מקובל לנכות לפני מעשר',
+        note: 'הוצאות ליצירת ההכנסה — רבים מנכים לפני מעשר',
       });
       deductions += bizExp;
     }
