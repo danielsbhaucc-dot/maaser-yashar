@@ -24,12 +24,13 @@ type Props = {
   children: React.ReactNode;
 };
 
-/** מגירת iOS בסגנון תגובות טיקטוק: ידית, גרירה עם האצבע, זריקה לסגירה */
+/** מגירת iOS בסגנון תגובות טיקטוק: ידית, גרירה חלקה למעלה/מטה, זריקה לסגירה */
 export function BottomSheet({ visible, onClose, title, children }: Props) {
   const insets = useSafeAreaInsets();
   const shell = useShellLayout();
   const sheetMax = shell.mode === 'compact' ? 480 : shell.sheetMaxWidth;
-  const centeredSheet = shell.isWeb && shell.mode !== 'compact';
+  /** בדסקטופ רחב — כרטיס ממורכז; במובייל/טאבלט צר — מגירה מלמטה עם גרירה */
+  const centeredSheet = shell.isWeb && shell.mode === 'wide';
   const safeBottom = Math.max(insets.bottom, Platform.OS === 'ios' ? 20 : 12) + 12;
   const reactId = useId().replace(/:/g, '');
   const dialogId = `maaser-sheet-${reactId}`;
@@ -137,7 +138,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.overlay,
   },
   sheetAnchor: {
-    maxHeight: '92%',
+    maxHeight: '94%',
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
@@ -172,15 +173,25 @@ const styles = StyleSheet.create({
   },
   handleHit: {
     alignItems: 'center',
-    paddingTop: 12,
-    paddingBottom: 10,
-    minHeight: 36,
+    paddingTop: 14,
+    paddingBottom: 12,
+    minHeight: 44,
+    ...Platform.select({
+      web: {
+        // מונע גלילת דף בזמן גרירת ידית
+        // @ts-expect-error RN-web
+        touchAction: 'none',
+        cursor: 'grab',
+        userSelect: 'none',
+      } as object,
+      default: {},
+    }),
   },
   handle: {
-    width: 48,
+    width: 52,
     height: 5,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.42)',
+    backgroundColor: 'rgba(255,255,255,0.45)',
   },
   head: {
     flexDirection: 'row',

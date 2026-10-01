@@ -1,4 +1,4 @@
-import React, { Suspense, useEffect, useState } from 'react';
+import React, { Suspense } from 'react';
 import {
   View,
   StyleSheet,
@@ -60,14 +60,12 @@ const linking = {
 
 const LazyNoamChatModule = React.lazy(() => import('./src/components/NoamChat'));
 
-/** טוען את הצ'אט רק אחרי פתיחה ראשונה */
+/** טוען את הצ'אט רק אחרי פתיחה ראשונה — latch סינכרוני כדי לא להשאיר פאנל ריק בדסקטופ */
 function LazyNoamChat() {
   const { open } = useNoamChat();
-  const [armed, setArmed] = useState(false);
-  useEffect(() => {
-    if (open) setArmed(true);
-  }, [open]);
-  if (!armed) return null;
+  const armedRef = React.useRef(false);
+  if (open) armedRef.current = true;
+  if (!armedRef.current) return null;
   return (
     <Suspense fallback={null}>
       <LazyNoamChatModule />
@@ -83,8 +81,11 @@ function AppChrome({ children }: { children: React.ReactNode }) {
   if (!shell.isWeb) {
     return (
       <View style={[styles.appRoot, DIR]} {...rtlDomProps}>
-        <View style={[styles.phoneFrameNative, DIR]} {...rtlDomProps}>
-          {children}
+        <View style={[styles.phoneShell, DIR]} {...rtlDomProps}>
+          <View style={[styles.phoneFrameNative, DIR]} {...rtlDomProps}>
+            {children}
+          </View>
+          <NoamHeaderButton />
         </View>
         <LazyNoamChat />
       </View>
@@ -97,16 +98,23 @@ function AppChrome({ children }: { children: React.ReactNode }) {
         <View style={styles.wideMainArea}>
           <View
             style={[
-              styles.phoneFrame,
+              styles.phoneShell,
               { maxWidth: shell.contentMaxWidth },
               DIR,
             ]}
             {...rtlDomProps}
           >
-            {children}
+            <View style={[styles.phoneFrame, DIR]} {...rtlDomProps}>
+              {children}
+            </View>
+            <NoamHeaderButton />
           </View>
         </View>
-        <View style={[styles.wideSecondary, { width: shell.chatPaneWidth }]}>
+        <View
+          style={[styles.wideSecondary, { width: shell.chatPaneWidth }]}
+          accessibilityElementsHidden={!open}
+          importantForAccessibility={open ? 'yes' : 'no-hide-descendants'}
+        >
           {open ? <LazyNoamChat /> : <DesktopInfoPane />}
         </View>
       </View>
@@ -117,14 +125,24 @@ function AppChrome({ children }: { children: React.ReactNode }) {
     <View style={[styles.appRoot, DIR]} {...rtlDomProps}>
       <View
         style={[
-          styles.phoneFrame,
+          styles.phoneShell,
           shell.mode === 'medium' && styles.phoneFrameMedium,
           { maxWidth: shell.contentMaxWidth },
           DIR,
         ]}
         {...rtlDomProps}
       >
-        {children}
+        <View
+          style={[
+            styles.phoneFrame,
+            shell.mode === 'medium' && styles.phoneFrameMedium,
+            DIR,
+          ]}
+          {...rtlDomProps}
+        >
+          {children}
+        </View>
+        <NoamHeaderButton />
       </View>
       <LazyNoamChat />
     </View>
@@ -479,7 +497,6 @@ function Root() {
         >
           <OnboardingScreen />
           <AccessibilityWidget />
-          <NoamHeaderButton />
           <StorageAlertBridge />
         </View>
       </AccessibilityRoot>
@@ -497,7 +514,6 @@ function Root() {
         <GlobalAddModal />
         <PwaInstallBanner />
         <AccessibilityWidget />
-        <NoamHeaderButton />
         <StorageAlertBridge />
       </View>
     </AccessibilityRoot>
@@ -583,12 +599,21 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     alignSelf: 'stretch',
     maxWidth: 400,
+    minHeight: 0,
   },
-  phoneFrame: {
+  /** עוטף את מסגרת הטלפון + FAB — בלי overflow כדי שהכפתור לא ייחתך */
+  phoneShell: {
     flex: 1,
     width: '100%',
     maxWidth: 480,
     alignSelf: 'center',
+    position: 'relative',
+  },
+  phoneFrame: {
+    flex: 1,
+    width: '100%',
+    maxWidth: '100%',
+    alignSelf: 'stretch',
     overflow: 'hidden',
     backgroundColor: colors.bg,
   },

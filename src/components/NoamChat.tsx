@@ -60,9 +60,11 @@ import { useSheetSwipeDismiss } from '../hooks/useSheetSwipeDismiss';
 
 type ViewMode = 'home' | 'chat' | 'history';
 
-/** גובה ברירת מחדל למובייל (60%) */
-const COMPACT_SHEET_PCT = '60%';
-const COMPACT_SHEET_EXPANDED_PCT = '94%';
+/** גובה ברירת מחדל למובייל — כמעט מסך מלא בסגנון מגירת טיקטוק */
+const COMPACT_SHEET_PCT = '88%';
+const COMPACT_SHEET_EXPANDED_PCT = '96%';
+const COMPACT_SHEET_MIN = '72%';
+const COMPACT_SHEET_EXPANDED_MIN = '88%';
 
 function NoamAvatar({ size = 56, glow }: { size?: number; glow?: boolean }) {
   return (
@@ -203,8 +205,8 @@ export default function NoamChat() {
   /** נעילת שליחה אחרי 429 (60 שניות) */
   const [sendLockedUntil, setSendLockedUntil] = useState(0);
   const [sendLockTick, setSendLockTick] = useState(0);
-  /** מובייל: חצי מסך שניתן להרחבה */
-  const [sheetExpanded, setSheetExpanded] = useState(false);
+  /** מובייל: מגירה כמעט מלאה; גרירה למטה מקטינה / סוגרת, למעלה מרחיבה */
+  const [sheetExpanded, setSheetExpanded] = useState(true);
   const scrollRef = useRef<ScrollView>(null);
   const inputRef = useRef<TextInput>(null);
   const dialogId = 'maaser-noam-chat';
@@ -399,10 +401,16 @@ export default function NoamChat() {
   } = useSheetSwipeDismiss({
     onDismiss: closeMessenger,
     enabled: swipeEnabled,
+    expanded: sheetExpanded,
+    onExpand: () => setSheetExpanded(true),
+    onCollapse: () => setSheetExpanded(false),
   });
 
   useEffect(() => {
-    if (open && swipeEnabled) animateSheetIn();
+    if (open && swipeEnabled) {
+      setSheetExpanded(true);
+      animateSheetIn();
+    }
   }, [open, swipeEnabled, animateSheetIn]);
 
   /** פוקוס לשדה בפתיחה; Escape סוגר (לא ב־dock רחב) */
@@ -739,7 +747,8 @@ export default function NoamChat() {
             : {
                 paddingBottom: Math.max(insets.bottom, 10),
                 maxHeight: sheetExpanded ? COMPACT_SHEET_EXPANDED_PCT : COMPACT_SHEET_PCT,
-                minHeight: sheetExpanded ? '72%' : '48%',
+                minHeight: sheetExpanded ? COMPACT_SHEET_EXPANDED_MIN : COMPACT_SHEET_MIN,
+                height: sheetExpanded ? COMPACT_SHEET_EXPANDED_PCT : COMPACT_SHEET_PCT,
                 maxWidth: 480,
                 width: '100%',
                 alignSelf: 'center' as const,
@@ -779,7 +788,7 @@ export default function NoamChat() {
           >
             <View style={styles.expandPill} />
             <Text style={styles.expandHint}>
-              {sheetExpanded ? 'הקטן · או גררו לסגירה' : 'הרחב · או גררו לסגירה'}
+              {sheetExpanded ? 'גררו למטה לסגירה · או הקישו להקטנה' : 'גררו למעלה להרחבה · או הקישו'}
             </Text>
           </Pressable>
         </View>
@@ -1372,20 +1381,30 @@ const styles = StyleSheet.create({
   },
   expandHandle: {
     alignItems: 'center',
-    paddingTop: 8,
-    paddingBottom: 4,
+    paddingTop: 10,
+    paddingBottom: 6,
+    minHeight: 48,
+    ...Platform.select({
+      web: {
+        // @ts-expect-error RN-web
+        touchAction: 'none',
+        cursor: 'grab',
+        userSelect: 'none',
+      } as object,
+      default: {},
+    }),
   },
   expandHandleInner: {
     alignItems: 'center',
     gap: 4,
-    paddingVertical: 4,
+    paddingVertical: 6,
     paddingHorizontal: 16,
   },
   expandPill: {
-    width: 40,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    width: 48,
+    height: 5,
+    borderRadius: 3,
+    backgroundColor: 'rgba(255,255,255,0.42)',
   },
   expandHint: {
     fontFamily: fonts.semi,
@@ -1482,7 +1501,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.overlay,
   },
   sheet: {
-    maxHeight: '94%',
+    maxHeight: '96%',
     minHeight: '72%',
     marginHorizontal: Platform.OS === 'web' ? 8 : 0,
     borderTopLeftRadius: radii.xxl,

@@ -128,8 +128,9 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     end: 14,
-    zIndex: 80,
+    zIndex: 120,
     alignItems: 'center',
+    elevation: 12,
   },
   hit: {
     alignItems: 'center',
