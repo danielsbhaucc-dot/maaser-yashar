@@ -9,8 +9,10 @@ import {
   isProdLike,
 } from '../../../netlify/functions/_shared.mjs';
 import {
+  RATE_LIMIT_ERROR,
   bumpCounter,
   bumpGlobal,
+  checkAndBumpIpLimits,
   hashClientIp,
   isBreakerTripped,
   isGlobalOver,
@@ -282,10 +284,71 @@ describe('limits helpers', () => {
     expect(next.costUsd).toBeCloseTo(0.15);
   });
 
-  it('jerusalemStamp returns YYYYMMDD / YYYYMMDDHH', () => {
+  it('jerusalemStamp returns YYYYMMDD / YYYYMMDDHH / YYYYMMDDHHmm', () => {
     const s = jerusalemStamp(new Date('2026-09-29T12:00:00Z'));
     expect(s.ymd).toMatch(/^\d{8}$/);
     expect(s.ymdHour).toMatch(/^\d{10}$/);
+    expect(s.ymdMinute).toMatch(/^\d{12}$/);
+    expect(s.ymdMinute.startsWith(s.ymdHour)).toBe(true);
+  });
+
+  it('per-minute blob counter returns 429 after the cap (no in-memory process counter)', async () => {
+    const prev = process.env.AI_PER_MINUTE_PER_IP;
+    process.env.AI_PER_MINUTE_PER_IP = '2';
+    const rows = new Map<string, { value: { count: number }; etag: string }>();
+    const store = {
+      async getWithMetadata(key: string) {
+        const row = rows.get(key);
+        if (!row) return { data: null, etag: undefined };
+        return { data: row.value, etag: row.etag };
+      },
+      async setJSON(
+        key: string,
+        value: { count: number },
+        opts: { onlyIfNew?: boolean; onlyIfMatch?: string } = {}
+      ) {
+        const row = rows.get(key);
+        if (opts.onlyIfNew) {
+          if (row) throw new Error('conflict');
+          rows.set(key, { value, etag: '1' });
+          return;
+        }
+        if (opts.onlyIfMatch) {
+          if (!row || row.etag !== opts.onlyIfMatch) throw new Error('conflict');
+          rows.set(key, { value, etag: String(Number(row.etag) + 1) });
+          return;
+        }
+        rows.set(key, { value, etag: '1' });
+      },
+    };
+    const stamp = {
+      ymd: '20261020',
+      ymdHour: '2026102008',
+      ymdMinute: '202610200805',
+    };
+    const hash = 'abc123';
+    const first = await checkAndBumpIpLimits(store, hash, stamp);
+    const second = await checkAndBumpIpLimits(store, hash, stamp);
+    const third = await checkAndBumpIpLimits(store, hash, stamp);
+    expect(first.ok).toBe(true);
+    expect(second.ok).toBe(true);
+    expect(third).toMatchObject({
+      ok: false,
+      status: 429,
+      error: RATE_LIMIT_ERROR,
+      retryAfter: 60,
+    });
+    expect(RATE_LIMIT_ERROR.endsWith('.')).toBe(true);
+    const minuteKey = `ip:${hash}:${stamp.ymdMinute}`;
+    expect(rows.get(minuteKey)?.value.count).toBe(3);
+    expect(JSON.stringify([...rows.keys()])).not.toContain('1.2.3.4');
+    const nextMinute = await checkAndBumpIpLimits(store, hash, {
+      ...stamp,
+      ymdMinute: '202610200806',
+    });
+    expect(nextMinute.ok).toBe(true);
+    if (prev === undefined) delete process.env.AI_PER_MINUTE_PER_IP;
+    else process.env.AI_PER_MINUTE_PER_IP = prev;
   });
 });
 

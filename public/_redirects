@@ -1,4 +1,8 @@
 # Static pages — pretty URLs (no SPA catch-all; unknown paths get real 404)
+# הפונקציה רשומה גם ב-config.path; ה-rewrite מבטיח ש-POST /api/chat
+# לא ייפול ל-404 הסטטי (נצפה בפרודקשן: /.netlify/functions/chat עונה, /api/chat לא).
+/api/chat   /.netlify/functions/chat   200!
+/api/onboard   /.netlify/functions/onboard   200!
 /privacy   /privacy.html   200
 /about     /about.html     200
 # Tab deep links (T-59) — SPA rewrite, no catch-all

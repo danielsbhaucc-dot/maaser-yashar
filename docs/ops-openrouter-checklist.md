@@ -28,7 +28,7 @@
   - `AI_DAILY_BUDGET_USD` (ברירת מחדל בקוד: 2)
   - `AI_DAILY_REQUEST_LIMIT` (ברירת מחדל: 400)
   - `AI_LIMIT_SALT` (מחרוזת אקראית חזקה — לא בקומיט)
-  - אופציונלי: `AI_HOURLY_PER_IP`, `AI_DAILY_PER_IP`, `AI_DAILY_UPSTREAM_LIMIT`, `AI_MAX_TOKENS`, `AI_ALLOWED_ORIGINS`, `OPENROUTER_MODEL`
+  - אופציונלי: `AI_PER_MINUTE_PER_IP` (ברירת מחדל 8, מונה Blobs לדקה — לא מונה בזיכרון), `AI_HOURLY_PER_IP`, `AI_DAILY_PER_IP`, `AI_DAILY_UPSTREAM_LIMIT`, `AI_MAX_TOKENS`, `AI_ALLOWED_ORIGINS`, `OPENROUTER_MODEL`
 - [ ] לפרוס מחדש אחרי שינוי env
 
 ## תחזוקה וחירום
