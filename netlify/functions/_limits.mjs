@@ -1,9 +1,13 @@
 /**
  * מגבלות AI — שכבה שנייה מעל Netlify rateLimit:
- * מונים per-IP (שעתי/יומי) + תקציב גלובלי יומי + kill switch + circuit breaker.
+ * מונים per-IP (דקה/שעה/יום) + תקציב גלובלי יומי + kill switch + circuit breaker.
  *
- * גבולות יום/שעה מחושבים לפי Asia/Jerusalem.
+ * גבולות יום/שעה/דקה מחושבים לפי Asia/Jerusalem.
  * כתובות IP גולמיות לעולם לא נשמרות — רק sha256(ip + AI_LIMIT_SALT).
+ *
+ * config.rateLimit ב־chat.mjs הוא מגביל של פלטפורמת Netlify, לא מונה בזיכרון
+ * התהליך. בפונקציית serverless הוא לא מקור אמת שאפשר לסמוך עליו בין cold starts.
+ * מונה הדקה ב־Blobs (`ip:<hash>:<YYYYMMDDHHmm>`) הוא זה ששורד.
  *
  * אם ה־store זורק: FAIL OPEN למוני per-IP (זמינות); ה־backstop הקשיח הוא
  * credit cap במפתח OpenRouter.
@@ -16,6 +20,8 @@ const STORE_NAME = 'ai-limits';
 const TRIPPED_KEY = 'global:tripped';
 const TRIPPED_TTL_MS = 60 * 60 * 1000;
 
+const DEFAULT_PER_MINUTE = 8;
+export const RATE_LIMIT_ERROR = 'יותר מדי בקשות. נסה שוב בעוד כמה דקות.';
 const DEFAULT_HOURLY = 40;
 const DEFAULT_DAILY_IP = 120;
 const DEFAULT_DAILY_REQUESTS = 400;
@@ -30,6 +36,7 @@ export function jerusalemStamp(date = new Date()) {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
+    minute: '2-digit',
     hourCycle: 'h23',
   });
   const parts = Object.fromEntries(
@@ -37,7 +44,8 @@ export function jerusalemStamp(date = new Date()) {
   );
   const ymd = `${parts.year}${parts.month}${parts.day}`;
   const hour = String(parts.hour).padStart(2, '0');
-  return { ymd, ymdHour: `${ymd}${hour}` };
+  const minute = String(parts.minute).padStart(2, '0');
+  return { ymd, ymdHour: `${ymd}${hour}`, ymdMinute: `${ymd}${hour}${minute}` };
 }
 
 export function hashClientIp(ip, salt = process.env.AI_LIMIT_SALT || '') {
@@ -182,12 +190,36 @@ export function openLimitsStore(event) {
 export async function checkAndBumpIpLimits(store, ipHash, stamp = jerusalemStamp()) {
   if (!store) return { ok: true }; // FAIL OPEN
 
+  const minuteLimit = envInt('AI_PER_MINUTE_PER_IP', DEFAULT_PER_MINUTE);
   const hourlyLimit = envInt('AI_HOURLY_PER_IP', DEFAULT_HOURLY);
   const dailyLimit = envInt('AI_DAILY_PER_IP', DEFAULT_DAILY_IP);
+  const minuteKey = stamp.ymdMinute ? `ip:${ipHash}:${stamp.ymdMinute}` : '';
   const hourKey = `ip:${ipHash}:${stamp.ymdHour}`;
   const dayKey = `ip:${ipHash}:${stamp.ymd}`;
 
   try {
+    if (minuteKey) {
+      let overMinute = false;
+      let minuteCount = 0;
+      await optimisticUpdate(store, minuteKey, (cur) => {
+        const { next, over, count } = bumpCounter(cur, minuteLimit);
+        overMinute = over;
+        minuteCount = count;
+        return next;
+      });
+      if (overMinute) {
+        console.info(
+          `[limits] ip minute over count=${minuteCount} limit=${minuteLimit}`
+        );
+        return {
+          ok: false,
+          status: 429,
+          error: RATE_LIMIT_ERROR,
+          retryAfter: 60,
+        };
+      }
+    }
+
     // שעתי
     let overHour = false;
     let hourCount = 0;
@@ -202,7 +234,7 @@ export async function checkAndBumpIpLimits(store, ipHash, stamp = jerusalemStamp
       return {
         ok: false,
         status: 429,
-        error: 'יותר מדי בקשות. נסה שוב בעוד כמה דקות',
+        error: RATE_LIMIT_ERROR,
         retryAfter: 60,
       };
     }
@@ -221,7 +253,7 @@ export async function checkAndBumpIpLimits(store, ipHash, stamp = jerusalemStamp
       return {
         ok: false,
         status: 429,
-        error: 'יותר מדי בקשות. נסה שוב בעוד כמה דקות',
+        error: RATE_LIMIT_ERROR,
         retryAfter: 300,
       };
     }
@@ -297,6 +329,7 @@ export {
   STORE_NAME,
   TRIPPED_KEY,
   TRIPPED_TTL_MS,
+  DEFAULT_PER_MINUTE,
   DEFAULT_HOURLY,
   DEFAULT_DAILY_IP,
   DEFAULT_DAILY_REQUESTS,

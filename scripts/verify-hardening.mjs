@@ -101,7 +101,8 @@ async function checkRateLimitBurst() {
 
   let saw200 = false;
   let saw429 = false;
-  // Netlify declarative: 8 / 60s; גם per-IP blobs. שולחים 14 בקשות מהירות.
+  // מונה Blobs לדקה (ברירת מחדל 8) וגם config.rateLimit 8/60.
+  // שולחים 14 בקשות מהירות; ה-429 חייב להגיע בלי קריאה למודל.
   for (let i = 0; i < 14; i++) {
     const { status, json } = await post({ headers, body });
     if (status === 200 && json?.model === 'guard') saw200 = true;

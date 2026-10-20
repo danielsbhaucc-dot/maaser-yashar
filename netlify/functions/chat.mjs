@@ -174,6 +174,8 @@ const TZEDAKA_CATEGORIES = ['צדקה / מעשר', 'תרומה למוסד', 'מ�
  * מגביל שימוש לרמה סבירה למשתמש אנושי — הלקוח קורא ל־/api/chat.
  * חשוב: rate limits של Netlify Functions חייבים לחיות ב־`config` (לא ב־netlify.toml),
  * והם סופרים רק בקשות ל־path-ים שמוגדרים כאן.
+ * זה לא מונה בזיכרון התהליך. המונה שנשמר בין cold starts הוא Blobs לדקה
+ * ב־_limits.mjs (AI_PER_MINUTE_PER_IP, ברירת מחדל 8).
  */
 export const config = {
   path: ['/api/chat', '/.netlify/functions/chat'],

@@ -82,6 +82,20 @@
 # unknown paths return real 404 + public/404.html.
 # App SPA lives at / (index.html). Hashed assets/fonts served as files.
 # Tab deep links (T-59) — rewrite to SPA, no catch-all soft-404.
+# הלקוח קורא ל-/api/chat. בלי rewrite מפורש הבקשה נופלת ל-404.html
+# למרות config.path (אומת: /.netlify/functions/chat מחזיר 403, /api/chat החזיר 404).
+[[redirects]]
+  from = "/api/chat"
+  to = "/.netlify/functions/chat"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/onboard"
+  to = "/.netlify/functions/onboard"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/privacy"
   to = "/privacy.html"
