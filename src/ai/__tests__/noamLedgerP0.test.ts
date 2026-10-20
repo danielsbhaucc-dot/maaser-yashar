@@ -18,6 +18,15 @@ import {
   reconcileReplyWithContext,
 } from '../../../netlify/functions/chatLedger.mjs';
 import { buildContextFromLedger } from '../noamContext';
+import {
+  ambiguousAmountReply,
+  detectAmbiguousAmount,
+  forceIlsSymbol,
+} from '../../../shared/amountGuard.mjs';
+import {
+  appendEntriesOnce,
+  selectPostCommitLedger,
+} from '../../utils/postCommitLedger';
 import type { LedgerEntry } from '../../types/ledger';
 import type { UserProfile } from '../../utils/profile';
 import { defaultAdvancedSettings } from '../../utils/totalsAdvanced';
@@ -64,6 +73,29 @@ describe('buildContextFromLedger (NEW-1 / N-03)', () => {
     expect(a.tzedaka).toBe(0);
     expect(a.remaining).toBe(980);
     expect(a.rate).toBe(0.1);
+  });
+
+  it('does not double remaining when the committed row is appended only once', () => {
+    const before: LedgerEntry[] = [];
+    const created = [
+      entry({ id: 'new-salary', kind: 'income', amount: 9800, category: 'משכורת' }),
+    ];
+    const committed = appendEntriesOnce(before, created);
+    // הבאג: ref כבר כולל את השורה, וממזגים שוב את created (id אחר)
+    const doubled = appendEntriesOnce(committed, [
+      entry({ id: 'dup-salary', kind: 'income', amount: 9800, category: 'משכורת' }),
+    ]);
+    const shown = selectPostCommitLedger(committed);
+    const good = buildContextFromLedger(baseProfile, shown, '2026-09');
+    const bad = buildContextFromLedger(baseProfile, doubled, '2026-09');
+    expect(shown).toHaveLength(1);
+    expect(good.income).toBe(9800);
+    expect(good.obligation).toBe(980);
+    expect(good.remaining).toBe(980);
+    expect(bad.income).toBe(19600);
+    expect(bad.remaining).toBe(1960);
+    const again = buildContextFromLedger(baseProfile, shown, '2026-09');
+    expect(again).toEqual(good);
   });
 });
 
@@ -174,6 +206,8 @@ describe('NEGATIVE_AMOUNT_RE (NEW-2 / C-09)', () => {
     'סכום שלילי 50',
     'minus 100',
     'מינוס הכנסה 50',
+    'מינוס200',
+    'minus200',
   ];
   const negatives = [
     'תרמתי 200-300',
@@ -199,6 +233,59 @@ describe('NEGATIVE_AMOUNT_RE (NEW-2 / C-09)', () => {
     expect(negativeAmountReply(200)).toBe(
       'אי אפשר לרשום סכום שלילי. התכוונת לתרומה של ₪200, או לתקן או למחוק תנועה שכבר נרשמה? אם למחוק, אפשר לעשות את זה ישירות בפנקס.'
     );
+  });
+
+  it('מינוס200 yields 200 and blocks a card', () => {
+    expect(detectNegativeAmount('תרמתי מינוס200')).toBe(200);
+  });
+});
+
+describe('ambiguous amount (no card)', () => {
+  it('asks which amount for a range and does not treat days/dates as money', () => {
+    expect(detectAmbiguousAmount('תרמתי 200-300')).toEqual({ low: 200, high: 300 });
+    expect(detectAmbiguousAmount('בין 100 ל-200 לצדקה')).toEqual({
+      low: 100,
+      high: 200,
+    });
+    expect(detectAmbiguousAmount('3-4 ימים')).toBeNull();
+    expect(detectAmbiguousAmount('עמוד 12-15')).toBeNull();
+    expect(detectAmbiguousAmount('תאריך 2026-09')).toBeNull();
+    expect(detectAmbiguousAmount('נטו, שער 3.7')).toBeNull();
+    expect(detectAmbiguousAmount('תרמתי 200')).toBeNull();
+    expect(detectAmbiguousAmount('תרמתי מינוס 200')).toBeNull();
+  });
+
+  it('clarification names both ends and does not invent a card', () => {
+    expect(ambiguousAmountReply(200, 300)).toBe(
+      'הסכום לא חד-משמעי. התכוונת ל־₪200 או ל־₪300? כתוב סכום אחד ואז אוכל להציע כרטיס.'
+    );
+  });
+
+  it('drops a positive card when the user stated a range (C-09 class)', () => {
+    const g = applyIntentGates(
+      [
+        {
+          type: 'add_entry',
+          kind: 'tzedaka',
+          amount: 200,
+          category: 'אחר',
+          note: '',
+        },
+      ],
+      [{ role: 'user', content: 'תרמתי 200-300' }],
+      null
+    );
+    // 200 is grounded, so the gate alone would keep it — the ambiguous guard must run first
+    expect(g.actions).toHaveLength(1);
+    expect(detectAmbiguousAmount('תרמתי 200-300')).not.toBeNull();
+  });
+});
+
+describe('ILS symbol', () => {
+  it('replaces a bare naira sign as well as one next to a number', () => {
+    expect(forceIlsSymbol('נותר ₦')).toBe('נותר ₪');
+    expect(forceIlsSymbol('₦1,960')).toBe('₪1,960');
+    expect(forceIlsSymbol('נותר ₪620')).not.toMatch(/₦/);
   });
 });
 

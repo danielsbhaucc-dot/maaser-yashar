@@ -20,6 +20,7 @@ import {
 } from './chatSafety.mjs';
 import { reconcileReplyWithContext } from './chatLedger.mjs';
 import { neutralizeHalakhaOverclaim } from './chatHalakha.mjs';
+import { forceIlsSymbol } from '../../shared/amountGuard.mjs';
 
 export const SCRIPT_FALLBACK = 'רגע, נתקעתי. אפשר לנסח שוב בקצרה?';
 
@@ -80,7 +81,7 @@ export function hasBadScriptInHebrewReply(reply) {
 }
 
 export function fixCurrencySymbols(text) {
-  let s = String(text || '');
+  let s = forceIlsSymbol(String(text || ''));
   s = s.replace(/₦\s*([\d,]+(?:\.\d+)?)/g, '₪$1');
   s = s.replace(/([\d,]+(?:\.\d+)?)\s*₦/g, '₪$1');
   s = s.replace(/\b(?:NIS|ILS)\s*([\d,]+(?:\.\d+)?)/gi, '₪$1');

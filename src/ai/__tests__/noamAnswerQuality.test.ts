@@ -175,6 +175,9 @@ describe('output quality filters', () => {
   it('fixes הכנסיה and currency placement', () => {
     expect(fixBrokenHebrewWords('הכנסיה: ₪9,800')).toMatch(/הכנסה/);
     expect(fixCurrencySymbols('הכנסה: 9,800 ₪')).toMatch(/₪9,800/);
+    expect(fixCurrencySymbols('נותר ₦')).toBe('נותר ₪');
+    expect(fixCurrencySymbols('₦1,960')).not.toMatch(/₦/);
+    expect(fixCurrencySymbols('₦1,960')).toMatch(/₪/);
   });
 
   it('fixes Nachman / Maasar Yashar', () => {
