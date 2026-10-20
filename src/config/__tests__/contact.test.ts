@@ -3,6 +3,9 @@ import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import {
   CONTACT_PENDING_TEXT,
+  FEEDBACK_GITHUB_LABEL,
+  FEEDBACK_ISSUES_URL,
+  contactOrIssuesHref,
   parseContactEmail,
   contactMailto,
 } from '../contact';
@@ -69,6 +72,29 @@ describe('contact config', () => {
     } else {
       expect(href).toBeNull();
     }
+  });
+
+  it('falls back to this repo GitHub issues when email is unset', () => {
+    expect(FEEDBACK_ISSUES_URL).toBe(
+      'https://github.com/danielsbhaucc-dot/maaser-yashar/issues/new'
+    );
+    expect(FEEDBACK_GITHUB_LABEL).toBe('שלח משוב ב-GitHub');
+    expect(FEEDBACK_ISSUES_URL).not.toMatch(/mailto:/);
+    expect(FEEDBACK_ISSUES_URL).not.toMatch(DEAD_APP_DOMAIN);
+    const href = contactMailto('משוב על מעשר ישר');
+    if (!href) {
+      expect(contactOrIssuesHref('דיווח נגישות — מעשר ישר')).toBe(
+        FEEDBACK_ISSUES_URL
+      );
+    }
+  });
+
+  it('apply-contact renders pending text plus issues link, never a dead mailbox', () => {
+    const script = readFileSync(join(ROOT, 'scripts/apply-contact.mjs'), 'utf8');
+    expect(script).toContain(CONTACT_PENDING_TEXT);
+    expect(script).toContain(FEEDBACK_ISSUES_URL);
+    expect(script).not.toMatch(ACCESSIBILITY_AT);
+    expect(script).not.toMatch(/mailto:accessibility/);
   });
 });
 

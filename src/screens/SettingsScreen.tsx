@@ -62,6 +62,8 @@ import { shareApp } from '../utils/shareApp';
 import {
   CONTACT_EMAIL,
   CONTACT_PENDING_TEXT,
+  FEEDBACK_GITHUB_LABEL,
+  FEEDBACK_ISSUES_URL,
   contactMailto,
 } from '../config/contact';
 
@@ -839,26 +841,33 @@ export default function SettingsScreen() {
 
       <Glass light strong style={styles.panel}>
         <FieldLabel>יש לך הערה או רעיון?</FieldLabel>
+        <Text style={styles.recurIntro}>
+          נשמח לשמוע. בלי מעקב ובלי אנליטיקה.
+        </Text>
         {CONTACT_EMAIL ? (
+          <PrimaryButton
+            label="שלח משוב במייל"
+            testID="feedback-email"
+            onPress={() => {
+              const href = contactMailto('משוב על מעשר ישר');
+              if (!href) {
+                void Linking.openURL(FEEDBACK_ISSUES_URL);
+                return;
+              }
+              void Linking.openURL(href);
+            }}
+          />
+        ) : (
           <>
-            <Text style={styles.recurIntro}>
-              נשמח לשמוע. בלי מעקב ובלי אנליטיקה.
-            </Text>
+            <Text style={styles.recurIntro}>{CONTACT_PENDING_TEXT}</Text>
             <PrimaryButton
-              label="שלח משוב במייל"
-              testID="feedback-email"
+              label={FEEDBACK_GITHUB_LABEL}
+              testID="feedback-github"
               onPress={() => {
-                const href = contactMailto('משוב על מעשר ישר');
-                if (!href) {
-                  toast.info(CONTACT_PENDING_TEXT);
-                  return;
-                }
-                void Linking.openURL(href);
+                void Linking.openURL(FEEDBACK_ISSUES_URL);
               }}
             />
           </>
-        ) : (
-          <Text style={styles.recurIntro}>{CONTACT_PENDING_TEXT}</Text>
         )}
       </Glass>
 

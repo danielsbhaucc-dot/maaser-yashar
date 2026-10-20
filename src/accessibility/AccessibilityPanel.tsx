@@ -34,10 +34,9 @@ import { useSheetSwipeDismiss } from '../hooks/useSheetSwipeDismiss';
 import {
   CONTACT_EMAIL,
   CONTACT_PENDING_TEXT,
-  contactMailto,
+  FEEDBACK_ISSUES_URL,
+  contactOrIssuesHref,
 } from '../config/contact';
-import { useToast } from '../context/ToastContext';
-
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
@@ -372,7 +371,9 @@ function InfoRow({
 }
 
 function buildAccessibilityStatement(): string {
-  const contactLine = CONTACT_EMAIL ?? CONTACT_PENDING_TEXT;
+  const contactLine = CONTACT_EMAIL
+    ? CONTACT_EMAIL
+    : `${CONTACT_PENDING_TEXT}\n${FEEDBACK_ISSUES_URL}`;
   return `הצהרת נגישות — מעשר ישר
 
 אפליקציית מעשר ישר שואפת לעמוד בתקן ישראלי ת״י 5568 ו־WCAG 2.2 ברמת AA.
@@ -413,7 +414,6 @@ ${contactLine}
 export default function AccessibilityPanel() {
   const a11y = useA11y();
   const { settings } = a11y;
-  const toast = useToast();
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>(null);
   const [colorTarget, setColorTarget] = useState<'bg' | 'text' | 'headings'>('bg');
@@ -1100,21 +1100,15 @@ export default function AccessibilityPanel() {
               sub="מדריך מקשי קיצור מלא"
               onPress={() => setShortcutsOpen(true)}
             />
-            {CONTACT_EMAIL ? (
-              <InfoRow
-                glyph="⚠"
-                title="דיווח הפרה"
-                sub="דווחו על בעיית נגישות"
-                onPress={() => {
-                  const href = contactMailto('דיווח נגישות — מעשר ישר');
-                  if (!href) {
-                    toast.info(CONTACT_PENDING_TEXT);
-                    return;
-                  }
-                  Linking.openURL(href).catch(() => {});
-                }}
-              />
-            ) : null}
+            <InfoRow
+              glyph="⚠"
+              title="דיווח הפרה"
+              sub={CONTACT_EMAIL ? 'דווחו על בעיית נגישות' : 'דיווח ב-GitHub'}
+              onPress={() => {
+                const href = contactOrIssuesHref('דיווח נגישות — מעשר ישר');
+                Linking.openURL(href).catch(() => {});
+              }}
+            />
             <InfoRow
               glyph="☺"
               title="מורשה נגישות"
