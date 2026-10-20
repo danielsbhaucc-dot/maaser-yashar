@@ -5,6 +5,13 @@ import { t, type Gender } from '../utils/copy';
 import {
   type NoamChatContext,
 } from './noamContext';
+import {
+  ambiguousAmountReply,
+  detectAmbiguousAmount,
+  detectNegativeAmount,
+  forceIlsSymbol,
+  negativeAmountReply,
+} from '../../shared/amountGuard.mjs';
 
 export {
   buildContextFromLedger,
@@ -176,7 +183,7 @@ export async function sendToNoam(params: {
     'הוצאות שכירות',
   ]);
 
-  const actions = Array.isArray(data.actions)
+  let actions = Array.isArray(data.actions)
     ? (data.actions as ProposedEntry[])
         .filter((a) => {
           if (a?.type !== 'add_entry') return false;
@@ -203,8 +210,22 @@ export async function sendToNoam(params: {
         })
     : [];
 
+  const lastUser = [...params.messages]
+    .reverse()
+    .find((m) => m.role === 'user')?.content;
+  const negative = detectNegativeAmount(lastUser);
+  const ambiguous = negative == null ? detectAmbiguousAmount(lastUser) : null;
+  let reply = forceIlsSymbol(String(data.reply || '').trim() || '…');
+  if (negative != null) {
+    actions = [];
+    reply = negativeAmountReply(negative);
+  } else if (ambiguous) {
+    actions = [];
+    reply = ambiguousAmountReply(ambiguous.low, ambiguous.high);
+  }
+
   return {
-    reply: String(data.reply || '').trim() || '…',
+    reply,
     actions: actions.slice(0, 3),
   };
 }

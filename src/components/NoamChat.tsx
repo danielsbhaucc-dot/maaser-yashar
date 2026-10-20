@@ -28,6 +28,7 @@ import { BOT_NAME, friendWord, t } from '../utils/copy';
 import { NOAM_AI_DISCLOSURE_LINE } from '../constants/noamDisclosure';
 import { currentPeriod, defaultDateFor, formatPeriod } from '../utils/history';
 import { parseMoney } from '../utils/money';
+import { selectPostCommitLedger } from '../utils/postCommitLedger';
 import { colors, fonts, radii, shadow, spacing, type } from '../theme';
 import { DIR, rtlDomProps } from '../rtl';
 import {
@@ -674,14 +675,10 @@ export default function NoamChat() {
         setPending([]);
         return;
       }
-      // A: מקור אמת יחיד — snapshot לפני await; אם ledgerRef גדל בזמן ה־await
-      // (useEffect אחרי persist) משתמשים בו לבד, אחרת ממזגים פעם אחת מ־addEntries.
-      const snapshotLen = ledgerRef.current.length;
+      // A: מקור אמת יחיד — המערך ש-addEntries מחזיר כבר כולל את התנועה פעם אחת.
+      // לא ממזגים עם ledgerRef (ה-effect עלול כבר לכלול את אותן שורות, עם id אחר).
       const fromAdd = await addEntries(payloads);
-      const nextLedger =
-        ledgerRef.current.length > snapshotLen
-          ? ledgerRef.current
-          : fromAdd;
+      const nextLedger = selectPostCommitLedger(fromAdd);
       ledgerRef.current = nextLedger;
       const afterCtx = buildNoamContext({
         profile: profileRef.current,

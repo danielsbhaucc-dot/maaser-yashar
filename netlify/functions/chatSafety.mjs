@@ -238,30 +238,15 @@ export const PRIOR_MONTH_NEED_PERIOD =
 export const PRIOR_MONTH_NEED_AMOUNT =
   'לאיזה סכום, ולאיזה חודש לרשום?';
 
-/**
- * NEW-2 / C-09 — זיהוי סכום שלילי בהודעת המשתמש.
- * מתאים: "מינוס 200", "200 מינוס", "-200", "−200 ₪", "מינוס הכנסה 50".
- * לא מתאים: "200-300", "3-4 ימים" (טווח / מספר ימים).
- */
-export const NEGATIVE_AMOUNT_RE =
-  /(?:(?:מינוס|שלילי|minus|negative)(?:\s+\S+){0,3}\s+[₪$]?\s*([\d,]+(?:\.\d+)?)|([\d,]+(?:\.\d+)?)\s*(?:מינוס|שלילי|minus|negative)|(?:^|[\s,;:])[-−–]\s*[₪$]?\s*([\d,]+(?:\.\d+)?))/i;
-
-/** מחזיר את הסכום החיובי מהודעה שלילית, או null אם אין התאמה */
-export function detectNegativeAmount(text) {
-  const m = String(text || '').match(NEGATIVE_AMOUNT_RE);
-  if (!m) return null;
-  const raw = m[1] || m[2] || m[3];
-  if (!raw) return null;
-  const n = Number(String(raw).replace(/,/g, ''));
-  if (!Number.isFinite(n) || n <= 0) return null;
-  return Math.round(n * 100) / 100;
-}
-
-/** תשובת סירוב לסכום שלילי (D.2) — exact wording */
-export function negativeAmountReply(amount) {
-  const label = Number.isInteger(amount) ? String(amount) : String(amount);
-  return `אי אפשר לרשום סכום שלילי. התכוונת לתרומה של ₪${label}, או לתקן או למחוק תנועה שכבר נרשמה? אם למחוק, אפשר לעשות את זה ישירות בפנקס.`;
-}
+export {
+  NEGATIVE_AMOUNT_RE,
+  detectNegativeAmount,
+  negativeAmountReply,
+  detectAmbiguousAmount,
+  ambiguousAmountReply,
+  forceIlsSymbol,
+  userMessageBlocksCard,
+} from '../../shared/amountGuard.mjs';
 
 
 /** תווית כפתור ההגדרות להורדת .ics (SettingsScreen) */

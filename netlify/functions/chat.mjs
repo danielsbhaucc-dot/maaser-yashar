@@ -29,6 +29,8 @@ import {
   CANARY_STRING,
   INJECTION_REJECTION,
   applyIntentGates,
+  ambiguousAmountReply,
+  detectAmbiguousAmount,
   detectNegativeAmount,
   detectSpecialIntent,
   dropConfirmedDuplicates,
@@ -818,12 +820,21 @@ export async function handler(event) {
     });
   }
 
-  // NEW-2 / C-09: סכום שלילי — לפני OpenRouter (חוסך כסף)
+  // NEW-2 / C-09: סכום שלילי או לא חד-משמעי — לפני OpenRouter (חוסך כסף)
   const negAmount = lastUser ? detectNegativeAmount(lastUser.content) : null;
   if (negAmount != null) {
     console.info('[chat] negative-amount guard');
     return json(event, 200, {
       reply: negativeAmountReply(negAmount),
+      actions: [],
+      model: 'guard',
+    });
+  }
+  const ambiguous = lastUser ? detectAmbiguousAmount(lastUser.content) : null;
+  if (ambiguous) {
+    console.info('[chat] ambiguous-amount guard');
+    return json(event, 200, {
+      reply: ambiguousAmountReply(ambiguous.low, ambiguous.high),
       actions: [],
       model: 'guard',
     });
@@ -964,10 +975,14 @@ export async function handler(event) {
     let { reply, actions } = processed;
     const data = chain.data;
 
-    // NEW-2 defense: גם אחרי המודל — אין כרטיס על הודעה שלילית
+    // NEW-2 defense: גם אחרי המודל — אין כרטיס על הודעה שלילית או לא חד-משמעית
     if (lastUser && detectNegativeAmount(lastUser.content) != null) {
       actions = [];
       reply = negativeAmountReply(detectNegativeAmount(lastUser.content));
+    } else if (lastUser && detectAmbiguousAmount(lastUser.content)) {
+      const amb = detectAmbiguousAmount(lastUser.content);
+      actions = [];
+      reply = ambiguousAmountReply(amb.low, amb.high);
     }
 
     // NEW-3 / C-03b: grounding + question gate + no remaining/obligation invent
@@ -1031,6 +1046,8 @@ export {
   gateProposedActions,
   replyForProposalGate,
   detectNegativeAmount,
+  detectAmbiguousAmount,
+  ambiguousAmountReply,
   applyIntentGates,
   dropConfirmedDuplicates,
   sanitizeConfirmed,

@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type { LedgerEntry, LedgerKind } from '../types/ledger';
@@ -34,6 +35,7 @@ import {
   type HistoryEntry,
 } from '../utils/history';
 import { runSchemaMigrations } from '../utils/schemaMigrate';
+import { appendEntriesOnce } from '../utils/postCommitLedger';
 
 type NewHistoryEntry = Omit<HistoryEntry, 'id' | 'savedAt'>;
 
@@ -86,6 +88,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false);
   const [profile, setProfileState] = useState<UserProfile>(defaultProfile());
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
+  const ledgerRef = useRef<LedgerEntry[]>([]);
+  useEffect(() => {
+    ledgerRef.current = ledger;
+  }, [ledger]);
   const [recurring, setRecurring] = useState<RecurringRule[]>([]);
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [corrupt, setCorrupt] = useState<Partial<Record<CorruptStore, boolean>>>({});
@@ -223,13 +229,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const addEntries = useCallback(
     async (data: Omit<LedgerEntry, 'id' | 'createdAt'>[]) => {
-      if (!data.length) return ledger;
+      if (!data.length) return ledgerRef.current;
       const created = data.map((d) => createEntry(d));
-      const next = [...created, ...ledger];
+      // פעם אחת, מהפנקס החי — לא ממזגים אחר כך עם ref שכבר כולל את השורות
+      const next = appendEntriesOnce(ledgerRef.current, created);
+      ledgerRef.current = next;
       await persistLedger(next);
       return next;
     },
-    [ledger, persistLedger]
+    [persistLedger]
   );
 
   const removeEntry = useCallback(
