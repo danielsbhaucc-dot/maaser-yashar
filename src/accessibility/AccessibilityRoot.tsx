@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
 import { useA11y } from './AccessibilityContext';
-import { rootA11yStyle } from './effects';
+import { nativeSaturationFilter, rootA11yStyle } from './effects';
 import { rtlDomProps, DIR } from '../rtl';
 
 /**
@@ -12,23 +12,16 @@ import { rtlDomProps, DIR } from '../rtl';
 export function AccessibilityRoot({ children }: { children: React.ReactNode }) {
   const { settings } = useA11y();
 
+  // native: גווני אפור אמיתי דרך filter (Android, ארכיטקטורה חדשה). ב־iOS אין filter
+  // לצבע — לא מזייפים בשקיפות; הפאנל מציג שהאפשרות זמינה רק ב־web/Android.
   const satStyle =
-    Platform.OS !== 'web'
-      ? settings.saturation === 'low'
-        ? { opacity: 0.92 }
-        : settings.saturation === 'mono' || settings.saturation === 'grayscale'
-          ? { opacity: 0.88 }
-          : null
-      : null;
-
-  const motionStyle =
-    Platform.OS !== 'web' && (settings.stopAnimations || settings.reduceMotion)
-      ? ({ cursor: undefined } as object)
+    Platform.OS === 'android' && settings.saturation !== 'off'
+      ? ({ filter: nativeSaturationFilter(settings.saturation) } as object)
       : null;
 
   return (
     <View
-      style={[styles.flex, DIR, rootA11yStyle(settings), satStyle, motionStyle]}
+      style={[styles.flex, DIR, rootA11yStyle(settings), satStyle]}
       {...rtlDomProps}
     >
       {children}

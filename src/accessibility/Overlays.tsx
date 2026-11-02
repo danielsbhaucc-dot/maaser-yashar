@@ -56,7 +56,7 @@ export function ReadingGuideOverlay() {
       accessibilityElementsHidden
       importantForAccessibility="no-hide-descendants"
     >
-      <View style={[styles.guide, { top: y - 18 }]} pointerEvents="none" />
+      <View testID="a11y-reading-guide" style={[styles.guide, { top: y - 18 }]} pointerEvents="none" />
       {/* רצועת מעקב שקופה — רק היא קולטת מגע; שאר המסך נשאר לחיץ */}
       {Platform.OS !== 'web' ? (
         <View
@@ -85,6 +85,7 @@ export function ReadingMaskOverlay() {
       importantForAccessibility="no-hide-descendants"
     >
       <View
+        testID="a11y-reading-mask-top"
         style={[styles.maskPart, { top: 0, height: Math.max(0, y - band / 2) }]}
         pointerEvents="none"
       />
@@ -239,6 +240,7 @@ export function ScreenReaderHintsOverlay() {
 
   return (
     <View
+      testID="a11y-sr-hint"
       pointerEvents="none"
       style={[styles.hintBubble, { top: pos.y, left: Math.max(8, pos.x) }]}
       accessibilityElementsHidden
@@ -308,7 +310,7 @@ export function PageStructureModal() {
 
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
-      <View style={[styles.structBackdrop, DIR]}>
+      <View style={[styles.structBackdrop, DIR]} testID="a11y-page-structure">
         <View
           nativeID={dialogId}
           {...dialogDomProps}

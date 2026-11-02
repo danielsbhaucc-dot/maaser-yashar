@@ -39,6 +39,119 @@ const RN_TEXTISH = `#root [dir], #root [role="text"], #root [accessibilityrole="
 const RN_INPUT = `#root input, #root textarea, #root [role="textbox"], #root [accessibilityrole="text"]`;
 const RN_CTRL = `${RN_BTN}, ${RN_LINK}, ${RN_TAB}, #root input, #root textarea, #root select`;
 
+/** פלטות ניגודיות גבוהה (משטח מלא, לא פילטר) — ערכים עומדים ב־WCAG AAA (≥7:1) */
+export const HIGH_CONTRAST_PALETTES = {
+  blackYellow: { bg: '#000000', fg: '#FFE600', link: '#7FDBFF', focus: '#FFFFFF' },
+  light: { bg: '#FFFFFF', fg: '#000000', link: '#0033CC', focus: '#B00020' },
+} as const;
+
+export function highContrastPalette(mode: A11ySettings['contrast']) {
+  return mode === 'blackYellow' || mode === 'light' ? HIGH_CONTRAST_PALETTES[mode] : null;
+}
+
+/** זום לפאנל עצמו (מחוץ ל־#root) — מתון ומוגבל כדי שלא יגלוש במסך צר */
+export function panelZoom(s: A11ySettings): number {
+  const z = fontScale(s);
+  return Math.round(Math.min(Math.max(z, 1), 1.25) * 1000) / 1000;
+}
+
+/** גופן קריאוּת/דיסלקציה מקומי: Alef (SIL OFL 1.1, Hagilda) — public/fonts/OFL-Alef.txt */
+const DYSLEXIA_FONT_FACE = ['hebrew', 'latin']
+  .flatMap((sub) =>
+    [400, 700].map(
+      (w) => `@font-face { font-family: "MaaserA11yAlef"; font-style: normal; font-weight: ${w}; font-display: swap;
+        src: url("/fonts/alef-${sub}-${w}-normal.woff2") format("woff2");
+        unicode-range: ${sub === 'hebrew' ? 'U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F' : 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD'}; }`
+    )
+  )
+  .join('\n');
+
+/** משטח האפליקציה שאליו מערבבים רקעים שקופים במצב "פחות שקיפות" */
+export const LOW_TRANSPARENCY_BASE = { r: 0x0b, g: 0x10, b: 0x20 };
+
+function systemPrefersReducedMotion(): boolean {
+  try {
+    return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
+const RGBA_RE = /^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/;
+
+/** מעבר DOM: השתקת מדיה אמיתית + אטימת משטחים שקופים לפי טוקן */
+function runDomPasses(s: A11ySettings) {
+  const root = document.getElementById('root');
+  if (!root) return;
+  root.querySelectorAll<HTMLMediaElement>('video, audio').forEach((m) => {
+    if (s.muteMedia) {
+      if (!m.hasAttribute('data-a11y-muted')) {
+        m.setAttribute('data-a11y-muted', m.muted ? 'was' : '1');
+        m.muted = true;
+        if (m.autoplay || !m.paused) {
+          try {
+            m.pause();
+          } catch {
+            /* noop */
+          }
+        }
+      }
+    } else if (m.hasAttribute('data-a11y-muted')) {
+      if (m.getAttribute('data-a11y-muted') === '1') m.muted = false;
+      m.removeAttribute('data-a11y-muted');
+    }
+  });
+
+  const solidified = root.querySelectorAll<HTMLElement>('[data-a11y-solid]');
+  if (!s.lowTransparency) {
+    solidified.forEach((el) => {
+      el.style.removeProperty('background-color');
+      el.removeAttribute('data-a11y-solid');
+    });
+    return;
+  }
+  const B = LOW_TRANSPARENCY_BASE;
+  root.querySelectorAll<HTMLElement>('div:not([data-a11y-solid])').forEach((el) => {
+    const m = RGBA_RE.exec(getComputedStyle(el).backgroundColor);
+    if (!m) return;
+    const a = Number(m[4]);
+    if (a <= 0 || a >= 0.9) return;
+    // מערבבים את הצבע השקוף עם משטח הבסיס — אותו גוון בדיוק, רק אטום
+    const blend = (c: number, base: number) => Math.round(base + (c - base) * a);
+    el.setAttribute('data-a11y-solid', '1');
+    el.style.setProperty(
+      'background-color',
+      `rgb(${blend(Number(m[1]), B.r)}, ${blend(Number(m[2]), B.g)}, ${blend(Number(m[3]), B.b)})`,
+      'important'
+    );
+  });
+}
+
+let domObserver: MutationObserver | null = null;
+let domTimer: ReturnType<typeof setTimeout> | null = null;
+let lastSettings: A11ySettings | null = null;
+
+function scheduleDomPasses(s: A11ySettings) {
+  lastSettings = s;
+  runDomPasses(s);
+  const needs = s.muteMedia || s.lowTransparency;
+  if (needs && !domObserver && typeof MutationObserver !== 'undefined') {
+    const root = document.getElementById('root');
+    if (!root) return;
+    domObserver = new MutationObserver(() => {
+      if (domTimer) return;
+      domTimer = setTimeout(() => {
+        domTimer = null;
+        if (lastSettings) runDomPasses(lastSettings);
+      }, 250);
+    });
+    domObserver.observe(root, { childList: true, subtree: true });
+  } else if (!needs && domObserver) {
+    domObserver.disconnect();
+    domObserver = null;
+  }
+}
+
 function buildWebCss(s: A11ySettings): string {
   const parts: string[] = [
     `/* מעשר ישר — שכבת נגישות מותאמת ל־RN Web + עיצוב כהה */`,
@@ -65,8 +178,7 @@ function buildWebCss(s: A11ySettings): string {
 
   /* —— ניגודיות / רוויה: פילטרים שלא הורסים את שפת העיצוב הכהה —— */
   const filters: string[] = [];
-  if (s.contrast === 'invert' || s.contrast === 'light') {
-    // light = היפוך עדין ששומר יחסי צבע (זהב/ספיר) על רקע כהה→בהיר
+  if (s.contrast === 'invert') {
     filters.push('invert(1) hue-rotate(180deg)');
   }
   if (s.contrast === 'high') filters.push('contrast(1.42) brightness(1.06)');
@@ -81,18 +193,37 @@ function buildWebCss(s: A11ySettings): string {
     parts.push(`#maaser-a11y-root, #maaser-a11y-root * { filter: none !important; }`);
   }
 
-  if (s.contrast === 'blackYellow') {
-    // ניגודיות קיצונית בלי לצבוע borders/SVG של כל העץ
+  const hc = highContrastPalette(s.contrast);
+  if (hc) {
+    // ניגודיות גבוהה אמיתית: משטחים אחידים, טקסט/גבולות בצבע אחד, מצב נבחר הפוך
     parts.push(`
-      #root {
-        background: #000 !important;
+      html, body, #root { background: ${hc.bg} !important; }
+      #root *:not(svg):not(svg *) {
+        background-color: transparent !important;
+        background-image: none !important;
+        color: ${hc.fg} !important;
+        border-color: ${hc.fg} !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
       }
-      ${RN_TEXTISH}, ${RN_HEADING}, ${RN_BTN}, ${RN_LINK}, ${RN_INPUT} {
-        color: #FFE600 !important;
+      #root svg [fill]:not([fill="none"]) { fill: ${hc.fg} !important; }
+      #root svg [stroke]:not([stroke="none"]) { stroke: ${hc.fg} !important; }
+      ${RN_BTN}, ${RN_TAB}, ${RN_INPUT} {
+        background-color: ${hc.bg} !important;
+        outline: 2px solid ${hc.fg} !important;
+        outline-offset: -2px !important;
       }
-      ${RN_LINK} {
-        text-decoration: underline !important;
+      ${RN_LINK} { color: ${hc.link} !important; text-decoration: underline !important; }
+      #root [aria-selected="true"], #root [aria-checked="true"], #root [aria-pressed="true"] {
+        background-color: ${hc.fg} !important;
       }
+      #root [aria-selected="true"] *, #root [aria-checked="true"] *, #root [aria-pressed="true"] *,
+      #root [aria-selected="true"], #root [aria-checked="true"], #root [aria-pressed="true"] {
+        color: ${hc.bg} !important;
+      }
+      #root *:focus-visible { outline: 3px solid ${hc.focus} !important; outline-offset: 2px !important; }
     `);
   }
 
@@ -155,8 +286,9 @@ function buildWebCss(s: A11ySettings): string {
 
   if (s.readableFont || s.dyslexiaFont) {
     const family = s.dyslexiaFont
-      ? `"Comic Sans MS", "Arial Rounded MT Bold", "Arial", sans-serif`
+      ? `"MaaserA11yAlef", "Arial", sans-serif`
       : `"Arial", "Helvetica Neue", "Heebo", sans-serif`;
+    if (s.dyslexiaFont) parts.push(DYSLEXIA_FONT_FACE);
     parts.push(`
       #root, #root * {
         font-family: ${family} !important;
@@ -242,6 +374,15 @@ function buildWebCss(s: A11ySettings): string {
     `);
   }
 
+  const motionCss = `
+      #root *, #root *::before, #root *::after, #maaser-a11y-root * {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }`;
+  // מכבדים תמיד את בקשת מערכת ההפעלה
+  parts.push(`@media (prefers-reduced-motion: reduce) {${motionCss}}`);
   if (s.stopAnimations || s.reduceMotion) {
     parts.push(`
       #root *, #root *::before, #root *::after {
@@ -272,14 +413,11 @@ function buildWebCss(s: A11ySettings): string {
   }
 
   if (s.lowTransparency) {
+    // backdrop מבוטל ב־CSS; האטימה עצמה לפי טוקן ב־runDomPasses
     parts.push(`
       #root *, #root *::before, #root *::after {
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
-      }
-      /* רקעי זכוכית שקופים → אטומים יותר */
-      #root [style*="rgba(12"], #root [style*="rgba(11"], #root [style*="rgba(18"] {
-        opacity: 1 !important;
       }
     `);
   }
@@ -302,7 +440,7 @@ function buildWebCss(s: A11ySettings): string {
   }
 
   if (s.muteMedia) {
-    parts.push(`#root video, #root audio { display: none !important; }`);
+    // השתקה אמיתית מתבצעת ב־applyMediaMute (muted + pause על autoplay); המדיה נשארת גלויה
   }
 
   if (s.readingMode) {
@@ -323,11 +461,14 @@ function buildWebCss(s: A11ySettings): string {
   }
 
   /* וידג'ט נגישות מעל הכול, בלי פילטר/זום של האפליקציה */
-  const inv = z > 1.001 ? 1 / z : 1;
+  // הפאנל יושב ב־Modal מחוץ ל־#root: לא יורש zoom. מגדילים אותו מתון כדי שמי שהגדיל טקסט יקרא גם את התפריט
+  const pz = panelZoom(s);
   parts.push(`
     #maaser-a11y-root {
       filter: none !important;
-      zoom: ${inv} !important;
+      zoom: ${pz} !important;
+      max-width: min(380px, calc(100vw / ${pz})) !important;
+      height: calc(100dvh / ${pz}) !important;
       transform: none !important;
       font-size: 16px !important;
       font-family: Heebo, Arial, sans-serif !important;
@@ -374,7 +515,7 @@ export function applyWebAccessibility(settings: A11ySettings) {
     setData(
       node as HTMLElement | null,
       'data-a11y-motion',
-      settings.stopAnimations || settings.reduceMotion ? 'reduce' : null
+      settings.stopAnimations || settings.reduceMotion || systemPrefersReducedMotion() ? 'reduce' : null
     );
     setData(node as HTMLElement | null, 'data-a11y-reading', settings.readingMode ? '1' : null);
     setData(node as HTMLElement | null, 'data-a11y-font', String(settings.fontSize || 0));
@@ -388,8 +529,20 @@ export function applyWebAccessibility(settings: A11ySettings) {
 
   document.body.setAttribute(
     'data-a11y-motion',
-    settings.stopAnimations || settings.reduceMotion ? 'reduce' : 'ok'
+    settings.stopAnimations || settings.reduceMotion || systemPrefersReducedMotion() ? 'reduce' : 'ok'
   );
+
+  scheduleDomPasses(settings);
+}
+
+/** האם יש ב־native התאמת רוויה אמיתית (filter נתמך רק ב־Android) */
+export const NATIVE_SATURATION_SUPPORTED = Platform.OS !== 'ios';
+
+export function nativeSaturationFilter(sat: A11ySettings['saturation']) {
+  if (sat === 'low') return [{ saturate: 0.5 }];
+  if (sat === 'high') return [{ saturate: 1.8 }];
+  if (sat === 'mono') return [{ grayscale: 1 }, { contrast: 1.25 }];
+  return [{ grayscale: 1 }];
 }
 
 /** סגנונות לשורש האפליקציה (native + web) */
@@ -408,7 +561,7 @@ export function rootA11yStyle(s: A11ySettings): ViewStyle {
   if (s.contrast === 'blackYellow') {
     style.backgroundColor = '#000';
   } else if (s.contrast === 'light') {
-    style.backgroundColor = '#F4F6FF';
+    style.backgroundColor = '#FFFFFF';
   } else if (s.contrast === 'sepia') {
     style.backgroundColor = '#F4ECD8';
   } else if (s.contrast === 'dark' || s.contrast === 'high') {
@@ -432,7 +585,9 @@ export function textA11yStyle(s: A11ySettings): TextStyle {
   if (s.boldText) style.fontWeight = '700';
   if (s.colorText) style.color = s.colorText;
   if (s.contrast === 'blackYellow') style.color = '#FFE600';
-  if (s.textAlign === 1) style.textAlign = 'left';
+  if (s.contrast === 'light') style.color = '#000000';
+  // 'start' = ימין ב־RTL; ב־native עם forceRTL גם 'left' היה מתהפך, אבל start מפורש וברור
+  if (s.textAlign === 1) style.textAlign = 'start' as TextStyle['textAlign'];
   if (s.textAlign === 2) style.textAlign = 'center';
   void scale;
   return style;

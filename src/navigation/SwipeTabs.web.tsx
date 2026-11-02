@@ -187,6 +187,11 @@ export function SwipeTabs() {
     return () => window.removeEventListener('popstate', onPopState);
   }, [goTo]);
 
+  // ה-FAB מרונדר מחוץ ל-tablist (axe aria-required-children) וממוקם מעל ה-spacer שבשורה
+  type Box = { x: number; y: number; width: number; height: number };
+  const [rowBox, setRowBox] = useState<Box | null>(null);
+  const [spacerBox, setSpacerBox] = useState<Box | null>(null);
+
   const renderTab = (tab: (typeof TAB_META)[number], i: number) => {
     const focused = i === index;
     const label = tabLabel(tab.key, useShortLabels);
@@ -287,7 +292,6 @@ export function SwipeTabs() {
             DIR,
             tabBarPos,
           ]}
-          accessibilityRole="tablist"
           testID="tab-bar"
           pointerEvents="box-none"
           {...rtlDomProps}
@@ -295,8 +299,35 @@ export function SwipeTabs() {
           <View style={[styles.tabBg, flatBar && styles.tabBgFlat]} pointerEvents="none">
             <View style={[styles.tabTint, flatBar && styles.tabTintFlat]} />
           </View>
-          <View style={styles.tabsRow}>
+          {/* role=tablist רק על שורת הטאבים — כפתור הפעולה (FAB) יושב מעליה כשכבה נפרדת,
+              כי tablist מותר להכיל רק role=tab (axe aria-required-children) */}
+          <View
+            style={styles.tabsRow}
+            accessibilityRole="tablist"
+            onLayout={(e) => setRowBox(e.nativeEvent.layout)}
+          >
             {TAB_META.slice(0, 2).map((tab, i) => renderTab(tab, i))}
+            <View
+              style={styles.fabSpacer}
+              pointerEvents="none"
+              onLayout={(e) => setSpacerBox(e.nativeEvent.layout)}
+            />
+            {TAB_META.slice(2).map((tab, i) => renderTab(tab, i + 2))}
+          </View>
+          <View
+            style={[
+              styles.fabLayer,
+              rowBox && spacerBox
+                ? {
+                    left: rowBox.x + spacerBox.x,
+                    top: rowBox.y + spacerBox.y,
+                    width: spacerBox.width,
+                    height: spacerBox.height,
+                  }
+                : styles.fabLayerPending,
+            ]}
+            pointerEvents="box-none"
+          >
             <View style={styles.fabNotch} pointerEvents="box-none">
               <Pressable
                 onPress={() => openAdd('tzedaka')}
@@ -315,7 +346,6 @@ export function SwipeTabs() {
                 </LinearGradient>
               </Pressable>
             </View>
-            {TAB_META.slice(2).map((tab, i) => renderTab(tab, i + 2))}
           </View>
         </View>
       </View>
@@ -418,6 +448,14 @@ const styles = StyleSheet.create({
     height: 16,
   },
   /** notch מרכזי ל־✦ — לא גוזל מ־flex של הטאבים */
+  fabSpacer: { width: 56, alignSelf: 'stretch' },
+  fabLayer: {
+    position: 'absolute',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
+  fabLayerPending: { opacity: 0 },
   fabNotch: {
     width: 56,
     alignItems: 'center',

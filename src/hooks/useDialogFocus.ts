@@ -42,6 +42,10 @@ type Options = {
  */
 export function useDialogFocus({ open, onClose, dialogId }: Options) {
   const triggerRef = useRef<HTMLElement | null>(null);
+  // onClose ב־ref: זהות חדשה בכל רינדור (למשל אחרי שינוי הגדרה) לא תפעיל מחדש
+  // את האפקט — אחרת הפוקוס קופץ לכפתור הראשון בכל הפעלת מתג
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof document === 'undefined') return;
@@ -64,11 +68,17 @@ export function useDialogFocus({ open, onClose, dialogId }: Options) {
       }
     };
 
-    const raf = requestAnimationFrame(() => {
+    // Modal של RN-web מרכיב את התוכן באיחור: מנסים עד שהפוקוס באמת בפנים (עד ~1 שנ׳)
+    let tries = 0;
+    let retry: ReturnType<typeof setTimeout> | null = null;
+    const ensureFocus = () => {
+      if (cancelled) return;
+      const root = document.getElementById(dialogId);
+      if (root && document.activeElement && root.contains(document.activeElement)) return;
       focusInitial();
-      // ניסיון שני אחרי אנימציית פתיחה
-      setTimeout(focusInitial, 80);
-    });
+      if (++tries < 20) retry = setTimeout(ensureFocus, 50);
+    };
+    const raf = requestAnimationFrame(ensureFocus);
 
     const onKey = (e: KeyboardEvent) => {
       const root = document.getElementById(dialogId);
@@ -77,7 +87,7 @@ export function useDialogFocus({ open, onClose, dialogId }: Options) {
       if (e.key === 'Escape') {
         e.preventDefault();
         e.stopPropagation();
-        onClose();
+        onCloseRef.current();
         return;
       }
 
@@ -107,6 +117,7 @@ export function useDialogFocus({ open, onClose, dialogId }: Options) {
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
+      if (retry) clearTimeout(retry);
       document.removeEventListener('keydown', onKey, true);
       const prev = triggerRef.current;
       if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
@@ -117,7 +128,7 @@ export function useDialogFocus({ open, onClose, dialogId }: Options) {
         }
       }
     };
-  }, [open, onClose, dialogId]);
+  }, [open, dialogId]);
 }
 
 /** props ל־View/Modal ב־web: dialog + aria-modal + focusable container */

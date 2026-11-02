@@ -12,6 +12,7 @@ import {
   UIManager,
   Animated,
   Easing,
+  type TextStyle,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -28,7 +29,8 @@ import type { ContrastMode, SaturationMode } from './types';
 import { colors, fonts, radii, shadow } from '../theme';
 import { DIR } from '../rtl';
 import { NATIVE_DRIVER } from '../utils/motion';
-import { fontScale, listActiveChips, smartTips } from './effects';
+import { useMotionEnabled } from '../hooks/useMotionEnabled';
+import { NATIVE_SATURATION_SUPPORTED, fontScale, listActiveChips, smartTips } from './effects';
 import { dialogDomProps, useDialogFocus } from '../hooks/useDialogFocus';
 import { useSheetSwipeDismiss } from '../hooks/useSheetSwipeDismiss';
 import {
@@ -147,15 +149,41 @@ type TileProps = {
   hint?: string;
   dots?: number;
   level?: number;
+  /** switch = מתג עצמאי (ברירת מחדל) · toggle = בחירה בלעדית שאפשר לבטל (ניגודיות/רוויה) */
+  kind?: 'switch' | 'toggle';
 };
 
-function Tile({ label, icon, active, onPress, hint, dots, level }: TileProps) {
+/** תכונות ARIA שקוראי מסך רואים בפועל: role/aria-* (RN ≥0.71 + RN-web) + accessibilityState ל־native */
+export function tileA11yProps(kind: 'switch' | 'toggle' | 'cycle', active: boolean) {
+  if (kind === 'switch') {
+    return { role: 'switch', 'aria-checked': active, accessibilityState: { checked: active } } as const;
+  }
+  return {
+    role: 'button',
+    ...(Platform.OS === 'web' ? { 'aria-pressed': active } : null),
+    accessibilityState: { selected: active },
+  } as const;
+}
+
+function Tile({ label, icon, active, onPress, hint, dots, level, kind = 'switch' }: TileProps) {
+  const cycle = typeof dots === 'number' && dots > 0;
+  const levelTxt = cycle ? `. רמה ${level ?? 0} מתוך ${dots}` : '';
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="button"
-      accessibilityState={{ selected: !!active }}
-      accessibilityLabel={hint ? `${label}. ${hint}` : label}
+      {...(tileA11yProps(cycle ? 'cycle' : kind, !!active) as object)}
+      {...(Platform.OS === 'web' && !cycle && kind === 'switch'
+        ? {
+            // RN-web מפעיל Space רק ל־role=button; למתג (switch) — גם Space כמו ב־APG
+            onKeyDown: (e: { key: string; preventDefault: () => void }) => {
+              if (e.key === ' ' || e.key === 'Spacebar') {
+                e.preventDefault();
+                onPress();
+              }
+            },
+          }
+        : null)}
+      accessibilityLabel={`${hint ? `${label}. ${hint}` : label}${levelTxt}`}
       style={({ pressed }) => [
         styles.tile,
         active && styles.tileActive,
@@ -205,8 +233,7 @@ function AccordionSection({
   children: React.ReactNode;
 }) {
   const rot = useRef(new Animated.Value(open ? 1 : 0)).current;
-  const { settings } = useA11y();
-  const motionOk = !settings.stopAnimations && !settings.reduceMotion;
+  const motionOk = useMotionEnabled();
 
   useEffect(() => {
     if (!motionOk) {
@@ -231,8 +258,9 @@ function AccordionSection({
       <Pressable
         onPress={() => onToggle(id)}
         accessibilityRole="button"
+        aria-expanded={open}
         accessibilityState={{ expanded: open }}
-        accessibilityLabel={`${title}. ${open ? 'סגור' : 'פתח'}`}
+        accessibilityLabel={`${title}. ${subtitle}`}
         style={({ pressed }) => [styles.sectionHead, pressed && { opacity: 0.85 }]}
       >
         <Animated.View style={[styles.chevronWrap, { transform: [{ rotate: spin }] }]}>
@@ -328,8 +356,9 @@ function Segmented({
             key={o.id}
             onPress={() => onChange(o.id)}
             style={[styles.segBtn, on && styles.segBtnOn]}
-            accessibilityRole="button"
-            accessibilityState={{ selected: on }}
+            role="radio"
+            aria-checked={on}
+            accessibilityState={{ checked: on }}
             accessibilityLabel={o.label}
           >
             <Text style={[styles.segTxt, on && styles.segTxtOn]}>{o.label}</Text>
@@ -413,6 +442,7 @@ ${contactLine}
 
 export default function AccessibilityPanel() {
   const a11y = useA11y();
+  const motionOk = useMotionEnabled();
   const { settings } = a11y;
   const insets = useSafeAreaInsets();
   const [openId, setOpenId] = useState<string | null>(null);
@@ -625,8 +655,7 @@ export default function AccessibilityPanel() {
                     key={p.id}
                     onPress={() => a11y.setProfile(on ? 'none' : p.id)}
                     style={[styles.profileCard, on && styles.profileCardOn]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: on }}
+                    {...(tileA11yProps('toggle', on) as object)}
                     accessibilityLabel={`${p.title}. ${p.subtitle}`}
                   >
                     <View style={[styles.profileIconWrap, on && styles.profileIconWrapOn]}>
@@ -660,6 +689,7 @@ export default function AccessibilityPanel() {
                   label={t.label}
                   icon={t.icon}
                   hint={t.hint}
+                  kind="toggle"
                   active={settings.contrast === t.id}
                   onPress={() =>
                     a11y.setSetting('contrast', settings.contrast === t.id ? 'off' : t.id)
@@ -668,13 +698,19 @@ export default function AccessibilityPanel() {
               ))}
             </View>
             <Text style={[styles.groupLabel, { marginTop: 10 }]}>רוויית צבע</Text>
+            {!NATIVE_SATURATION_SUPPORTED ? (
+              <Text style={styles.groupLabel} accessibilityRole="text">
+                ב־iOS אפשר להפעיל גווני אפור דרך הגדרות ← נגישות ← תצוגה ← מסנני צבע
+              </Text>
+            ) : null}
             <View style={styles.grid3}>
-              {satTiles.map((t) => (
+              {(NATIVE_SATURATION_SUPPORTED ? satTiles : []).map((t) => (
                 <Tile
                   key={t.id}
                   label={t.label}
                   icon={t.icon}
                   hint={t.hint}
+                  kind="toggle"
                   active={settings.saturation === t.id}
                   onPress={() =>
                     a11y.setSetting(
@@ -719,7 +755,7 @@ export default function AccessibilityPanel() {
                     lineHeight: Math.round(15 * previewScale * previewLh),
                     letterSpacing: previewLs,
                     fontWeight: settings.boldText ? '700' : '400',
-                    textAlign: settings.textAlign === 2 ? 'center' : 'left',
+                    textAlign: (settings.textAlign === 2 ? 'center' : 'start') as TextStyle['textAlign'],
                   },
                 ]}
               >
@@ -1061,8 +1097,7 @@ export default function AccessibilityPanel() {
                       { backgroundColor: c },
                       active && styles.swatchOn,
                     ]}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected: active }}
+                    {...(tileA11yProps('toggle', active) as object)}
                     accessibilityLabel={`צבע ${c}`}
                   />
                 );
@@ -1175,7 +1210,7 @@ export default function AccessibilityPanel() {
   return (
     <Modal
       visible={settings.panelOpen}
-      animationType="slide"
+      animationType={motionOk ? 'slide' : 'none'}
       transparent
       onRequestClose={a11y.closePanel}
     >
@@ -1211,6 +1246,55 @@ function DocModal({
   useEffect(() => {
     if (visible) animateIn();
   }, [visible, animateIn]);
+
+  // web: גרירה בעכבר/עט (Pointer Events) — המגע כבר עובד דרך PanResponder
+  const handleId = `${dialogId}-handle`;
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !visible || typeof document === 'undefined') return;
+    let el: HTMLElement | null = null;
+    let startY = 0;
+    let lastY = 0;
+    let lastT = 0;
+    let vy = 0;
+    let dragging = false;
+    const onMove = (e: PointerEvent) => {
+      if (!dragging) return;
+      const dy = e.clientY - startY;
+      const now = performance.now();
+      vy = (e.clientY - lastY) / Math.max(1, now - lastT);
+      lastY = e.clientY;
+      lastT = now;
+      translateY.setValue(dy > 0 ? dy : dy * 0.22);
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!dragging) return;
+      dragging = false;
+      const dy = e.clientY - startY;
+      if (dy > 96 || vy > 0.85) dismiss();
+      else
+        Animated.spring(translateY, { toValue: 0, useNativeDriver: NATIVE_DRIVER, bounciness: 3 }).start();
+    };
+    const onDown = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      dragging = true;
+      startY = lastY = e.clientY;
+      lastT = performance.now();
+      vy = 0;
+      e.preventDefault();
+    };
+    const attach = setTimeout(() => {
+      el = document.getElementById(handleId);
+      el?.addEventListener('pointerdown', onDown);
+    }, 0);
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    return () => {
+      clearTimeout(attach);
+      el?.removeEventListener('pointerdown', onDown);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+    };
+  }, [visible, handleId, translateY, dismiss]);
 
   return (
     <Modal visible={visible} animationType="none" transparent onRequestClose={dismiss}>
@@ -1248,7 +1332,13 @@ function DocModal({
             colors={['rgba(42,37,88,0.98)', 'rgba(18,24,44,0.99)']}
             style={StyleSheet.absoluteFill}
           />
-          <View style={styles.docHandleHit} {...panHandlers} accessibilityLabel="גרור לסגירה">
+          <View
+            nativeID={handleId}
+            style={[styles.docHandleHit, Platform.OS === 'web' ? ({ cursor: 'grab', touchAction: 'none' } as object) : null]}
+            {...panHandlers}
+            aria-hidden
+            importantForAccessibility="no-hide-descendants"
+          >
             <View style={styles.docHandle} />
           </View>
           <View style={styles.docHead}>
