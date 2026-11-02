@@ -103,6 +103,10 @@ async function main() {
     assert(/בניתי את מעשר ישר/.test(about.text), '/about must keep the who section');
     assert(!/דניאל|Daniel/i.test(about.text), '/about must not expose the owner real name');
     assert(!DEAD_APP.test(about.text), '/about still has maaser-yashar.app');
+    assert(
+      !/github\.com|GitHub|קוד פתוח|danielsbhaucc/i.test(about.text),
+      '/about must not link to source code / GitHub'
+    );
     ok('/about static');
   } catch (e) {
     bad(String(e.message || e));

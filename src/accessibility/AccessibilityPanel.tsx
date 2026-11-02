@@ -34,8 +34,7 @@ import { useSheetSwipeDismiss } from '../hooks/useSheetSwipeDismiss';
 import {
   CONTACT_EMAIL,
   CONTACT_PENDING_TEXT,
-  FEEDBACK_ISSUES_URL,
-  contactOrIssuesHref,
+  contactHref,
 } from '../config/contact';
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -373,7 +372,7 @@ function InfoRow({
 function buildAccessibilityStatement(): string {
   const contactLine = CONTACT_EMAIL
     ? CONTACT_EMAIL
-    : `${CONTACT_PENDING_TEXT}\n${FEEDBACK_ISSUES_URL}`;
+    : CONTACT_PENDING_TEXT;
   return `הצהרת נגישות — מעשר ישר
 
 אפליקציית מעשר ישר שואפת לעמוד בתקן ישראלי ת״י 5568 ו־WCAG 2.2 ברמת AA.
@@ -1103,10 +1102,10 @@ export default function AccessibilityPanel() {
             <InfoRow
               glyph="⚠"
               title="דיווח הפרה"
-              sub={CONTACT_EMAIL ? 'דווחו על בעיית נגישות' : 'דיווח ב-GitHub'}
+              sub={CONTACT_EMAIL ? 'דווחו על בעיית נגישות' : CONTACT_PENDING_TEXT}
               onPress={() => {
-                const href = contactOrIssuesHref('דיווח נגישות — מעשר ישר');
-                Linking.openURL(href).catch(() => {});
+                const href = contactHref('דיווח נגישות — מעשר ישר');
+                if (href) Linking.openURL(href).catch(() => {});
               }}
             />
             <InfoRow

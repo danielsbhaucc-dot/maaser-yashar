@@ -4,15 +4,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 
 export const CONTACT_PENDING_TEXT = 'כתובת ליצירת קשר תתווסף בקרוב.';
 
-/**
- * ערוץ משוב עובד כשאין מייל — דף issues של הריפו הזה.
- * לא כתובת מייל מומצאת, ולא דומיין מת.
- */
-export const FEEDBACK_ISSUES_URL =
-  'https://github.com/danielsbhaucc-dot/maaser-yashar/issues/new';
-
-export const FEEDBACK_GITHUB_LABEL = 'שלח משוב ב-GitHub';
-
 /** דומיין מת שלא קיים — אסור גם אם הוגדר ב־env. בלי ליטרל רציף בקוד. */
 function isBlockedDeadAppDomain(email: string): boolean {
   const host = email.slice(email.lastIndexOf('@') + 1).toLowerCase();
@@ -37,9 +28,9 @@ export function contactMailto(subject: string): string | null {
   return `mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`;
 }
 
-/** מייל כשיש כתובת תקפה, אחרת קישור ל-GitHub issues. תמיד ערוץ עובד. */
-export function contactOrIssuesHref(subject: string): string {
-  return contactMailto(subject) ?? FEEDBACK_ISSUES_URL;
+/** mailto כשיש כתובת תקפה, אחרת null (מציגים CONTACT_PENDING_TEXT בלי קישור). */
+export function contactHref(subject: string): string | null {
+  return contactMailto(subject);
 }
 
 /** לייצוא לבדיקות / סקריפטים — אותה לוגיקת ולידציה. */

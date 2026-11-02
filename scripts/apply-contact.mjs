@@ -18,7 +18,6 @@ const DIST = join(ROOT, 'dist');
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/i;
 const BLOCKED = /@maaser-yashar\.app$/i;
 const PENDING = 'כתובת ליצירת קשר תתווסף בקרוב.';
-const ISSUES_URL = 'https://github.com/danielsbhaucc-dot/maaser-yashar/issues/new';
 const PLACEHOLDER = '{{CONTACT_EMAIL}}';
 const VERSION_PLACEHOLDER = '{{VERSION_SHORT}}';
 
@@ -54,7 +53,7 @@ function gitHead() {
 
 function contactHtml(email, subjectHe) {
   if (!email) {
-    return `${PENDING} <a class="inline" href="${ISSUES_URL}" rel="noopener noreferrer" style="color:var(--gold);font-weight:700;text-decoration:none">שלח משוב ב-GitHub</a>`;
+    return PENDING;
   }
   const href = `mailto:${email}?subject=${encodeURIComponent(subjectHe)}`;
   return `<a class="inline" href="${href}" style="color:var(--gold);font-weight:700;text-decoration:none">${email}</a>`;
