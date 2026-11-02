@@ -39,6 +39,271 @@ const RN_TEXTISH = `#root [dir], #root [role="text"], #root [accessibilityrole="
 const RN_INPUT = `#root input, #root textarea, #root [role="textbox"], #root [accessibilityrole="text"]`;
 const RN_CTRL = `${RN_BTN}, ${RN_LINK}, ${RN_TAB}, #root input, #root textarea, #root select`;
 
+/** פלטות ניגודיות גבוהה (משטח מלא, לא פילטר) — ערכים עומדים ב־WCAG AAA (≥7:1) */
+export const HIGH_CONTRAST_PALETTES = {
+  blackYellow: { bg: '#000000', fg: '#FFE600', link: '#7FDBFF', focus: '#FFFFFF' },
+  light: { bg: '#FFFFFF', fg: '#000000', link: '#0033CC', focus: '#B00020' },
+} as const;
+
+/**
+ * צבעי מצב (שגיאה/הצלחה) בניגודיות גבוהה — נשמרת המשמעות במקום להימחק לצבע אחד.
+ * light: על לבן ≥7:1 · blackYellow: על שחור ≥7:1
+ */
+export const HIGH_CONTRAST_STATUS = {
+  blackYellow: { danger: '#FF9E9E', success: '#7DF0FF' },
+  light: { danger: '#A3001B', success: '#005A70' },
+} as const;
+
+/** צבעי המצב של ערכת העיצוב (theme.ts: danger/expense/accent3, success/income) כ־rgb */
+const STATUS_RGB = {
+  danger: [240, 168, 184],
+  success: [126, 200, 227],
+} as const;
+
+type StatusSelectors = { danger: { fg: string[]; bg: string[]; border: string[] }; success: { fg: string[]; bg: string[]; border: string[] } };
+let statusSelCache: { n: number; sel: StatusSelectors } | null = null;
+
+/**
+ * מוצא את מחלקות ה־CSS האטומיות של RN-web שצובעות בצבעי מצב — סריקה של גיליון הסגנונות
+ * (לא של ה־DOM), במטמון לפי מספר הכללים. סגנון inline מכוסה בסלקטור [style*=…].
+ */
+function statusSelectors(): StatusSelectors {
+  const sel: StatusSelectors = {
+    danger: { fg: [], bg: [], border: [] },
+    success: { fg: [], bg: [], border: [] },
+  };
+  if (typeof document === 'undefined') return sel;
+  let n = 0;
+  const sheets = Array.from(document.styleSheets).filter((sh) => (sh.ownerNode as Element | null)?.id !== STYLE_ID);
+  const lists: CSSRuleList[] = [];
+  for (const sh of sheets) {
+    try {
+      lists.push(sh.cssRules);
+      n += sh.cssRules.length;
+    } catch {
+      /* cross-origin */
+    }
+  }
+  if (statusSelCache && statusSelCache.n === n) return statusSelCache.sel;
+  const match = (v: string, rgb: readonly number[]) => {
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(v);
+    return !!m && Number(m[1]) === rgb[0] && Number(m[2]) === rgb[1] && Number(m[3]) === rgb[2];
+  };
+  for (const list of lists) {
+    for (const rule of Array.from(list)) {
+      const r = rule as CSSStyleRule;
+      if (!r.selectorText || !r.style || !/^\.[\w-]+$/.test(r.selectorText)) continue;
+      for (const k of ['danger', 'success'] as const) {
+        const rgb = STATUS_RGB[k];
+        if (r.style.color && match(r.style.color, rgb)) sel[k].fg.push(r.selectorText);
+        if (r.style.backgroundColor && match(r.style.backgroundColor, rgb)) sel[k].bg.push(r.selectorText);
+        const bc = r.style.borderTopColor || r.style.borderColor;
+        if (bc && match(bc, rgb)) sel[k].border.push(r.selectorText);
+      }
+    }
+  }
+  statusSelCache = { n, sel };
+  return sel;
+}
+
+function highContrastStatusCss(mode: 'blackYellow' | 'light', bg: string): string {
+  const pal = HIGH_CONTRAST_STATUS[mode];
+  const sels = statusSelectors();
+  const out: string[] = [];
+  for (const k of ['danger', 'success'] as const) {
+    const [r, g, b] = STATUS_RGB[k];
+    const inl = (prop: string) => `#root [style*="${prop}: rgb(${r}, ${g}, ${b})"]`;
+    const pre = (xs: string[]) => xs.map((x) => `#root ${x}`);
+    const fg = [...pre(sels[k].fg), inl('color')].join(', ');
+    // רקע מלא בצבע מצב ⇒ משטח בצבע מצב בניגודיות גבוהה + טקסט בצבע הרקע; רקע "רך" נשאר שקוף + מסגרת
+    const bgSel = [...pre(sels[k].bg), inl('background-color')].join(', ');
+    const border = [...pre(sels[k].border), inl('border-color')].join(', ');
+    out.push(`${fg} { color: ${pal[k]} !important; }`);
+    out.push(`${border} { border-color: ${pal[k]} !important; }`);
+    out.push(`${bgSel} { background-color: ${pal[k]} !important; color: ${bg} !important; }`);
+    out.push(`#root svg [stroke="rgb(${r}, ${g}, ${b})"], #root svg [stroke="${k === 'danger' ? '#F0A8B8' : '#7EC8E3'}"] { stroke: ${pal[k]} !important; }`);
+  }
+  return out.join('\n');
+}
+
+export function highContrastPalette(mode: A11ySettings['contrast']) {
+  return mode === 'blackYellow' || mode === 'light' ? HIGH_CONTRAST_PALETTES[mode] : null;
+}
+
+/** זום לפאנל עצמו (מחוץ ל־#root) — מתון ומוגבל כדי שלא יגלוש במסך צר */
+export function panelZoom(s: A11ySettings): number {
+  const z = fontScale(s);
+  return Math.round(Math.min(Math.max(z, 1), 1.25) * 1000) / 1000;
+}
+
+/** גופן קריאוּת/דיסלקציה מקומי: Alef (SIL OFL 1.1, Hagilda) — public/fonts/OFL-Alef.txt */
+const DYSLEXIA_FONT_FACE = ['hebrew', 'latin']
+  .flatMap((sub) =>
+    [400, 700].map(
+      (w) => `@font-face { font-family: "MaaserA11yAlef"; font-style: normal; font-weight: ${w}; font-display: swap;
+        src: url("/fonts/alef-${sub}-${w}-normal.woff2") format("woff2");
+        unicode-range: ${sub === 'hebrew' ? 'U+0590-05FF, U+200C-2010, U+20AA, U+25CC, U+FB1D-FB4F' : 'U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD'}; }`
+    )
+  )
+  .join('\n');
+
+/** משטח האפליקציה שאליו מערבבים רקעים שקופים במצב "פחות שקיפות" */
+export const LOW_TRANSPARENCY_BASE = { r: 0x0b, g: 0x10, b: 0x20 };
+
+function systemPrefersReducedMotion(): boolean {
+  try {
+    return typeof window !== 'undefined' && !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  } catch {
+    return false;
+  }
+}
+
+/** מאזין לשינוי prefers-reduced-motion במערכת — מעדכן את data-a11y-motion בלי רענון */
+let motionMql: MediaQueryList | null = null;
+function syncMotionAttr() {
+  if (typeof document === 'undefined' || !document.body) return;
+  const s = lastSettings;
+  document.body.setAttribute(
+    'data-a11y-motion',
+    (s && (s.stopAnimations || s.reduceMotion)) || systemPrefersReducedMotion() ? 'reduce' : 'ok'
+  );
+}
+function watchSystemReducedMotion() {
+  if (motionMql || typeof window === 'undefined' || !window.matchMedia) return;
+  try {
+    motionMql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (motionMql.addEventListener) motionMql.addEventListener('change', syncMotionAttr);
+    else motionMql.addListener?.(syncMotionAttr);
+  } catch {
+    motionMql = null;
+  }
+}
+
+const RGBA_RE = /^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/;
+
+/** מעבר DOM: השתקת מדיה אמיתית + אטימת משטחים שקופים לפי טוקן */
+function runDomPasses(s: A11ySettings) {
+  const root = document.getElementById('root');
+  if (!root) return;
+  // ניגודיות גבוהה: RN-web מוסיף מחלקות בזמן ריצה (מסכים/מודלים חדשים) — מרעננים את צבעי המצב
+  // רק אם נוספו כללי CSS (השוואת מונה, בלי מעבר על ה־DOM)
+  if (highContrastPalette(s.contrast) && statusSelCache) {
+    const prevN = statusSelCache.n;
+    statusSelectors();
+    if (statusSelCache.n !== prevN) {
+      const el = document.getElementById(STYLE_ID);
+      if (el) el.textContent = buildWebCss(s);
+    }
+  }
+  root.querySelectorAll<HTMLMediaElement>('video, audio').forEach((m) => {
+    if (s.muteMedia) {
+      if (!m.hasAttribute('data-a11y-muted')) {
+        m.setAttribute('data-a11y-muted', m.muted ? 'was' : '1');
+        m.muted = true;
+        if (m.autoplay || !m.paused) {
+          try {
+            m.pause();
+          } catch {
+            /* noop */
+          }
+        }
+      }
+    } else if (m.hasAttribute('data-a11y-muted')) {
+      if (m.getAttribute('data-a11y-muted') === '1') m.muted = false;
+      m.removeAttribute('data-a11y-muted');
+    }
+  });
+
+  if (!s.lowTransparency) {
+    root.querySelectorAll<HTMLElement>('[data-a11y-solid]').forEach((el) => {
+      el.style.removeProperty('background-color');
+      el.removeAttribute('data-a11y-solid');
+    });
+    pendingScope = null;
+    return;
+  }
+  solidifyTransparentSurfaces(pendingScope ?? [root]);
+  pendingScope = null;
+}
+
+/**
+ * "פחות שקיפות" — גרסה זולה:
+ * - מטמון לפי className (RN-web = מחלקות אטומיות; אותו className ⇒ אותו רקע) כך ש־getComputedStyle
+ *   נקרא פעם אחת לכל צירוף מחלקות ייחודי, לא לכל div.
+ * - בכל mutation סורקים רק את תתי־העצים שנוספו (pendingScope), לא את כל #root.
+ * - אלמנטים עם style inline (רקע דינמי) נבדקים ישירות — הם מעטים.
+ */
+const solidCache = new Map<string, string | null>();
+let pendingScope: Element[] | null = null;
+
+function solidColorFor(el: HTMLElement): string | null {
+  const inline = el.getAttribute('style');
+  const key = inline && inline.includes('background') ? null : el.className;
+  if (key != null && solidCache.has(key)) return solidCache.get(key)!;
+  const m = RGBA_RE.exec(getComputedStyle(el).backgroundColor);
+  let out: string | null = null;
+  if (m) {
+    const a = Number(m[4]);
+    if (a > 0 && a < 0.9) {
+      const B = LOW_TRANSPARENCY_BASE;
+      // מערבבים את הצבע השקוף עם משטח הבסיס — אותו גוון בדיוק, רק אטום
+      const blend = (c: number, base: number) => Math.round(base + (c - base) * a);
+      out = `rgb(${blend(Number(m[1]), B.r)}, ${blend(Number(m[2]), B.g)}, ${blend(Number(m[3]), B.b)})`;
+    }
+  }
+  if (key != null) solidCache.set(key, out);
+  return out;
+}
+
+function solidifyTransparentSurfaces(scopes: Element[]) {
+  const visit = (el: HTMLElement) => {
+    if (el.tagName !== 'DIV' || el.hasAttribute('data-a11y-solid')) return;
+    const c = solidColorFor(el);
+    if (!c) return;
+    el.setAttribute('data-a11y-solid', '1');
+    el.style.setProperty('background-color', c, 'important');
+  };
+  for (const scope of scopes) {
+    if (!(scope instanceof HTMLElement) || !scope.isConnected) continue;
+    visit(scope);
+    scope.querySelectorAll<HTMLElement>('div:not([data-a11y-solid])').forEach(visit);
+  }
+}
+
+let domObserver: MutationObserver | null = null;
+let domTimer: ReturnType<typeof setTimeout> | null = null;
+let lastSettings: A11ySettings | null = null;
+
+function scheduleDomPasses(s: A11ySettings) {
+  lastSettings = s;
+  pendingScope = null; // שינוי הגדרות ⇒ סריקה מלאה
+  solidCache.clear();
+  runDomPasses(s);
+  watchSystemReducedMotion();
+  const needs = s.muteMedia || s.lowTransparency || !!highContrastPalette(s.contrast);
+  if (needs && !domObserver && typeof MutationObserver !== 'undefined') {
+    const root = document.getElementById('root');
+    if (!root) return;
+    domObserver = new MutationObserver((records) => {
+      // סורקים רק את מה שנוסף; null = סריקה מלאה כבר מתוזמנת
+      if (pendingScope !== null || !domTimer) {
+        const added: Element[] = pendingScope ?? [];
+        for (const r of records) r.addedNodes.forEach((n) => n instanceof Element && added.push(n));
+        pendingScope = added;
+      }
+      if (domTimer) return;
+      domTimer = setTimeout(() => {
+        domTimer = null;
+        if (lastSettings) runDomPasses(lastSettings);
+      }, 250);
+    });
+    domObserver.observe(root, { childList: true, subtree: true });
+  } else if (!needs && domObserver) {
+    domObserver.disconnect();
+    domObserver = null;
+  }
+}
+
 function buildWebCss(s: A11ySettings): string {
   const parts: string[] = [
     `/* מעשר ישר — שכבת נגישות מותאמת ל־RN Web + עיצוב כהה */`,
@@ -65,8 +330,7 @@ function buildWebCss(s: A11ySettings): string {
 
   /* —— ניגודיות / רוויה: פילטרים שלא הורסים את שפת העיצוב הכהה —— */
   const filters: string[] = [];
-  if (s.contrast === 'invert' || s.contrast === 'light') {
-    // light = היפוך עדין ששומר יחסי צבע (זהב/ספיר) על רקע כהה→בהיר
+  if (s.contrast === 'invert') {
     filters.push('invert(1) hue-rotate(180deg)');
   }
   if (s.contrast === 'high') filters.push('contrast(1.42) brightness(1.06)');
@@ -81,19 +345,40 @@ function buildWebCss(s: A11ySettings): string {
     parts.push(`#maaser-a11y-root, #maaser-a11y-root * { filter: none !important; }`);
   }
 
-  if (s.contrast === 'blackYellow') {
-    // ניגודיות קיצונית בלי לצבוע borders/SVG של כל העץ
+  const hc = highContrastPalette(s.contrast);
+  if (hc) {
+    // ניגודיות גבוהה אמיתית: משטחים אחידים, טקסט/גבולות בצבע אחד, מצב נבחר הפוך
     parts.push(`
-      #root {
-        background: #000 !important;
+      html, body, #root { background: ${hc.bg} !important; }
+      #root *:not(svg):not(svg *) {
+        background-color: transparent !important;
+        background-image: none !important;
+        color: ${hc.fg} !important;
+        border-color: ${hc.fg} !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        backdrop-filter: none !important;
+        -webkit-backdrop-filter: none !important;
       }
-      ${RN_TEXTISH}, ${RN_HEADING}, ${RN_BTN}, ${RN_LINK}, ${RN_INPUT} {
-        color: #FFE600 !important;
+      #root svg [fill]:not([fill="none"]) { fill: ${hc.fg} !important; }
+      #root svg [stroke]:not([stroke="none"]) { stroke: ${hc.fg} !important; }
+      ${RN_BTN}, ${RN_TAB}, ${RN_INPUT} {
+        background-color: ${hc.bg} !important;
+        outline: 2px solid ${hc.fg} !important;
+        outline-offset: -2px !important;
       }
-      ${RN_LINK} {
-        text-decoration: underline !important;
+      ${RN_LINK} { color: ${hc.link} !important; text-decoration: underline !important; }
+      #root [aria-selected="true"], #root [aria-checked="true"], #root [aria-pressed="true"] {
+        background-color: ${hc.fg} !important;
       }
+      #root [aria-selected="true"] *, #root [aria-checked="true"] *, #root [aria-pressed="true"] *,
+      #root [aria-selected="true"], #root [aria-checked="true"], #root [aria-pressed="true"] {
+        color: ${hc.bg} !important;
+      }
+      #root *:focus-visible { outline: 3px solid ${hc.focus} !important; outline-offset: 2px !important; }
     `);
+    // אחרי הכללים הכלליים: שגיאה/הצלחה שומרות על המשמעות (ספציפיות (1,1,0) > (1,0,3) של #root *)
+    parts.push(highContrastStatusCss(s.contrast as 'blackYellow' | 'light', hc.bg));
   }
 
   if (s.colorBg) {
@@ -155,8 +440,9 @@ function buildWebCss(s: A11ySettings): string {
 
   if (s.readableFont || s.dyslexiaFont) {
     const family = s.dyslexiaFont
-      ? `"Comic Sans MS", "Arial Rounded MT Bold", "Arial", sans-serif`
+      ? `"MaaserA11yAlef", "Arial", sans-serif`
       : `"Arial", "Helvetica Neue", "Heebo", sans-serif`;
+    if (s.dyslexiaFont) parts.push(DYSLEXIA_FONT_FACE);
     parts.push(`
       #root, #root * {
         font-family: ${family} !important;
@@ -242,6 +528,15 @@ function buildWebCss(s: A11ySettings): string {
     `);
   }
 
+  const motionCss = `
+      #root *, #root *::before, #root *::after, #maaser-a11y-root * {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+        scroll-behavior: auto !important;
+      }`;
+  // מכבדים תמיד את בקשת מערכת ההפעלה
+  parts.push(`@media (prefers-reduced-motion: reduce) {${motionCss}}`);
   if (s.stopAnimations || s.reduceMotion) {
     parts.push(`
       #root *, #root *::before, #root *::after {
@@ -272,14 +567,11 @@ function buildWebCss(s: A11ySettings): string {
   }
 
   if (s.lowTransparency) {
+    // backdrop מבוטל ב־CSS; האטימה עצמה לפי טוקן ב־runDomPasses
     parts.push(`
       #root *, #root *::before, #root *::after {
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
-      }
-      /* רקעי זכוכית שקופים → אטומים יותר */
-      #root [style*="rgba(12"], #root [style*="rgba(11"], #root [style*="rgba(18"] {
-        opacity: 1 !important;
       }
     `);
   }
@@ -302,7 +594,7 @@ function buildWebCss(s: A11ySettings): string {
   }
 
   if (s.muteMedia) {
-    parts.push(`#root video, #root audio { display: none !important; }`);
+    // השתקה אמיתית מתבצעת ב־applyMediaMute (muted + pause על autoplay); המדיה נשארת גלויה
   }
 
   if (s.readingMode) {
@@ -323,11 +615,14 @@ function buildWebCss(s: A11ySettings): string {
   }
 
   /* וידג'ט נגישות מעל הכול, בלי פילטר/זום של האפליקציה */
-  const inv = z > 1.001 ? 1 / z : 1;
+  // הפאנל יושב ב־Modal מחוץ ל־#root: לא יורש zoom. מגדילים אותו מתון כדי שמי שהגדיל טקסט יקרא גם את התפריט
+  const pz = panelZoom(s);
   parts.push(`
     #maaser-a11y-root {
       filter: none !important;
-      zoom: ${inv} !important;
+      zoom: ${pz} !important;
+      max-width: min(380px, calc(100vw / ${pz})) !important;
+      height: calc(100dvh / ${pz}) !important;
       transform: none !important;
       font-size: 16px !important;
       font-family: Heebo, Arial, sans-serif !important;
@@ -374,7 +669,7 @@ export function applyWebAccessibility(settings: A11ySettings) {
     setData(
       node as HTMLElement | null,
       'data-a11y-motion',
-      settings.stopAnimations || settings.reduceMotion ? 'reduce' : null
+      settings.stopAnimations || settings.reduceMotion || systemPrefersReducedMotion() ? 'reduce' : null
     );
     setData(node as HTMLElement | null, 'data-a11y-reading', settings.readingMode ? '1' : null);
     setData(node as HTMLElement | null, 'data-a11y-font', String(settings.fontSize || 0));
@@ -388,8 +683,20 @@ export function applyWebAccessibility(settings: A11ySettings) {
 
   document.body.setAttribute(
     'data-a11y-motion',
-    settings.stopAnimations || settings.reduceMotion ? 'reduce' : 'ok'
+    settings.stopAnimations || settings.reduceMotion || systemPrefersReducedMotion() ? 'reduce' : 'ok'
   );
+
+  scheduleDomPasses(settings);
+}
+
+/** האם יש ב־native התאמת רוויה אמיתית (filter נתמך רק ב־Android) */
+export const NATIVE_SATURATION_SUPPORTED = Platform.OS !== 'ios';
+
+export function nativeSaturationFilter(sat: A11ySettings['saturation']) {
+  if (sat === 'low') return [{ saturate: 0.5 }];
+  if (sat === 'high') return [{ saturate: 1.8 }];
+  if (sat === 'mono') return [{ grayscale: 1 }, { contrast: 1.25 }];
+  return [{ grayscale: 1 }];
 }
 
 /** סגנונות לשורש האפליקציה (native + web) */
@@ -408,7 +715,7 @@ export function rootA11yStyle(s: A11ySettings): ViewStyle {
   if (s.contrast === 'blackYellow') {
     style.backgroundColor = '#000';
   } else if (s.contrast === 'light') {
-    style.backgroundColor = '#F4F6FF';
+    style.backgroundColor = '#FFFFFF';
   } else if (s.contrast === 'sepia') {
     style.backgroundColor = '#F4ECD8';
   } else if (s.contrast === 'dark' || s.contrast === 'high') {
@@ -432,7 +739,9 @@ export function textA11yStyle(s: A11ySettings): TextStyle {
   if (s.boldText) style.fontWeight = '700';
   if (s.colorText) style.color = s.colorText;
   if (s.contrast === 'blackYellow') style.color = '#FFE600';
-  if (s.textAlign === 1) style.textAlign = 'left';
+  if (s.contrast === 'light') style.color = '#000000';
+  // 'start' = ימין ב־RTL; ב־native עם forceRTL גם 'left' היה מתהפך, אבל start מפורש וברור
+  if (s.textAlign === 1) style.textAlign = 'start' as TextStyle['textAlign'];
   if (s.textAlign === 2) style.textAlign = 'center';
   void scale;
   return style;
@@ -443,7 +752,7 @@ export function hasActiveAdjustments(s: A11ySettings): boolean {
   return (
     d.profile !== 'none' ||
     d.contrast !== 'off' ||
-    d.saturation !== 'off' ||
+    (d.saturation !== 'off' && NATIVE_SATURATION_SUPPORTED) ||
     d.highlightLinks ||
     d.highlightHeadings ||
     d.highlightFocus ||
@@ -501,7 +810,7 @@ export function listActiveChips(s: A11ySettings): ActiveChip[] {
   if (s.wordSpacing > 0) chips.push({ id: 'ws', label: 'ריווח מילים', clear: { wordSpacing: 0 } });
   if (s.contentSpacing > 0) chips.push({ id: 'cs', label: 'ריווח ממשק', clear: { contentSpacing: 0 } });
   if (s.contrast !== 'off') chips.push({ id: 'contrast', label: 'ניגודיות', clear: { contrast: 'off' } });
-  if (s.saturation !== 'off') chips.push({ id: 'sat', label: 'רוויה', clear: { saturation: 'off' } });
+  if (s.saturation !== 'off' && NATIVE_SATURATION_SUPPORTED) chips.push({ id: 'sat', label: 'רוויה', clear: { saturation: 'off' } });
   if (s.readableFont) chips.push({ id: 'rf', label: 'גופן קריא', clear: { readableFont: false } });
   if (s.dyslexiaFont) chips.push({ id: 'df', label: 'פונט דיסלקציה', clear: { dyslexiaFont: false } });
   if (s.boldText) chips.push({ id: 'bold', label: 'טקסט מודגש', clear: { boldText: false } });

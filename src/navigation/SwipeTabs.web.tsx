@@ -287,7 +287,6 @@ export function SwipeTabs() {
             DIR,
             tabBarPos,
           ]}
-          accessibilityRole="tablist"
           testID="tab-bar"
           pointerEvents="box-none"
           {...rtlDomProps}
@@ -295,8 +294,16 @@ export function SwipeTabs() {
           <View style={[styles.tabBg, flatBar && styles.tabBgFlat]} pointerEvents="none">
             <View style={[styles.tabTint, flatBar && styles.tabTintFlat]} />
           </View>
-          <View style={styles.tabsRow}>
-            {TAB_META.slice(0, 2).map((tab, i) => renderTab(tab, i))}
+          {/* כפתור הפעולה (FAB) מרונדר לפני ה-tablist: עצירת Tab ראשונה בסרגל (פעולה ראשית),
+              בלי לעבור דרך כל הטאבים. ממוקם בשכבה סימטרית (start/end 0, ממורכז) מעל ה-spacer
+              שבמרכז השורה — בלי מדידת layout ובלי left פיזי, לכן זהה ב-RTL ו-LTR ותמיד גלוי. */}
+          <View
+            style={[
+              styles.fabLayer,
+              { bottom: flatBar ? insets.bottom : 0 },
+            ]}
+            pointerEvents="box-none"
+          >
             <View style={styles.fabNotch} pointerEvents="box-none">
               <Pressable
                 onPress={() => openAdd('tzedaka')}
@@ -315,6 +322,18 @@ export function SwipeTabs() {
                 </LinearGradient>
               </Pressable>
             </View>
+          </View>
+          {/* role=tablist רק על שורת הטאבים — כפתור הפעולה (FAB) יושב מעליה כשכבה נפרדת,
+              כי tablist מותר להכיל רק role=tab (axe aria-required-children) */}
+          <View
+            style={styles.tabsRow}
+            accessibilityRole="tablist"
+          >
+            {TAB_META.slice(0, 2).map((tab, i) => renderTab(tab, i))}
+            <View
+              style={styles.fabSpacer}
+              pointerEvents="none"
+            />
             {TAB_META.slice(2).map((tab, i) => renderTab(tab, i + 2))}
           </View>
         </View>
@@ -418,6 +437,18 @@ const styles = StyleSheet.create({
     height: 16,
   },
   /** notch מרכזי ל־✦ — לא גוזל מ־flex של הטאבים */
+  fabSpacer: { width: 56, alignSelf: 'stretch' },
+  fabLayer: {
+    position: 'absolute',
+    top: 0,
+    start: 0,
+    end: 0,
+    paddingTop: 6,
+    paddingBottom: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 3,
+  },
   fabNotch: {
     width: 56,
     alignItems: 'center',

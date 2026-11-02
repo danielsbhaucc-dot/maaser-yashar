@@ -10,6 +10,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useA11y } from './AccessibilityContext';
+import { isAltShortcut } from './shortcuts';
 import { colors, fonts, shadow } from '../theme';
 import {
   PageStructureModal,
@@ -101,7 +102,7 @@ export function AccessibilityWidget() {
   useEffect(() => {
     if (Platform.OS !== 'web' || typeof window === 'undefined') return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.altKey && (e.key === 'a' || e.key === 'A' || e.key === 'ש')) {
+      if (isAltShortcut(e, 'a')) {
         e.preventDefault();
         if (settings.panelOpen) a11y.closePanel();
         else {
@@ -110,11 +111,11 @@ export function AccessibilityWidget() {
         }
       }
       if (e.key === 'Escape' && settings.panelOpen) a11y.closePanel();
-      if (e.altKey && (e.key === 'r' || e.key === 'R' || e.key === 'ר')) {
+      if (isAltShortcut(e, 'r')) {
         e.preventDefault();
         a11y.resetAll();
       }
-      if (e.altKey && (e.key === 'h' || e.key === 'H' || e.key === 'י')) {
+      if (isAltShortcut(e, 'h')) {
         e.preventDefault();
         if (settings.widgetHidden) {
           a11y.showWidget();
