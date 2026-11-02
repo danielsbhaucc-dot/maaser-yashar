@@ -100,7 +100,8 @@ async function main() {
       !/#root/.test(about.text) || /מה עולה לשרת/.test(about.text),
       '/about looks like SPA'
     );
-    assert(/אני דניאל/.test(about.text), '/about must say אני דניאל');
+    assert(/בניתי את מעשר ישר/.test(about.text), '/about must keep the who section');
+    assert(!/דניאל|Daniel/i.test(about.text), '/about must not expose the owner real name');
     assert(!DEAD_APP.test(about.text), '/about still has maaser-yashar.app');
     ok('/about static');
   } catch (e) {
