@@ -62,8 +62,6 @@ import { shareApp } from '../utils/shareApp';
 import {
   CONTACT_EMAIL,
   CONTACT_PENDING_TEXT,
-  FEEDBACK_GITHUB_LABEL,
-  FEEDBACK_ISSUES_URL,
   contactMailto,
 } from '../config/contact';
 
@@ -850,24 +848,13 @@ export default function SettingsScreen() {
             testID="feedback-email"
             onPress={() => {
               const href = contactMailto('משוב על מעשר ישר');
-              if (!href) {
-                void Linking.openURL(FEEDBACK_ISSUES_URL);
-                return;
-              }
-              void Linking.openURL(href);
+              if (href) void Linking.openURL(href);
             }}
           />
         ) : (
-          <>
-            <Text style={styles.recurIntro}>{CONTACT_PENDING_TEXT}</Text>
-            <PrimaryButton
-              label={FEEDBACK_GITHUB_LABEL}
-              testID="feedback-github"
-              onPress={() => {
-                void Linking.openURL(FEEDBACK_ISSUES_URL);
-              }}
-            />
-          </>
+          <Text style={styles.recurIntro} testID="feedback-pending">
+            {CONTACT_PENDING_TEXT}
+          </Text>
         )}
       </Glass>
 
