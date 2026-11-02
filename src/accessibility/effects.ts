@@ -45,6 +45,87 @@ export const HIGH_CONTRAST_PALETTES = {
   light: { bg: '#FFFFFF', fg: '#000000', link: '#0033CC', focus: '#B00020' },
 } as const;
 
+/**
+ * צבעי מצב (שגיאה/הצלחה) בניגודיות גבוהה — נשמרת המשמעות במקום להימחק לצבע אחד.
+ * light: על לבן ≥7:1 · blackYellow: על שחור ≥7:1
+ */
+export const HIGH_CONTRAST_STATUS = {
+  blackYellow: { danger: '#FF9E9E', success: '#7DF0FF' },
+  light: { danger: '#A3001B', success: '#005A70' },
+} as const;
+
+/** צבעי המצב של ערכת העיצוב (theme.ts: danger/expense/accent3, success/income) כ־rgb */
+const STATUS_RGB = {
+  danger: [240, 168, 184],
+  success: [126, 200, 227],
+} as const;
+
+type StatusSelectors = { danger: { fg: string[]; bg: string[]; border: string[] }; success: { fg: string[]; bg: string[]; border: string[] } };
+let statusSelCache: { n: number; sel: StatusSelectors } | null = null;
+
+/**
+ * מוצא את מחלקות ה־CSS האטומיות של RN-web שצובעות בצבעי מצב — סריקה של גיליון הסגנונות
+ * (לא של ה־DOM), במטמון לפי מספר הכללים. סגנון inline מכוסה בסלקטור [style*=…].
+ */
+function statusSelectors(): StatusSelectors {
+  const sel: StatusSelectors = {
+    danger: { fg: [], bg: [], border: [] },
+    success: { fg: [], bg: [], border: [] },
+  };
+  if (typeof document === 'undefined') return sel;
+  let n = 0;
+  const sheets = Array.from(document.styleSheets).filter((sh) => (sh.ownerNode as Element | null)?.id !== STYLE_ID);
+  const lists: CSSRuleList[] = [];
+  for (const sh of sheets) {
+    try {
+      lists.push(sh.cssRules);
+      n += sh.cssRules.length;
+    } catch {
+      /* cross-origin */
+    }
+  }
+  if (statusSelCache && statusSelCache.n === n) return statusSelCache.sel;
+  const match = (v: string, rgb: readonly number[]) => {
+    const m = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(v);
+    return !!m && Number(m[1]) === rgb[0] && Number(m[2]) === rgb[1] && Number(m[3]) === rgb[2];
+  };
+  for (const list of lists) {
+    for (const rule of Array.from(list)) {
+      const r = rule as CSSStyleRule;
+      if (!r.selectorText || !r.style || !/^\.[\w-]+$/.test(r.selectorText)) continue;
+      for (const k of ['danger', 'success'] as const) {
+        const rgb = STATUS_RGB[k];
+        if (r.style.color && match(r.style.color, rgb)) sel[k].fg.push(r.selectorText);
+        if (r.style.backgroundColor && match(r.style.backgroundColor, rgb)) sel[k].bg.push(r.selectorText);
+        const bc = r.style.borderTopColor || r.style.borderColor;
+        if (bc && match(bc, rgb)) sel[k].border.push(r.selectorText);
+      }
+    }
+  }
+  statusSelCache = { n, sel };
+  return sel;
+}
+
+function highContrastStatusCss(mode: 'blackYellow' | 'light', bg: string): string {
+  const pal = HIGH_CONTRAST_STATUS[mode];
+  const sels = statusSelectors();
+  const out: string[] = [];
+  for (const k of ['danger', 'success'] as const) {
+    const [r, g, b] = STATUS_RGB[k];
+    const inl = (prop: string) => `#root [style*="${prop}: rgb(${r}, ${g}, ${b})"]`;
+    const pre = (xs: string[]) => xs.map((x) => `#root ${x}`);
+    const fg = [...pre(sels[k].fg), inl('color')].join(', ');
+    // רקע מלא בצבע מצב ⇒ משטח בצבע מצב בניגודיות גבוהה + טקסט בצבע הרקע; רקע "רך" נשאר שקוף + מסגרת
+    const bgSel = [...pre(sels[k].bg), inl('background-color')].join(', ');
+    const border = [...pre(sels[k].border), inl('border-color')].join(', ');
+    out.push(`${fg} { color: ${pal[k]} !important; }`);
+    out.push(`${border} { border-color: ${pal[k]} !important; }`);
+    out.push(`${bgSel} { background-color: ${pal[k]} !important; color: ${bg} !important; }`);
+    out.push(`#root svg [stroke="rgb(${r}, ${g}, ${b})"], #root svg [stroke="${k === 'danger' ? '#F0A8B8' : '#7EC8E3'}"] { stroke: ${pal[k]} !important; }`);
+  }
+  return out.join('\n');
+}
+
 export function highContrastPalette(mode: A11ySettings['contrast']) {
   return mode === 'blackYellow' || mode === 'light' ? HIGH_CONTRAST_PALETTES[mode] : null;
 }
@@ -77,12 +158,43 @@ function systemPrefersReducedMotion(): boolean {
   }
 }
 
+/** מאזין לשינוי prefers-reduced-motion במערכת — מעדכן את data-a11y-motion בלי רענון */
+let motionMql: MediaQueryList | null = null;
+function syncMotionAttr() {
+  if (typeof document === 'undefined' || !document.body) return;
+  const s = lastSettings;
+  document.body.setAttribute(
+    'data-a11y-motion',
+    (s && (s.stopAnimations || s.reduceMotion)) || systemPrefersReducedMotion() ? 'reduce' : 'ok'
+  );
+}
+function watchSystemReducedMotion() {
+  if (motionMql || typeof window === 'undefined' || !window.matchMedia) return;
+  try {
+    motionMql = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (motionMql.addEventListener) motionMql.addEventListener('change', syncMotionAttr);
+    else motionMql.addListener?.(syncMotionAttr);
+  } catch {
+    motionMql = null;
+  }
+}
+
 const RGBA_RE = /^rgba\((\d+),\s*(\d+),\s*(\d+),\s*([\d.]+)\)$/;
 
 /** מעבר DOM: השתקת מדיה אמיתית + אטימת משטחים שקופים לפי טוקן */
 function runDomPasses(s: A11ySettings) {
   const root = document.getElementById('root');
   if (!root) return;
+  // ניגודיות גבוהה: RN-web מוסיף מחלקות בזמן ריצה (מסכים/מודלים חדשים) — מרעננים את צבעי המצב
+  // רק אם נוספו כללי CSS (השוואת מונה, בלי מעבר על ה־DOM)
+  if (highContrastPalette(s.contrast) && statusSelCache) {
+    const prevN = statusSelCache.n;
+    statusSelectors();
+    if (statusSelCache.n !== prevN) {
+      const el = document.getElementById(STYLE_ID);
+      if (el) el.textContent = buildWebCss(s);
+    }
+  }
   root.querySelectorAll<HTMLMediaElement>('video, audio').forEach((m) => {
     if (s.muteMedia) {
       if (!m.hasAttribute('data-a11y-muted')) {
@@ -102,29 +214,60 @@ function runDomPasses(s: A11ySettings) {
     }
   });
 
-  const solidified = root.querySelectorAll<HTMLElement>('[data-a11y-solid]');
   if (!s.lowTransparency) {
-    solidified.forEach((el) => {
+    root.querySelectorAll<HTMLElement>('[data-a11y-solid]').forEach((el) => {
       el.style.removeProperty('background-color');
       el.removeAttribute('data-a11y-solid');
     });
+    pendingScope = null;
     return;
   }
-  const B = LOW_TRANSPARENCY_BASE;
-  root.querySelectorAll<HTMLElement>('div:not([data-a11y-solid])').forEach((el) => {
-    const m = RGBA_RE.exec(getComputedStyle(el).backgroundColor);
-    if (!m) return;
+  solidifyTransparentSurfaces(pendingScope ?? [root]);
+  pendingScope = null;
+}
+
+/**
+ * "פחות שקיפות" — גרסה זולה:
+ * - מטמון לפי className (RN-web = מחלקות אטומיות; אותו className ⇒ אותו רקע) כך ש־getComputedStyle
+ *   נקרא פעם אחת לכל צירוף מחלקות ייחודי, לא לכל div.
+ * - בכל mutation סורקים רק את תתי־העצים שנוספו (pendingScope), לא את כל #root.
+ * - אלמנטים עם style inline (רקע דינמי) נבדקים ישירות — הם מעטים.
+ */
+const solidCache = new Map<string, string | null>();
+let pendingScope: Element[] | null = null;
+
+function solidColorFor(el: HTMLElement): string | null {
+  const inline = el.getAttribute('style');
+  const key = inline && inline.includes('background') ? null : el.className;
+  if (key != null && solidCache.has(key)) return solidCache.get(key)!;
+  const m = RGBA_RE.exec(getComputedStyle(el).backgroundColor);
+  let out: string | null = null;
+  if (m) {
     const a = Number(m[4]);
-    if (a <= 0 || a >= 0.9) return;
-    // מערבבים את הצבע השקוף עם משטח הבסיס — אותו גוון בדיוק, רק אטום
-    const blend = (c: number, base: number) => Math.round(base + (c - base) * a);
+    if (a > 0 && a < 0.9) {
+      const B = LOW_TRANSPARENCY_BASE;
+      // מערבבים את הצבע השקוף עם משטח הבסיס — אותו גוון בדיוק, רק אטום
+      const blend = (c: number, base: number) => Math.round(base + (c - base) * a);
+      out = `rgb(${blend(Number(m[1]), B.r)}, ${blend(Number(m[2]), B.g)}, ${blend(Number(m[3]), B.b)})`;
+    }
+  }
+  if (key != null) solidCache.set(key, out);
+  return out;
+}
+
+function solidifyTransparentSurfaces(scopes: Element[]) {
+  const visit = (el: HTMLElement) => {
+    if (el.tagName !== 'DIV' || el.hasAttribute('data-a11y-solid')) return;
+    const c = solidColorFor(el);
+    if (!c) return;
     el.setAttribute('data-a11y-solid', '1');
-    el.style.setProperty(
-      'background-color',
-      `rgb(${blend(Number(m[1]), B.r)}, ${blend(Number(m[2]), B.g)}, ${blend(Number(m[3]), B.b)})`,
-      'important'
-    );
-  });
+    el.style.setProperty('background-color', c, 'important');
+  };
+  for (const scope of scopes) {
+    if (!(scope instanceof HTMLElement) || !scope.isConnected) continue;
+    visit(scope);
+    scope.querySelectorAll<HTMLElement>('div:not([data-a11y-solid])').forEach(visit);
+  }
 }
 
 let domObserver: MutationObserver | null = null;
@@ -133,12 +276,21 @@ let lastSettings: A11ySettings | null = null;
 
 function scheduleDomPasses(s: A11ySettings) {
   lastSettings = s;
+  pendingScope = null; // שינוי הגדרות ⇒ סריקה מלאה
+  solidCache.clear();
   runDomPasses(s);
-  const needs = s.muteMedia || s.lowTransparency;
+  watchSystemReducedMotion();
+  const needs = s.muteMedia || s.lowTransparency || !!highContrastPalette(s.contrast);
   if (needs && !domObserver && typeof MutationObserver !== 'undefined') {
     const root = document.getElementById('root');
     if (!root) return;
-    domObserver = new MutationObserver(() => {
+    domObserver = new MutationObserver((records) => {
+      // סורקים רק את מה שנוסף; null = סריקה מלאה כבר מתוזמנת
+      if (pendingScope !== null || !domTimer) {
+        const added: Element[] = pendingScope ?? [];
+        for (const r of records) r.addedNodes.forEach((n) => n instanceof Element && added.push(n));
+        pendingScope = added;
+      }
       if (domTimer) return;
       domTimer = setTimeout(() => {
         domTimer = null;
@@ -225,6 +377,8 @@ function buildWebCss(s: A11ySettings): string {
       }
       #root *:focus-visible { outline: 3px solid ${hc.focus} !important; outline-offset: 2px !important; }
     `);
+    // אחרי הכללים הכלליים: שגיאה/הצלחה שומרות על המשמעות (ספציפיות (1,1,0) > (1,0,3) של #root *)
+    parts.push(highContrastStatusCss(s.contrast as 'blackYellow' | 'light', hc.bg));
   }
 
   if (s.colorBg) {
@@ -598,7 +752,7 @@ export function hasActiveAdjustments(s: A11ySettings): boolean {
   return (
     d.profile !== 'none' ||
     d.contrast !== 'off' ||
-    d.saturation !== 'off' ||
+    (d.saturation !== 'off' && NATIVE_SATURATION_SUPPORTED) ||
     d.highlightLinks ||
     d.highlightHeadings ||
     d.highlightFocus ||
@@ -656,7 +810,7 @@ export function listActiveChips(s: A11ySettings): ActiveChip[] {
   if (s.wordSpacing > 0) chips.push({ id: 'ws', label: 'ריווח מילים', clear: { wordSpacing: 0 } });
   if (s.contentSpacing > 0) chips.push({ id: 'cs', label: 'ריווח ממשק', clear: { contentSpacing: 0 } });
   if (s.contrast !== 'off') chips.push({ id: 'contrast', label: 'ניגודיות', clear: { contrast: 'off' } });
-  if (s.saturation !== 'off') chips.push({ id: 'sat', label: 'רוויה', clear: { saturation: 'off' } });
+  if (s.saturation !== 'off' && NATIVE_SATURATION_SUPPORTED) chips.push({ id: 'sat', label: 'רוויה', clear: { saturation: 'off' } });
   if (s.readableFont) chips.push({ id: 'rf', label: 'גופן קריא', clear: { readableFont: false } });
   if (s.dyslexiaFont) chips.push({ id: 'df', label: 'פונט דיסלקציה', clear: { dyslexiaFont: false } });
   if (s.boldText) chips.push({ id: 'bold', label: 'טקסט מודגש', clear: { boldText: false } });

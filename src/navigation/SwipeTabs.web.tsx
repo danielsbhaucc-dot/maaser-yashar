@@ -187,11 +187,6 @@ export function SwipeTabs() {
     return () => window.removeEventListener('popstate', onPopState);
   }, [goTo]);
 
-  // ה-FAB מרונדר מחוץ ל-tablist (axe aria-required-children) וממוקם מעל ה-spacer שבשורה
-  type Box = { x: number; y: number; width: number; height: number };
-  const [rowBox, setRowBox] = useState<Box | null>(null);
-  const [spacerBox, setSpacerBox] = useState<Box | null>(null);
-
   const renderTab = (tab: (typeof TAB_META)[number], i: number) => {
     const focused = i === index;
     const label = tabLabel(tab.key, useShortLabels);
@@ -299,32 +294,13 @@ export function SwipeTabs() {
           <View style={[styles.tabBg, flatBar && styles.tabBgFlat]} pointerEvents="none">
             <View style={[styles.tabTint, flatBar && styles.tabTintFlat]} />
           </View>
-          {/* role=tablist רק על שורת הטאבים — כפתור הפעולה (FAB) יושב מעליה כשכבה נפרדת,
-              כי tablist מותר להכיל רק role=tab (axe aria-required-children) */}
-          <View
-            style={styles.tabsRow}
-            accessibilityRole="tablist"
-            onLayout={(e) => setRowBox(e.nativeEvent.layout)}
-          >
-            {TAB_META.slice(0, 2).map((tab, i) => renderTab(tab, i))}
-            <View
-              style={styles.fabSpacer}
-              pointerEvents="none"
-              onLayout={(e) => setSpacerBox(e.nativeEvent.layout)}
-            />
-            {TAB_META.slice(2).map((tab, i) => renderTab(tab, i + 2))}
-          </View>
+          {/* כפתור הפעולה (FAB) מרונדר לפני ה-tablist: עצירת Tab ראשונה בסרגל (פעולה ראשית),
+              בלי לעבור דרך כל הטאבים. ממוקם בשכבה סימטרית (start/end 0, ממורכז) מעל ה-spacer
+              שבמרכז השורה — בלי מדידת layout ובלי left פיזי, לכן זהה ב-RTL ו-LTR ותמיד גלוי. */}
           <View
             style={[
               styles.fabLayer,
-              rowBox && spacerBox
-                ? {
-                    left: rowBox.x + spacerBox.x,
-                    top: rowBox.y + spacerBox.y,
-                    width: spacerBox.width,
-                    height: spacerBox.height,
-                  }
-                : styles.fabLayerPending,
+              { bottom: flatBar ? insets.bottom : 0 },
             ]}
             pointerEvents="box-none"
           >
@@ -346,6 +322,19 @@ export function SwipeTabs() {
                 </LinearGradient>
               </Pressable>
             </View>
+          </View>
+          {/* role=tablist רק על שורת הטאבים — כפתור הפעולה (FAB) יושב מעליה כשכבה נפרדת,
+              כי tablist מותר להכיל רק role=tab (axe aria-required-children) */}
+          <View
+            style={styles.tabsRow}
+            accessibilityRole="tablist"
+          >
+            {TAB_META.slice(0, 2).map((tab, i) => renderTab(tab, i))}
+            <View
+              style={styles.fabSpacer}
+              pointerEvents="none"
+            />
+            {TAB_META.slice(2).map((tab, i) => renderTab(tab, i + 2))}
           </View>
         </View>
       </View>
@@ -451,11 +440,15 @@ const styles = StyleSheet.create({
   fabSpacer: { width: 56, alignSelf: 'stretch' },
   fabLayer: {
     position: 'absolute',
+    top: 0,
+    start: 0,
+    end: 0,
+    paddingTop: 6,
+    paddingBottom: 8,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 3,
   },
-  fabLayerPending: { opacity: 0 },
   fabNotch: {
     width: 56,
     alignItems: 'center',

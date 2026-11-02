@@ -165,19 +165,27 @@ export function tileA11yProps(kind: 'switch' | 'toggle' | 'cycle', active: boole
   } as const;
 }
 
+/** זמן ההפעלה האחרונה ברווח — מונע הפעלה כפולה אם דפדפן/RN-web מפעיל גם הוא onPress מאותו רווח */
+let lastSpaceAt = 0;
+
 function Tile({ label, icon, active, onPress, hint, dots, level, kind = 'switch' }: TileProps) {
   const cycle = typeof dots === 'number' && dots > 0;
   const levelTxt = cycle ? `. רמה ${level ?? 0} מתוך ${dots}` : '';
   return (
     <Pressable
-      onPress={onPress}
+      onPress={() => {
+        if (Date.now() - lastSpaceAt < 400) return;
+        onPress();
+      }}
       {...(tileA11yProps(cycle ? 'cycle' : kind, !!active) as object)}
       {...(Platform.OS === 'web' && !cycle && kind === 'switch'
         ? {
             // RN-web מפעיל Space רק ל־role=button; למתג (switch) — גם Space כמו ב־APG
-            onKeyDown: (e: { key: string; preventDefault: () => void }) => {
+            onKeyDown: (e: { key: string; repeat?: boolean; preventDefault: () => void }) => {
               if (e.key === ' ' || e.key === 'Spacebar') {
                 e.preventDefault();
+                if (e.repeat) return; // החזקת רווח לא מחליפה שוב ושוב
+                lastSpaceAt = Date.now();
                 onPress();
               }
             },

@@ -71,8 +71,15 @@ export function useDialogFocus({ open, onClose, dialogId }: Options) {
     // Modal של RN-web מרכיב את התוכן באיחור: מנסים עד שהפוקוס באמת בפנים (עד ~1 שנ׳)
     let tries = 0;
     let retry: ReturnType<typeof setTimeout> | null = null;
+    // אם המשתמש הזיז פוקוס/לחץ בעצמו בזמן הניסיונות — לא מושכים אותו חזרה
+    let userMoved = false;
+    const markUser = () => {
+      userMoved = true;
+    };
+    document.addEventListener('pointerdown', markUser, true);
+    document.addEventListener('keydown', markUser, true);
     const ensureFocus = () => {
-      if (cancelled) return;
+      if (cancelled || userMoved) return;
       const root = document.getElementById(dialogId);
       if (root && document.activeElement && root.contains(document.activeElement)) return;
       focusInitial();
@@ -119,6 +126,8 @@ export function useDialogFocus({ open, onClose, dialogId }: Options) {
       cancelAnimationFrame(raf);
       if (retry) clearTimeout(retry);
       document.removeEventListener('keydown', onKey, true);
+      document.removeEventListener('pointerdown', markUser, true);
+      document.removeEventListener('keydown', markUser, true);
       const prev = triggerRef.current;
       if (prev && typeof prev.focus === 'function' && document.contains(prev)) {
         try {
