@@ -36,6 +36,8 @@ import { DIR, rtlDomProps } from './src/rtl';
 import { isNativeRtlActive } from './src/rtlBootstrap';
 import { currentPeriod } from './src/utils/history';
 import { registerWebPwa } from './src/pwa/registerWebPwa';
+import { startParentLink } from './src/parent/startParentLink';
+import { useParentModule } from './src/parent/useParentModule';
 import { APP_URL } from './src/utils/monthlyReminderCore';
 import { useShellLayout } from './src/hooks/useShellLayout';
 
@@ -71,6 +73,12 @@ function LazyNoamChat() {
       <LazyNoamChatModule />
     </Suspense>
   );
+}
+
+/** הכפתור המובנה מוסתר רק כשמודול הנגישות המשותף מספריית חברת האם מותקן; בהסרתו הוא חוזר. */
+function BuiltInA11yWidget() {
+  const shared = useParentModule('a11y');
+  return shared ? null : <AccessibilityWidget />;
 }
 
 /** מעטפת רספונסיבית (web): compact / medium / wide — native נשאר כמסך מלא */
@@ -148,6 +156,9 @@ function AppChrome({ children }: { children: React.ReactNode }) {
     </View>
   );
 }
+
+// חיבור קל לחברת האם: פינג אנונימי ברקע ומודולים מהספרייה לפי הלוח, בלי השפעה על הנתונים (ראה src/parent).
+startParentLink();
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   registerWebPwa();
@@ -481,7 +492,7 @@ function Root() {
           {...rtlDomProps}
         >
           <PinLockScreen />
-          <AccessibilityWidget />
+          <BuiltInA11yWidget />
           <StorageAlertBridge />
         </View>
       </AccessibilityRoot>
@@ -496,7 +507,7 @@ function Root() {
           {...rtlDomProps}
         >
           <OnboardingScreen />
-          <AccessibilityWidget />
+          <BuiltInA11yWidget />
           <StorageAlertBridge />
         </View>
       </AccessibilityRoot>
@@ -513,7 +524,7 @@ function Root() {
         <SwipeTabs />
         <GlobalAddModal />
         <PwaInstallBanner />
-        <AccessibilityWidget />
+        <BuiltInA11yWidget />
         <StorageAlertBridge />
       </View>
     </AccessibilityRoot>

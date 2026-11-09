@@ -5,7 +5,7 @@
  * 2) מעתיק favicon.ico מ־public אם צריך
  * 3) מדווח על source maps
  */
-import { readFileSync, writeFileSync, existsSync, copyFileSync, readdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, copyFileSync, readdirSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -74,6 +74,15 @@ function reportSourceMaps() {
   );
 }
 
+/** גופני Alef של מודול הנגישות המשותף (@core/a11y-kit, OFL) מוגשים מאותו מקור: /a11y-fonts. לא עותק ב־repo. */
+function copyA11yFonts() {
+  const src = join(ROOT, 'packages', '@core', 'a11y-kit', 'assets', 'fonts');
+  if (!existsSync(src)) return;
+  const out = join(DIST, 'a11y-fonts'); mkdirSync(out, { recursive: true });
+  for (const f of readdirSync(src)) copyFileSync(join(src, f), join(out, f));
+  console.log('post-export-web: a11y-fonts הועתקו');
+}
+
 function main() {
   const indexPath = join(DIST, 'index.html');
   if (!existsSync(indexPath)) {
@@ -90,6 +99,7 @@ function main() {
 
   ensureFavicon();
   ensureServeJson();
+  copyA11yFonts();
   reportSourceMaps();
 }
 

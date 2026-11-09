@@ -1,7 +1,12 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "paths": {
+      "@core/*": ["./packages/@core/*/src/index.ts"]
+    }
   },
-  "exclude": ["**/schemaMigrate.test.ts"]
+  "exclude": ["**/schemaMigrate.test.ts", "node_modules", "dist", "packages/@core/*/tests", "packages/@core/*/demo"]
 }
