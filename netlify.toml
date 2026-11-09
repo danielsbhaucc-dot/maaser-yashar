@@ -90,6 +90,13 @@
   status = 200
   force = true
 
+# חיבור קל לחברת האם (פינג אנונימי: מזהה התקנה אקראי, גרסה, מצב). פרוקסי באותו מקור — CSP נשאר connect-src 'self'.
+[[redirects]]
+  from = "/api/pl/v1/light"
+  to = "https://snvjsopfvoshddaydjlm.supabase.co/functions/v1/product-link/v1/light"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/api/onboard"
   to = "/.netlify/functions/onboard"
