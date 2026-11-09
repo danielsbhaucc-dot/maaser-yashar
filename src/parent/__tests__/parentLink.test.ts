@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { endpointFor, pingParent, PARENT_LIGHT_KEY, PING_EVERY_MS, type KV } from '../parentLink';
+import { signManifest } from '../../../packages/@core/product-link/src/index.ts';
+import { endpointFor, pingParent, PARENT_LIGHT_KEY, PING_EVERY_MS, RETRY_AFTER_FAIL_MS, type KV } from '../parentLink';
 
 const mem = (): KV & { m: Map<string, string> } => { const m = new Map<string, string>(); return { m, get: async (k) => m.get(k) ?? null, set: async (k, v) => { m.set(k, v); } }; };
 
@@ -32,14 +33,38 @@ describe('parent light link', () => {
     expect(n).toBe(2);
   });
 
-  it('offline / server error / throwing fetch never throws and changes nothing else', async () => {
+  it('last-ping is written only after success; failure backs off 5 minutes, not an hour', async () => {
+    const t = 1_800_000_000_000; const store = mem(); let n = 0; let up = false;
+    const f = (async () => { n++; if (!up) throw new TypeError('Failed to fetch'); return new Response('{"flags":{}}', { status: 200 }); }) as unknown as typeof fetch;
+    const o = { platform: 'web' as const, version: '1', store, origin: 'https://x.example', fetch: f };
+    expect(await pingParent({ ...o, now: t })).toBe(false); expect(store.m.has('pl:last-ping')).toBe(false);
+    expect(await pingParent({ ...o, now: t + 1000 })).toBe(false); expect(n).toBe(1); // backoff
+    up = true;
+    expect(await pingParent({ ...o, now: t + RETRY_AFTER_FAIL_MS + 1 })).toBe(true); expect(n).toBe(2); expect(store.m.get('pl:last-ping')).toBe(String(t + RETRY_AFTER_FAIL_MS + 1));
+    const bad = (async () => new Response('x', { status: 503 })) as unknown as typeof fetch;
+    const s2 = mem(); expect(await pingParent({ platform: 'android', version: '1', store: s2, fetch: bad, now: t })).toBe(false); expect(s2.m.has('pl:last-ping')).toBe(false);
+  });
+
+  it('never throws, even with broken storage; only pl:* keys are written', async () => {
     const store = mem();
     const boom = (async () => { throw new TypeError('Failed to fetch'); }) as unknown as typeof fetch;
-    await expect(pingParent({ platform: 'web', version: '1', store, origin: 'https://x.example', fetch: boom })).resolves.toBe(true);
-    const bad = (async () => new Response('x', { status: 500 })) as unknown as typeof fetch;
-    await expect(pingParent({ platform: 'android', version: '1', store: mem(), fetch: bad })).resolves.toBe(true);
+    await expect(pingParent({ platform: 'web', version: '1', store, origin: 'https://x.example', fetch: boom })).resolves.toBe(false);
     const broken: KV = { get: async () => { throw new Error('storage'); }, set: async () => { throw new Error('storage'); } };
     await expect(pingParent({ platform: 'web', version: '1', store: broken, origin: 'https://x.example', fetch: boom })).resolves.toBe(false);
     expect([...store.m.keys()].every((k) => k.startsWith('pl:'))).toBe(true);
+  });
+  it('an invalid manifest never overwrites the last verified offline copy', async () => {
+    const k = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']) as CryptoKeyPair;
+    const evil = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign', 'verify']) as CryptoKeyPair;
+    const good = await signManifest({ product: 'maaser-yashar', issuedAt: '2026-11-09T10:00:00.000Z', modules: [{ id: 'a11y', version: '0.2.0', ref: 'r' }] }, k.privateKey);
+    let reply: unknown = { flags: {}, manifest: good };
+    const f = (async () => new Response(JSON.stringify(reply), { status: 200 })) as unknown as typeof fetch;
+    const store = mem(); const o = { platform: 'web' as const, version: '1', store, origin: 'https://x.example', fetch: f, manifestKey: k.publicKey };
+    let t = 1_800_000_000_000;
+    expect(await pingParent({ ...o, now: t })).toBe(true); const saved = store.m.get('pl:manifest'); expect(saved).toBe(JSON.stringify(good));
+    for (const bad of [{ ...good, payload: good.payload.replace('a11y', 'evil') }, await signManifest({ product: 'maaser-yashar', issuedAt: '2026-11-09T11:00:00.000Z', modules: [] }, evil.privateKey), { payload: 'x', sig: 'y' }]) {
+      reply = { flags: {}, manifest: bad }; t += PING_EVERY_MS + 1;
+      expect(await pingParent({ ...o, now: t })).toBe(true); expect(store.m.get('pl:manifest')).toBe(saved);
+    }
   });
 });

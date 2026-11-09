@@ -25,9 +25,17 @@ export function endpointFor(platform: Platform, origin?: string | null): string 
   return `${origin.replace(/\/+$/, '')}/api/pl`;
 }
 
-/** שולח פינג אחד אם עבר יום מהקודם. מחזיר true אם נשלח ניסיון. לעולם לא זורק. */
+/** אחרי כשל (בלי רשת, שגיאת שרת) מנסים שוב רק אחרי הפסקה קצרה, לא אחרי שעה. */
+export const RETRY_AFTER_FAIL_MS = 5 * 60 * 1000;
+const FAIL_KEY = 'pl:ping-fail';
+
+/**
+ * שולח פינג אחד אם עברה שעה מהפינג המוצלח הקודם (ואחרי כשל — 5 דקות).
+ * זמן הפינג נשמר רק אחרי תשובה תקינה מהשרת. מחזיר true רק כשהפינג הצליח. לעולם לא זורק.
+ * רשימת המודולים נשמרת רק אחרי אימות חתימה מול manifestKey (בתוך LightLink).
+ */
 export async function pingParent(o: {
-  platform: Platform; version: string; store: KV; origin?: string | null; now?: number; fetch?: typeof fetch;
+  platform: Platform; version: string; store: KV; origin?: string | null; now?: number; fetch?: typeof fetch; manifestKey?: CryptoKey | null;
 }): Promise<boolean> {
   try {
     const endpoint = endpointFor(o.platform, o.origin);
@@ -35,13 +43,16 @@ export async function pingParent(o: {
     const now = o.now ?? Date.now();
     const last = Number((await o.store.get(LAST_KEY)) ?? 0);
     if (Number.isFinite(last) && last > 0 && now - last < PING_EVERY_MS) return false;
-    await o.store.set(LAST_KEY, String(now));
+    const failed = Number((await o.store.get(FAIL_KEY)) ?? 0);
+    if (Number.isFinite(failed) && failed > 0 && now - failed < RETRY_AFTER_FAIL_MS) return false;
     const link = new LightLink({
       productId: PARENT_PRODUCT_ID, keyId: PARENT_LIGHT_KEY, endpoint, version: o.version,
-      platform: o.platform, store: o.store, fetch: o.fetch, timeoutMs: 5000,
+      platform: o.platform, store: o.store, fetch: o.fetch, timeoutMs: 5000, manifestKey: o.manifestKey ?? null,
     });
     await link.ping('ok');
-    return true;
+    if (link.lastPingOk) { await o.store.set(LAST_KEY, String(now)); return true; }
+    await o.store.set(FAIL_KEY, String(now));
+    return false;
   } catch {
     return false;
   }

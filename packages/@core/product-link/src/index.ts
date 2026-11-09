@@ -123,23 +123,29 @@ export class ProductLink {
   }
 }
 
-export interface LightOptions { productId: string; keyId: string; endpoint: string; version: string; platform?: typeof PLATFORMS[number]; store?: Store; fetch?: Fetch; timeoutMs?: number }
+export interface LightOptions { productId: string; keyId: string; endpoint: string; version: string; platform?: typeof PLATFORMS[number]; store?: Store; fetch?: Fetch; timeoutMs?: number;
+  /** Central's public key. A received module manifest is cached only after it verifies against this key (never without it). */
+  manifestKey?: CryptoKey | null }
 /** Light link: for products with no accounts and no server data. Sends ONLY {installId, version, health, platform}. */
 export class LightLink {
   private flags: Record<string, boolean> = {};
+  /** True when the last ping() got a 2xx from central (false: offline, timeout, error status). */
+  lastPingOk = false;
   constructor(private o: LightOptions) { if (!/^https:\/\//.test(o.endpoint)) throw new Error('https only'); }
   private get store() { return this.o.store ?? (this.o.store = memoryStore()); }
   /** Random, per-install, not derived from the device or the person. Reinstall = new id. */
   async installId(): Promise<string> { let id = await this.store.get('pl:install'); if (!id) { id = crypto.randomUUID(); await this.store.set('pl:install', id); } return id; }
   /** Report health and pull feature flags. Offline: the last flags (or defaults) are used. Never throws. */
   async ping(health: Health = 'ok'): Promise<Record<string, boolean>> {
+    this.lastPingOk = false;
     try { const c = await this.store.get('pl:flags'); if (c) this.flags = JSON.parse(c); } catch { /* ignore */ }
     try {
       const r = await (this.o.fetch ?? fetch)(`${this.o.endpoint}/v1/light`, { method: 'POST', signal: AbortSignal.timeout(this.o.timeoutMs ?? 5000),
         headers: { 'content-type': 'application/json', 'x-pl-key': this.o.keyId },
         body: JSON.stringify({ installId: await this.installId(), version: this.o.version, health, ...(this.o.platform ? { platform: this.o.platform } : {}) }) });
-      if (r.ok) { const j = await r.json() as { flags?: Record<string, boolean>; manifest?: unknown }; if (j.flags && typeof j.flags === 'object') { this.flags = j.flags; await this.store.set('pl:flags', JSON.stringify(j.flags)); }
-        if (isSignedManifest(j.manifest)) await this.store.set('pl:manifest', JSON.stringify(j.manifest)); }
+      if (r.ok) { this.lastPingOk = true; const j = await r.json() as { flags?: Record<string, boolean>; manifest?: unknown }; if (j.flags && typeof j.flags === 'object') { this.flags = j.flags; await this.store.set('pl:flags', JSON.stringify(j.flags)); }
+        // verify BEFORE caching: an invalid manifest must never overwrite the last good (offline) copy
+        if (this.o.manifestKey && isSignedManifest(j.manifest) && await verifyManifest(j.manifest, this.o.manifestKey, this.o.productId)) await this.store.set('pl:manifest', JSON.stringify(j.manifest)); }
     } catch { /* offline */ }
     return this.flags;
   }

@@ -23,5 +23,5 @@ export function startParentLink(): void {
   };
   const sync = async () => { try { await applyManifest(await lastManifest(store, await parentKey(PARENT_MANIFEST_JWK), PARENT_PRODUCT_ID)); } catch { /* keep built-in */ } };
   void sync();
-  setTimeout(() => { void pingParent({ platform, version, store, origin }).then((sent) => (sent ? sync() : undefined)); }, 4000);
+  setTimeout(() => { void parentKey(PARENT_MANIFEST_JWK).then((manifestKey) => pingParent({ platform, version, store, origin, manifestKey })).then((ok) => (ok ? sync() : undefined)); }, 4000);
 }

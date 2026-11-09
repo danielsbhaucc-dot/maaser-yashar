@@ -1,7 +1,7 @@
 {
   "repo": "danielsbhaucc-dot/platform-core",
-  "tag": "core-v2026.11.09.2",
-  "sha": "fa00c4f26cf9e53516cc61b28df34d16eb74cad1",
+  "tag": "core-v2026.11.09.3",
+  "sha": "1276e08bb8a2aaad0da3a1f708baa6aace65c155",
   "files": {
     "a11y-kit/CHANGELOG.md": "c0687a3f0f2929fd7fa15daa506aa9122c1f6d3d54a2debd7d4c91fc22e78b2a",
     "a11y-kit/README.he.md": "4e304e429dd97f28d2a0a1442412d65014e1c2e9e2b33e0cc370bf7c97311e7a",
@@ -32,7 +32,7 @@
     "licensing/src/index.ts": "46d1a594c9994bc657570f90fc4aa6814e1e61458e156a2759e30740c42712b0",
     "product-link/README.md": "4f502eae8019b41c84837700c46f05cefe50dc915c9e21129d312b3d993cb332",
     "product-link/package.json": "cbab6d67e53699ff102a7136f8d3b09bf41fd05688f2ed8a09622b00c4e408d4",
-    "product-link/src/index.ts": "db41cf7d9d6586727ec365d3f76f8e81c925eaa585cb81d2e7fe45be2f04c8f1",
+    "product-link/src/index.ts": "9236613cf0d391c6aa4405d47f6c9a3275354d15cfdd4759f9ad4239f96c0569",
     "product-link/src/manifest.ts": "e8685c2de7a6c4f99d7e4a4529d2d984a5b6d9d5c92a1401828885f69f782790",
     "product-link/src/schema.ts": "068ba30ace6d290f4ad82d805d03a079efa0bae8f6e9684354323299f1510d7c",
     "product-link/src/sign.ts": "b7ba46afb37dcbbe36a071742292388842864fca7f672383a09df0e174ba7ced"
