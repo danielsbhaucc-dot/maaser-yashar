@@ -1,0 +1,29 @@
+{
+  "repo": "danielsbhaucc-dot/platform-core",
+  "sha": "dcdcbd532eaad2f5e1b79c973186968b7a7ede0f",
+  "files": {
+    "account-kit/CHANGELOG.md": "aec482205631299e8c7b21bf49bb92487c0519a5128c0325257f803416594083",
+    "account-kit/README.he.md": "8d78c8ec02030ef5e43f73f98db593053b2c3ab97151d8b075177609ce545072",
+    "account-kit/llms.txt": "3dc88d8a582a1b305c574c839f4f65edcd7ca05c0b8a70d93f503b6cd76c9f26",
+    "account-kit/module.json": "83ef931cca64f5d3c54fc69f2c70ed0687cc623443791c50a94be4f8eeb6973e",
+    "account-kit/package.json": "b22ac065965d94194329c5ddf8383be51259cba35890e1f4758d2b7c96174ba6",
+    "account-kit/src/core.ts": "de2de7a484285d52e32d40455e3905d41ef22ca774208f6a55bdf560ef0817b3",
+    "account-kit/src/index.ts": "e94cb832f79a70ab3b3ee368fd4fe277ed324b54e33ca8937622874f936eba22",
+    "account-kit/src/server.ts": "a10ccbc443f0d8c935e8b09ee82de26de91e93cb935545a6bb8f0540dff807d9",
+    "account-kit/src/templates.ts": "f2e069fce12cc4ef49fa0cb52b0525c97fdf5123ab0ac6bc5e19011bf8444f94",
+    "account-kit/src/visibility.ts": "def39552aeafcec7811d7cf2110fc5639a54637be54d0dbaeeb499bbd322e382",
+    "account-kit/tests/account-kit.test.ts": "4be6a4449e9fda6836308f8a2f43be57ed2fe2e2e160c1065c51fdd6eee554be",
+    "audit/package.json": "09f089dcfcee3667d5a269a751151edcf729799240c67961aa7900dcf53e1695",
+    "audit/src/index.ts": "33d5168a151db6330958fe91189b04df9e588447b02e50d52ea77e8daffd742e",
+    "crypto/package.json": "5ace169ccff93d414f7736b9d242ea0a1bc96b3fb51c90da63285c8a35caef16",
+    "crypto/src/index.ts": "36197a6f6b78fd96c73a26e01d7d0c7b3cb67a6b5abc8d914a3fea635532ce3b",
+    "licensing/package.json": "28c94e37062c374fb61e3a39fe9f7fc847d99c82723ce60bdf2d3dfaf4a06f10",
+    "licensing/src/index.ts": "46d1a594c9994bc657570f90fc4aa6814e1e61458e156a2759e30740c42712b0",
+    "product-link/README.md": "4f502eae8019b41c84837700c46f05cefe50dc915c9e21129d312b3d993cb332",
+    "product-link/package.json": "cbab6d67e53699ff102a7136f8d3b09bf41fd05688f2ed8a09622b00c4e408d4",
+    "product-link/src/index.ts": "9236613cf0d391c6aa4405d47f6c9a3275354d15cfdd4759f9ad4239f96c0569",
+    "product-link/src/manifest.ts": "e8685c2de7a6c4f99d7e4a4529d2d984a5b6d9d5c92a1401828885f69f782790",
+    "product-link/src/schema.ts": "068ba30ace6d290f4ad82d805d03a079efa0bae8f6e9684354323299f1510d7c",
+    "product-link/src/sign.ts": "b7ba46afb37dcbbe36a071742292388842864fca7f672383a09df0e174ba7ced"
+  }
+}

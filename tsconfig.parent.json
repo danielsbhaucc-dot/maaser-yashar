@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.json",
+  "include": ["src/parent/**/*.ts", "packages/@core/*/src/**/*.ts", "expo-env.d.ts"],
+  "exclude": ["packages/@core/*/tests", "packages/@core/*/demo"]
+}

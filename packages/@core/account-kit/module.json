@@ -1,0 +1,48 @@
+{
+  "$schema": "../../docs/module.schema.json",
+  "id": "account-kit",
+  "package": "@core/account-kit",
+  "version": "0.2.0",
+  "distribution": "internal",
+  "category": "platform",
+  "toggleable": true,
+  "description": "One reusable parent-account hook for every product: sign in through the parent identity (code + PKCE + state + nonce), server-side exchange with local ES256 verification, minimal on-device profile, framework-agnostic store + React hook factory, and per-product design templates (Hebrew labels, contrast-checked colors). Off by default: console module 'account' per product, and the product server stays not_configured until its client secret exists. Visible UI is a separate console module 'account-ui' (depends on 'account'): accountUiVisible(modules) gates the button; off by default, so a product can be connected in the background with nothing visible.",
+  "provides": {
+    "routes": [],
+    "apis": [
+      "handleAccountExchange (product server, same origin)"
+    ],
+    "jobs": [],
+    "ui": [
+      "src/templates.ts"
+    ],
+    "tables": []
+  },
+  "requires": {
+    "modules": {}
+  },
+  "env": [
+    "PARENT_ACCOUNT_CLIENT_SECRET"
+  ],
+  "migrations": [
+    "db/migrations/000059_account_module.sql",
+    "db/migrations/000061_account_ui_flag.sql"
+  ],
+  "conformance": [
+    "no-dependencies",
+    "off-by-default",
+    "secret-server-side-only",
+    "no-token-in-browser",
+    "pairwise-sub",
+    "nonce-bound",
+    "contrast-checked",
+    "fail-closed-sign-in",
+    "product-works-signed-out",
+    "ui-hidden-by-default"
+  ],
+  "tests": [
+    "packages/account-kit/tests/account-kit.test.ts",
+    "tests/account-kit-sql.test.ts"
+  ],
+  "dataPolicy": "Browser keeps only { sub (pairwise per product), masked email hint, verified, licensed } under pa:<product>:*; no tokens, no full email. Product data never leaves the device."
+}

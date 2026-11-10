@@ -18,6 +18,7 @@ import {
 } from '../components/ui';
 import { PrivacyNotice } from '../components/PrivacyNotice';
 import { PinLockSettings } from '../components/PinLockSettings';
+import { ParentAccountSection } from '../components/ParentAccountSection';
 import { Glass, GlassPill } from '../components/Glass';
 import { Accordion } from '../components/Accordion';
 import { SettingsFold } from '../components/SettingsFold';
@@ -216,6 +217,8 @@ export default function SettingsScreen() {
       <PrivacyNotice light />
 
       <PinLockSettings />
+
+      <ParentAccountSection />
 
       <SmartInsights items={insights} />
       <SettingsFold title="פרופיל אישי" hint="שם, מגדר ומצב משפחתי">

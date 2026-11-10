@@ -36,6 +36,7 @@ import { DIR, rtlDomProps } from './src/rtl';
 import { isNativeRtlActive } from './src/rtlBootstrap';
 import { currentPeriod } from './src/utils/history';
 import { registerWebPwa } from './src/pwa/registerWebPwa';
+import { startParentLink } from './src/parent/startParentLink';
 import { APP_URL } from './src/utils/monthlyReminderCore';
 import { useShellLayout } from './src/hooks/useShellLayout';
 
@@ -148,6 +149,9 @@ function AppChrome({ children }: { children: React.ReactNode }) {
     </View>
   );
 }
+
+// חיבור קל לחברת האם: פינג אנונימי ברקע ומודולים מהספרייה לפי הלוח, בלי השפעה על הנתונים (ראה src/parent).
+startParentLink();
 
 if (Platform.OS === 'web' && typeof document !== 'undefined') {
   registerWebPwa();

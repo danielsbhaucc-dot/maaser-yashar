@@ -58,7 +58,9 @@
     "test:all": "vitest run && playwright test && node scripts/noam-regression.mjs --mode=mock",
     "verify:hygiene": "vitest run src/ai/__tests__/hygiene.test.ts",
     "sync:halakha": "node scripts/sync-halakha.mjs",
-    "export:halakha": "node scripts/export-halakha-for-rabbi.mjs"
+    "export:halakha": "node scripts/export-halakha-for-rabbi.mjs",
+    "typecheck:parent": "tsc --noEmit -p tsconfig.parent.json",
+    "core-sync:check": "node scripts/core-sync.mjs --check"
   },
   "private": true
 }

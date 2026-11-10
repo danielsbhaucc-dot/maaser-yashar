@@ -82,6 +82,20 @@
 # unknown paths return real 404 + public/404.html.
 # App SPA lives at / (index.html). Hashed assets/fonts served as files.
 # Tab deep links (T-59) — rewrite to SPA, no catch-all soft-404.
+# חיבור קל לחברת האם (פינג אנונימי: מזהה התקנה אקראי, גרסה, מצב + רשימת מודולים חתומה). פרוקסי באותו מקור — CSP נשאר connect-src 'self'.
+[[redirects]]
+  from = "/api/pl/v1/light"
+  to = "https://snvjsopfvoshddaydjlm.supabase.co/functions/v1/product-link/v1/light"
+  status = 200
+  force = true
+
+# החשבון המרכזי (מודול account, כבוי בלוח כברירת מחדל): החלפת קוד בשרת. הסוד רק במשתנה הסביבה PARENT_ACCOUNT_CLIENT_SECRET.
+[[redirects]]
+  from = "/api/account/exchange"
+  to = "/.netlify/functions/account-exchange"
+  status = 200
+  force = true
+
 [[redirects]]
   from = "/privacy"
   to = "/privacy.html"
