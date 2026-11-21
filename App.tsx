@@ -21,6 +21,7 @@ import {
   AccessibilityWidget,
   AccessibilityRoot,
 } from './src/accessibility';
+import { useA11yModule } from './src/accessibility/useA11yModule';
 import OnboardingScreen from './src/screens/OnboardingScreen';
 import PinLockScreen from './src/components/PinLockScreen';
 import ErrorBoundary from './src/components/ErrorBoundary';
@@ -469,6 +470,7 @@ function DevCrashProbe(): null {
 function Root() {
   const { ready, profile } = useApp();
   const pin = usePinLock();
+  const a11yEnabled = useA11yModule();
   if (!ready || !pin.ready) {
     return <LoadingScreen variant="app" message="מכין את המעשר שלך…" />;
   }
@@ -481,7 +483,7 @@ function Root() {
           {...rtlDomProps}
         >
           <PinLockScreen />
-          <AccessibilityWidget />
+          {a11yEnabled ? <AccessibilityWidget /> : null}
           <StorageAlertBridge />
         </View>
       </AccessibilityRoot>
@@ -496,7 +498,7 @@ function Root() {
           {...rtlDomProps}
         >
           <OnboardingScreen />
-          <AccessibilityWidget />
+          {a11yEnabled ? <AccessibilityWidget /> : null}
           <StorageAlertBridge />
         </View>
       </AccessibilityRoot>
@@ -513,7 +515,7 @@ function Root() {
         <SwipeTabs />
         <GlobalAddModal />
         <PwaInstallBanner />
-        <AccessibilityWidget />
+        {a11yEnabled ? <AccessibilityWidget /> : null}
         <StorageAlertBridge />
       </View>
     </AccessibilityRoot>

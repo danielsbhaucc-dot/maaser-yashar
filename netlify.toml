@@ -97,6 +97,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/module-status"
+  to = "/.netlify/functions/module-status"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/privacy"
   to = "/privacy.html"
   status = 200
